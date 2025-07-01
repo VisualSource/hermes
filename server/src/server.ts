@@ -4,16 +4,21 @@ import { join } from "node:path";
 import { HttpError } from "./utils";
 import { password } from "bun";
 import { Database } from "bun:sqlite";
-import { schemaLogin, schemaSignup } from "./schemas";
+import { schemaLogin, schemaRefresh, schemaSignup, schemaUuid } from "./schemas";
 import { User } from "./model";
 import home from "../client/index.html";
 
 import { jwtVerify, SignJWT } from "jose";
 const alg = "HS256"
 const database = new Database(join(import.meta.dir, "server.db"));
-const secret = new TextEncoder().encode(btoa("SomePasswordForSigningAndVerifyingJwtsThisShouldBeReplacedWithABetterSecert"))
+const secret = new TextEncoder().encode(btoa("SomePasswordForSigningAndVerifyingJwtsThisShouldBeReplacedWithABetterSecert"));
+const refreshSecret = new TextEncoder().encode(btoa("DontQutgetTheREfreshTokenJustBeingOtherJWT"));
 
 await database.exec("CREATE TABLE IF NOT EXISTS users (id text PRIMARY KEY, username TEXT UNIQUNE NOT NULL, psdHash TEXT NOT NULL, icon TEXT)")
+
+const log = (req: BunRequest) => {
+    console.log(`[${new Date().toUTCString()}][${req.method}]: ${req.url}`)
+}
 
 const auth = async (req: BunRequest | string | null) => {
     if (!req) throw new HttpError("missing auth header", { statusCode: 401 });
@@ -37,7 +42,9 @@ const auth = async (req: BunRequest | string | null) => {
             audience: "com:loadingzone:hermes"
         });
 
-        const user = await database.prepare("SELECT * FROM users WHERE id = ?").as(User).get((payload as never as Record<string, string>).user as string);
+        if (!payload.sub) throw new HttpError("Invalid token", { statusCode: 401 });
+
+        const user = await database.prepare("SELECT * FROM users WHERE id = ?").as(User).get(payload.sub);
 
         if (!user) throw new Error("User is not found");
 
@@ -45,6 +52,26 @@ const auth = async (req: BunRequest | string | null) => {
     } catch (error) {
         throw new HttpError("Auth failed", { statusCode: 401, cause: error });
     }
+}
+
+const sign = (userId: string) => {
+    return Promise.all([
+        new SignJWT()
+            .setProtectedHeader({ alg })
+            .setIssuedAt()
+            .setSubject(userId)
+            .setIssuer("com:loadingzone:hermes")
+            .setAudience("com:loadingzone:hermes")
+            .setExpirationTime("2d")
+            .sign(secret),
+        new SignJWT()
+            .setProtectedHeader({ alg })
+            .setExpirationTime("7d")
+            .setNotBefore("2d")
+            .setSubject(userId)
+            .setIssuer("com:loadingzone:hermes")
+            .setAudience("com:loadingzone:hermes").sign(refreshSecret)
+    ]);
 }
 
 Bun.serve({
@@ -113,11 +140,12 @@ Bun.serve({
         },
     },
     routes: {
-        "/ws": (req, server) => {
+        "/ws": async (req, server) => {
+            log(req);
             const url = new URL(req.url);
             const token = url.searchParams.get("token");
 
-            const usr = auth(token);
+            const usr = await auth(token);
 
             const upgraded = server.upgrade(req, {
                 data: {
@@ -130,6 +158,7 @@ Bun.serve({
         },
         "/api/channel": {
             DELETE: async (req: BunRequest) => {
+                log(req);
                 auth(req);
 
                 const url = new URL(req.url);
@@ -142,6 +171,7 @@ Bun.serve({
                 return Response.json({ ok: true });
             },
             POST: async (req) => {
+                log(req);
                 auth(req);
 
                 const uuid = crypto.randomUUID();
@@ -153,8 +183,72 @@ Bun.serve({
             }
         },
 
+        "/api/user/:uuid": {
+            GET: async (req: BunRequest<"/api/user/:uuid">) => {
+                log(req);
+                const result = schemaUuid.safeParse(req.params.uuid);
+                if (!result.success) {
+                    throw new HttpError(result.error.message, { statusCode: 400 });
+                }
+                const uuid = result.data;
+
+                const user = await auth(req);
+
+                if (uuid === user.id) {
+                    return Response.json(user.toJson());
+                }
+
+                const otherUser = await database.prepare("SELECT (id,username,icon) FROM users WHERE id = ?;").as(User).get(uuid);
+
+                if (!otherUser) {
+                    throw new HttpError("User not found", { statusCode: 404 });
+                }
+
+                return Response.json(otherUser.toJson());
+            }
+        },
+
+        "/api/refresh": {
+            POST: async (req: BunRequest) => {
+                log(req);
+                try {
+                    const body = await req.json();
+                    const result = schemaRefresh.safeParse(body);
+                    if (!result.success) throw new HttpError(result.error.message, { statusCode: 400 });
+
+                    const oldToken = await jwtVerify(result.data.refreshToken, refreshSecret, {
+                        algorithms: [alg],
+                        issuer: "com:loadingzone:hermes",
+                        audience: "com:loadingzone:hermes",
+                    });
+
+                    if (!oldToken.payload.sub) throw new HttpError("Invalid token", { statusCode: 400 });
+
+                    const data = await database.prepare("SELECT COUNT(*) as count FROM users WHERE id = ?;").get(oldToken.payload.sub) as { count: number };
+
+                    if (data.count !== 1) throw new HttpError("Invalid token", { statusCode: 404 });
+
+                    const [token, refreshToken] = await sign(oldToken.payload.sub);
+
+                    return Response.json({
+                        token,
+                        refreshToken
+                    });
+                } catch (error) {
+                    if (error instanceof HttpError) {
+                        throw error;
+                    } else if (Error.isError(error)) {
+                        throw new HttpError(error?.message, { cause: error, statusCode: 401 });
+                    }
+
+                    throw new HttpError("Unknown Error", { statusCode: 500 });
+                }
+            }
+        },
+
         "/api/login": {
             POST: async (req: BunRequest) => {
+                log(req);
                 const body = await req.json();
                 const form = schemaLogin.safeParse(body);
                 if (!form.success) {
@@ -172,22 +266,18 @@ Bun.serve({
                     throw new HttpError("Authorized", { statusCode: 401 });
                 }
 
-                const jwt = await new SignJWT({ user: user.id })
-                    .setProtectedHeader({ alg })
-                    .setIssuedAt()
-                    .setIssuer("com:loadingzone:hermes")
-                    .setAudience("com:loadingzone:hermes")
-                    .setExpirationTime("4h")
-                    .sign(secret);
+                const [token, refreshToken] = await sign(user.id);
 
                 return Response.json({
-                    jwt,
+                    token,
+                    refreshToken,
                     user: user.toJson()
                 });
             }
         },
         "/api/signup": {
             POST: async (req: BunRequest) => {
+                log(req);
                 const body = await req.json();
 
                 const form = schemaSignup.safeParse(body);
@@ -198,21 +288,16 @@ Bun.serve({
 
                 const psdHash = await password.hash(psd);
 
-                const result = await database.prepare("INSERT INTO users (id,username,psdHash) VALUES (?,?,?) RETURNING id").as(User).get(crypto.randomUUID(), username, psdHash);
+                const user = await database.prepare("INSERT INTO users (id,username,psdHash) VALUES (?,?,?) RETURNING id").as(User).get(crypto.randomUUID(), username, psdHash);
 
-                if (!result) throw new HttpError("Failed to get user");
+                if (!user) throw new HttpError("Failed to get user");
 
-                const jwt = await new SignJWT({ user: result.id })
-                    .setProtectedHeader({ alg })
-                    .setIssuedAt()
-                    .setIssuer("com:loadingzone:hermes")
-                    .setAudience("com:loadingzone:hermes")
-                    .setExpirationTime("4h")
-                    .sign(secret);
+                const [token, refreshToken] = await sign(user.id);
 
                 return Response.json({
-                    jwt,
-                    user: result.toJson()
+                    token,
+                    refreshToken,
+                    user: user.toJson()
                 });
             }
         },
@@ -222,9 +307,14 @@ Bun.serve({
         "/*": new Response("Not Found", { status: 404 }),
     },
     error(error) {
-        console.error(error);
-
         if (error instanceof HttpError) {
+
+            if (error.statusCode < 500) {
+                console.error(`[${error.statusCode}] ${error.message}`)
+            } else {
+                console.error(error);
+            }
+
             return Response.json({
                 message: error.message,
                 status: error.statusCode,
@@ -234,6 +324,8 @@ Bun.serve({
                 statusText: error.statusText
             });
         }
+
+        console.error(error);
 
         return Response.json({
             message: "Internal Server Error",

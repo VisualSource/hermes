@@ -7,11 +7,16 @@ import Auth from "./lib/auth";
 
 import "./index.css"
 import { AuthProvider } from "./components/AuthProvider";
+import { RTC } from "./lib/rtc";
+import { RtcProvider } from "./components/RtcProvider";
 
 const router = createRouter({
   routeTree,
   context: {
-    auth: null!
+    // biome-ignore lint/style/noNonNullAssertion: ignore
+    auth: null!,
+    // biome-ignore lint/style/noNonNullAssertion: ignore
+    rtc: null!
   }
 })
 
@@ -22,11 +27,14 @@ declare module "@tanstack/react-router" {
 }
 
 const auth = new Auth();
+const rtc = new RTC();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <AuthProvider client={auth}>
-      <RouterProvider router={router} context={{ auth }} />
+      <RtcProvider client={rtc}>
+        <RouterProvider router={router} context={{ auth, rtc }} />
+      </RtcProvider>
     </AuthProvider>
   </React.StrictMode>,
 );

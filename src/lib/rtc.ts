@@ -30,35 +30,45 @@ const RTCConfig = {
 export class RTC extends EventTarget {
     #count = 0;
     #socket: WebSocket | null = null;
-
     #connections = new Map<string, RTCPeerConnection>();
     #media: MediaStream | null = null;
     #remoteStream: Map<string, MediaStream[]> = new Map();
 
-
     #currentRoomId: string | null = "91b3c4ae-e243-47e0-8124-35d8f357f211";
     #currentChannelId: string | null = "001417d2-c76c-4622-9e75-bb6303341cd0";
 
-    mount() {
-        this.#count++;
-        if (this.#count !== 1) return;
+    get localMedia() {
+        return this.#media;
+    }
+
+    public getMediaStream(userId: string) {
+        const streams = this.#remoteStream.get(userId);
+
+        return streams;
+    }
+
+    public async mount() {
+        const { reject, resolve, promise } = Promise.withResolvers();
+
+        console.log("mounting socket");
 
         this.#socket = new WebSocket(`wss://${import.meta.env.VITE_SERVER_HOST}/ws?token=${localStorage.getItem("token")}`);
 
         this.#socket.addEventListener("message", this.onMessage);
-        this.#socket.addEventListener("open", (ev) => {
-            console.log(ev);
+        this.#socket.addEventListener("open", (_ev) => {
+            this.dispatchEvent(new Event("ready"));
+            resolve();
         });
         this.#socket.addEventListener("error", (ev) => {
-            console.log(ev);
+            console.error(ev);
         });
         this.#socket.addEventListener("close", (ev) => {
             console.log(ev);
         });
 
-        console.log("mount");
+        await promise;
     }
-    unmount() {
+    public unmount() {
         this.#count--;
         if (this.#count !== 0) return;
 
@@ -66,6 +76,30 @@ export class RTC extends EventTarget {
         this.#socket = null;
 
         console.log("unmount");
+    }
+
+    public send(type: string, payload: Record<string, unknown>) {
+        this.#socket?.send(JSON.stringify({ type, data: payload }));
+    }
+
+    public async joinLobby(roomId: string) {
+        this.send("join", { channelId: this.#currentChannelId, roomId });
+
+        const media = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: {
+                    exact: false,
+                    ideal: true
+                },
+                noiseSuppression: true
+            }
+        });
+
+        this.#media = media;
+    }
+
+    public leaveLobby(roomId: string) {
+        this.send("leave", { channelId: this.#currentChannelId, roomId });
     }
 
     private onMessage = async (ev: MessageEvent<string>) => {
@@ -167,10 +201,6 @@ export class RTC extends EventTarget {
         }
     }
 
-    public send(type: string, payload: Record<string, unknown>) {
-        this.#socket?.send(JSON.stringify({ type, data: payload }));
-    }
-
     private addTrack(ev: RTCTrackEvent, user: string) {
         let stream: MediaStream;
         if (ev.streams.length === 1) {
@@ -199,5 +229,4 @@ export class RTC extends EventTarget {
             peer.addTrack(track, this.#media);
         }
     }
-
 }

@@ -33,11 +33,18 @@ class Wrapper extends EventTarget implements WebSocket {
 
             this.dispatchEvent(new Event("open"));
             socket.addListener((ev) => {
-                if (ev.type !== "Text") return;
-
-                this.dispatchEvent(new MessageEvent("message", {
-                    data: ev.data
-                }));
+                switch (ev.type) {
+                    case "Text":
+                        this.dispatchEvent(new MessageEvent("message", {
+                            data: ev.data
+                        }));
+                        break;
+                    case "Close":
+                        this.dispatchEvent(new CloseEvent("close", { code: ev.data?.code, reason: ev.data?.reason }));
+                        break;
+                    default:
+                        break;
+                }
             });
 
         }).catch(e => {

@@ -29,7 +29,7 @@ function RouteComponent() {
   return (
     <div className="bg-muted flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
       <div className="flex w-full max-w-sm flex-col gap-6">
-        <a href="#" className="flex items-center gap-2 self-center font-medium">
+        <a href="#loadingZone" className="flex items-center gap-2 self-center font-medium">
           <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
             <GalleryVerticalEnd className="size-4" />
           </div>
@@ -78,7 +78,7 @@ function RouteComponent() {
                       <div className="flex items-center">
                         <Label htmlFor="password">Password</Label>
                         <a
-                          href="#"
+                          href="#loadingZonePassword"
                           className="ml-auto text-sm underline-offset-4 hover:underline"
                         >
                           Forgot your password?
@@ -99,8 +99,8 @@ function RouteComponent() {
             </CardContent>
           </Card>
           <div className="text-muted-foreground *:[a]:hover:text-primary text-center text-xs text-balance *:[a]:underline *:[a]:underline-offset-4">
-            By clicking continue, you agree to our <a href="#">Terms of Service</a>{" "}
-            and <a href="#">Privacy Policy</a>.
+            By clicking continue, you agree to our <a href="#LoadingZoneTermsOfService">Terms of Service</a>{" "}
+            and <a href="#loadingZonePrivacyPolicy">Privacy Policy</a>.
           </div>
         </div>
       </div>
