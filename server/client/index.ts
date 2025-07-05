@@ -17,7 +17,7 @@ class RTC {
         }
 
     socket: WebSocket;
-
+    frame
     roomId: string | null = null;
     channelId = "001417d2-c76c-4622-9e75-bb6303341cd0";
 
@@ -170,14 +170,14 @@ class RTC {
             analyser.fftSize = 2048;
             const bufferLength = analyser.frequencyBinCount;
             const dataArray = new Uint8Array(bufferLength);
-            analyser.getByteFrequencyData(dataArray);
 
             const ctx = canvus.getContext("2d");
             if (!ctx) throw new Error("canvus");
             ctx?.clearRect(0, 0, 450, 300);
+
             const draw = () => {
-                const drawVisual = requestAnimationFrame(draw);
-                analyser.getByteFrequencyData(dataArray);
+                this.frame = requestAnimationFrame(draw);
+                analyser.getByteTimeDomainData(dataArray);
 
                 ctx.fillStyle = "rgb(200,200,200)";
                 ctx?.fillRect(0, 0, 450, 300);
@@ -191,7 +191,7 @@ class RTC {
 
                 for (let i = 0; i < bufferLength; i++) {
                     const v = dataArray[i] / 128.0;
-                    const y = v * (300 / 2);
+                    const y = (v * 300) / 2;
                     if (i === 0) {
                         ctx?.moveTo(x, y);
                     } else {
@@ -261,6 +261,7 @@ class RTC {
         });
     }
     destroy() {
+        cancelAnimationFrame(this.frame);
         this.roomId = null;
         this.connections.forEach(e => e.close());
         this.connections.clear();

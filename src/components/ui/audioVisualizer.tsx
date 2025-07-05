@@ -2,11 +2,15 @@ import { Suspense, useEffect, useRef } from "react";
 import { Avatar, AvatarFallback } from "./avatar";
 import { useRTCMediaStream } from "@/hooks/use-rtc-media-stream";
 import { UserIcon } from "../UserIcon";
+import { useAuth } from "@/hooks/useAuth";
 
 export const AudioVisualizer: React.FC<{ userId: string }> = ({ userId }) => {
     const audioRef = useRef<HTMLAudioElement>(null);
     const mediaSource = useRTCMediaStream(userId);
     const canvas = useRef<HTMLCanvasElement>(null);
+    const auth = useAuth();
+
+    const isSelf = auth.user?.id === userId;
 
     useEffect(() => {
         let frame: number;
@@ -27,22 +31,22 @@ export const AudioVisualizer: React.FC<{ userId: string }> = ({ userId }) => {
                 audioRef.current.srcObject = mediaSource;
             }
 
+            console.log(mediaSource);
             audioCtx = new AudioContext();
 
             const audioSource = audioCtx.createMediaStreamSource(mediaSource);
             const analyser = audioCtx.createAnalyser();
 
             audioSource.connect(analyser);
-            analyser.connect(audioCtx.destination);
-
-            analyser.fftSize = 128;
+            analyser.smoothingTimeConstant = 0.85;
+            analyser.fftSize = 2048;
 
             const bufferLength = analyser.frequencyBinCount;
             const dataArray = new Uint8Array(bufferLength);
 
             const animate = () => {
                 if (!canvas.current) return;
-                analyser.getByteFrequencyData(dataArray);
+                analyser.getByteTimeDomainData(dataArray);
 
                 ctx.fillStyle = "rgb(200,200,200)";
                 ctx?.clearRect(0, 0, canvas.current.width, canvas.current.height);
@@ -51,12 +55,13 @@ export const AudioVisualizer: React.FC<{ userId: string }> = ({ userId }) => {
                 ctx.strokeStyle = "rgb(0 0 0)";
                 ctx?.beginPath();
 
-                const sliceWidth = canvas.current.width / bufferLength;
+                const sliceWidth = (canvas.current.width * 1.0) / bufferLength;
                 let x = 0;
 
                 for (let i = 0; i < bufferLength; i++) {
-                    const v = dataArray[i] / 128;
-                    const y = v * (canvas.current.height / 4);
+                    const v = dataArray[i] / 128.0;
+
+                    const y = (v * canvas.current.height) / 2;
                     if (i === 0) {
                         ctx.moveTo(x, y);
                     } else {
@@ -93,7 +98,7 @@ export const AudioVisualizer: React.FC<{ userId: string }> = ({ userId }) => {
                     </AvatarFallback>
                 </Avatar>
             </div>
-            <audio ref={audioRef} className="hidden" />
+            {isSelf ? null : <audio ref={audioRef} autoPlay controls={false} playsInline />}
 
 
             <canvas ref={canvas} className="h-full w-full" />
