@@ -1,4 +1,5 @@
 import { fetch } from "@tauri-apps/plugin-http";
+import type { App } from "./app";
 
 type User = {
     id: string;
@@ -21,7 +22,14 @@ export default class Auth extends EventTarget {
     #token: string | null = null;
     #loaded = false;
 
-    async init() {
+    #profiles = new Map<string, User>();
+    #profileLoadingCache = new Map<string, Promise<User>>();
+
+    constructor(private app: App) {
+        super();
+    }
+
+    public async init() {
         if (this.#loaded) return this.isAuthenticated;
         try {
             const [token, refreshToken] = this.loadStoarge();
@@ -70,6 +78,7 @@ export default class Auth extends EventTarget {
             const self = await this.getUser(payload.sub);
 
             this.#user = self;
+            this.#profiles.set(this.#user.id, this.#user);
 
             this.#authenticated = true;
         } catch (error) {
@@ -81,7 +90,9 @@ export default class Auth extends EventTarget {
         return this.isAuthenticated
     }
 
-    async signup(username: string, password: string) {
+    //#region Api
+
+    public async signup(username: string, password: string) {
         const response = await fetch(`https://${import.meta.env.VITE_SERVER_HOST}/api/signup`, {
             method: "POST",
             danger: {
@@ -108,7 +119,7 @@ export default class Auth extends EventTarget {
         this.dispatchEvent(new Event("login"));
     }
 
-    async login(username: string, password: string) {
+    public async login(username: string, password: string) {
 
         const response = await fetch(`https://${import.meta.env.VITE_SERVER_HOST}/api/login`, {
             method: "POST",
@@ -139,7 +150,7 @@ export default class Auth extends EventTarget {
         this.dispatchEvent(new Event("login"));
     }
 
-    async getUser(userId: string) {
+    public async getUser(userId: string) {
         if (!this.#token) throw new Error("No authorization");
 
         const response = await fetch(`https://${import.meta.env.VITE_SERVER_HOST}/api/user/${userId}`, {
@@ -164,6 +175,34 @@ export default class Auth extends EventTarget {
         return data;
     }
 
+    //#endregion
+
+    //#region React
+
+    public hookGetUser(userId: string) {
+        const promise = this.#profileLoadingCache.get(userId);
+        if (!promise) {
+            const user = this.#profiles.get(userId);
+            if (user) {
+                const p = Promise.try(() => user);
+                this.#profileLoadingCache.set(userId, p);
+                return p;
+            }
+
+            const f = this.getUser(userId).then((user) => {
+                this.#profiles.set(userId, user);
+                return user;
+            });
+            this.#profileLoadingCache.set(userId, f);
+            return f;
+        }
+
+        return promise;
+    }
+
+    //#endregion
+
+    //#region Stoarge
     private setStoarge(token: string, refreshToken: string) {
         this.#token = token;
 
@@ -185,11 +224,17 @@ export default class Auth extends EventTarget {
         localStorage.removeItem("refreshToken");
     }
 
-    get isAuthenticated() {
+    //#endregion
+
+    //#region Getters
+
+    public get isAuthenticated() {
         return this.#authenticated;
     }
 
-    get user() {
+    public get user() {
         return this.#user;
     }
+
+    //#endregion
 }

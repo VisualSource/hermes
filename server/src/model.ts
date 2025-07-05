@@ -7,7 +7,8 @@ export class User {
     public toJson() {
         return {
             id: this.id,
-            username: this.username
+            username: this.username,
+            icon: this.icon
         }
     }
 }

@@ -5,16 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Test</title>
     <script type="module" src="./index.ts"></script>
+    <style>
+        main[inert] {
+            opacity: 0.5;
+            background-color: black;
+        }
+        #avatar {
+            height: 50px;
+            display: flex;
+            align-items: center;
+        }
+        #avatar > div {
+            height: 20px;
+            width: 20px;
+        }
+        #avatar img {
+            height: 100%;
+            width: 100%;
+            object-fit: contain;
+        }
+    </style>
 </head>
 <body>
-    <div>
+    <header>
+        <form id="login-form">
+            <input placeholder="username" type="text" name="username"/>
+            <input placeholder="password" type="password" name="password"/>
+            <select name="login-type">
+                <option selected value="login">Login</option>
+                <option value="signup">Signup</option>
+            </select>
+            <button type="submit">Submit</button>
+        </form>
+    </header>
+    <main inert id="web-main">
         <button id="start">Start</button>
         <button disabled id="end">End</button>
-    </div>
-
-    <div id="output">
-    
-    </div>
+        <div id="output"></div>
+    </main>
     <footer>
         <span>v0.1.0</span>
     </footer>

@@ -1,7 +1,11 @@
-import { useEffect, useRef } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "./avatar";
+import { Suspense, useEffect, useRef } from "react";
+import { Avatar, AvatarFallback } from "./avatar";
+import { useRTCMediaStream } from "@/hooks/use-rtc-media-stream";
+import { UserIcon } from "../UserIcon";
 
-export const AudioVisualizer: React.FC<{ mediaSource: MediaStream, icon: string }> = ({ mediaSource, icon }) => {
+export const AudioVisualizer: React.FC<{ userId: string }> = ({ userId }) => {
+    const audioRef = useRef<HTMLAudioElement>(null);
+    const mediaSource = useRTCMediaStream(userId);
     const canvas = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
@@ -19,6 +23,9 @@ export const AudioVisualizer: React.FC<{ mediaSource: MediaStream, icon: string 
         }
 
         if (mediaSource && canvas.current && ctx) {
+            if (audioRef.current) {
+                audioRef.current.srcObject = mediaSource;
+            }
 
             audioCtx = new AudioContext();
 
@@ -48,8 +55,8 @@ export const AudioVisualizer: React.FC<{ mediaSource: MediaStream, icon: string 
                 let x = 0;
 
                 for (let i = 0; i < bufferLength; i++) {
-                    const v = dataArray[i] / 128.0;
-                    const y = v * (canvas.current.height / 2);
+                    const v = dataArray[i] / 128;
+                    const y = v * (canvas.current.height / 4);
                     if (i === 0) {
                         ctx.moveTo(x, y);
                     } else {
@@ -78,12 +85,17 @@ export const AudioVisualizer: React.FC<{ mediaSource: MediaStream, icon: string 
         <div className="aspect-video relative shadow bg-card w-52">
             <div className="absolute z-10 w-full h-full justify-center items-center flex">
                 <Avatar className="h-12 w-12">
-                    <AvatarImage src={icon} />
+                    <Suspense>
+                        <UserIcon userId={userId} />
+                    </Suspense>
                     <AvatarFallback>
 
                     </AvatarFallback>
                 </Avatar>
             </div>
+            <audio ref={audioRef} className="hidden" />
+
+
             <canvas ref={canvas} className="h-full w-full" />
         </div>
     );

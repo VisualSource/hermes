@@ -8,7 +8,11 @@ import { schemaLogin, schemaRefresh, schemaSignup, schemaUuid } from "./schemas"
 import { User } from "./model";
 import home from "../client/index.html";
 
+import { socketCommand } from "hermes-shared";
+
 import { jwtVerify, SignJWT } from "jose";
+import { z } from "zod/v4";
+import { socketHandlers } from "./lib/socketHandlers";
 const alg = "HS256"
 const database = new Database(join(import.meta.dir, "server.db"));
 const secret = new TextEncoder().encode(btoa("SomePasswordForSigningAndVerifyingJwtsThisShouldBeReplacedWithABetterSecert"));
@@ -17,7 +21,9 @@ const refreshSecret = new TextEncoder().encode(btoa("DontQutgetTheREfreshTokenJu
 await database.exec("CREATE TABLE IF NOT EXISTS users (id text PRIMARY KEY, username TEXT UNIQUNE NOT NULL, psdHash TEXT NOT NULL, icon TEXT)")
 
 const log = (req: BunRequest) => {
-    console.log(`[${new Date().toUTCString()}][${req.method}]: ${req.url}`)
+    const url = new URL(req.url);
+
+    console.log(`[${new Date().toUTCString()}][${req.method}]: ${url.pathname}`)
 }
 
 const auth = async (req: BunRequest | string | null) => {
@@ -81,61 +87,36 @@ Bun.serve({
     //@ts-expect-error
     tls: {
         passphrase: "hermdevclone",
-        cert: Bun.file(join(import.meta.dir, "./ca-cert.pem")),
-        key: Bun.file(join(import.meta.dir, "./ca-key.pem"))
+        cert: Bun.file(join(import.meta.dir, "./certs/ca-cert.pem")),
+        key: Bun.file(join(import.meta.dir, "./certs/ca-key.pem"))
     },
     websocket: {
-        message(ws, message) {
+        open(ws) {
+            ws.subscribe("001417d2-c76c-4622-9e75-bb6303341cd0"); // CAHNNEL ID
+        },
+        async message(ws, message) {
             if (typeof message !== "string") {
-                console.log("Invalid message");
+                console.error("Invalid message");
                 return;
             }
-            const payload = JSON.parse(message);
-            const user = (ws.data as Record<string, string>).usr;
 
-            switch (payload.type) {
-                case "join":
-                    console.log(`User '${user}' joined ${payload.data.channelId} in room ${payload.data.roomId}`);
+            try {
+                const { type, data } = socketCommand.parse(JSON.parse(message));
+                const handler = socketHandlers[type];
+                if (!handler) throw new Error(`Unable to handle event '${type}'`);
+                await handler({}, ws as Bun.ServerWebSocket<{ user: User }>, data as never);
+            } catch (error) {
+                const errorMessage = error instanceof z.ZodError ? z.prettifyError(error) : Error.isError(error) ? error.message : "Unknown Error"
 
-                    //const channel = channels.get(payload.data.channelId);
+                ws.send(JSON.stringify({
+                    type: "error",
+                    data: {
+                        error: errorMessage
+                    }
+                }));
 
-                    //channel?.join(user, {});
-
-                    ws.subscribe(`${payload.data.channelId}/${payload.data.roomId}`);
-                    ws.subscribe(`${payload.data.channelId}/${payload.data.roomId}/${user}`);
-
-                    ws.publish(`${payload.data.channelId}/${payload.data.roomId}`, JSON.stringify({
-                        type: "joined",
-                        data: {
-                            user
-                        }
-                    }));
-
-                    break;
-                case "offer": {
-                    console.log(`User '${user}' sending offer to user '${payload.data.forUser}'`);
-                    ws.publish(`${payload.data.channelId}/${payload.data.roomId}/${payload.data.forUser}`, JSON.stringify({
-                        type: "offer",
-                        data: {
-                            user,
-                            sdp: payload.data.sdp
-                        }
-                    }));
-                    break;
-                }
-                case "answer": {
-                    console.log(`User '${user}' sending answer to user '${payload.data.forUser}'`);
-                    ws.publish(`${payload.data.channelId}/${payload.data.roomId}/${payload.data.forUser}`, JSON.stringify({
-                        type: "answer",
-                        data: {
-                            user: (ws.data as Record<string, string>).usr,
-                            sdp: payload.data.sdp
-                        }
-                    }));
-                    break;
-                }
-                default:
-                    break;
+                const server_error = error instanceof z.ZodError ? z.treeifyError(error) : error;
+                console.error("[CLIENT -> SERVER] Socket Error:", server_error);
             }
         },
     },
@@ -145,13 +126,14 @@ Bun.serve({
             const url = new URL(req.url);
             const token = url.searchParams.get("token");
 
-            const usr = await auth(token);
+            const user = await auth(token);
 
             const upgraded = server.upgrade(req, {
                 data: {
-                    usr
+                    user
                 }
-            })
+            });
+
             if (!upgraded) {
                 return new Response("Upgrade failed", { status: 400 });
             }
@@ -184,6 +166,21 @@ Bun.serve({
         },
 
         "/api/user/:uuid": {
+            PATCH: async (req: BunRequest<"/api/user/:uuid">) => {
+                log(req);
+                const user = await auth(req);
+
+                const result = schemaUuid.safeParse(req.params.uuid);
+                if (!result.success) {
+                    throw new HttpError(result.error.message, { statusCode: 400 });
+                }
+                if (user.id !== result.data) throw new HttpError("Invalid request", { statusCode: 401 });
+                const body = await req.json() as { icon: string };
+
+                await database.prepare("UPDATE users SET icon = ? WHERE id = ?").run(body.icon, user.id);
+
+                return Response.json({ status: "ok" });
+            },
             GET: async (req: BunRequest<"/api/user/:uuid">) => {
                 log(req);
                 const result = schemaUuid.safeParse(req.params.uuid);
@@ -198,13 +195,13 @@ Bun.serve({
                     return Response.json(user.toJson());
                 }
 
-                const otherUser = await database.prepare("SELECT (id,username,icon) FROM users WHERE id = ?;").as(User).get(uuid);
+                const otherUser = await database.prepare("SELECT id,username,icon FROM users WHERE id = ?;").get(uuid);
 
                 if (!otherUser) {
                     throw new HttpError("User not found", { statusCode: 404 });
                 }
 
-                return Response.json(otherUser.toJson());
+                return Response.json(otherUser);
             }
         },
 
@@ -245,7 +242,6 @@ Bun.serve({
                 }
             }
         },
-
         "/api/login": {
             POST: async (req: BunRequest) => {
                 log(req);
@@ -298,7 +294,7 @@ Bun.serve({
                     token,
                     refreshToken,
                     user: user.toJson()
-                });
+                }, { status: 201 });
             }
         },
 

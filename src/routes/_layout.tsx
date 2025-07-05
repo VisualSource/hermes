@@ -6,15 +6,15 @@ import { AppSidebar } from '@/components/app-sidebar';
 export const Route = createFileRoute('/_layout')({
   beforeLoad({ context }) {
     console.log("beforeload _layout");
-    if (!context.auth.isAuthenticated) throw redirect({
+    if (!context.app.auth.isAuthenticated) throw redirect({
       to: "/login"
     })
   },
-  async loader({ context }) {
-    await context.rtc.mount();
+  async onEnter({ context }) {
+    await context.app.rtc.mount();
   },
-  onLeave(match) {
-    match.context.rtc.unmount();
+  async onLeave(match) {
+    match.context.app.rtc.unmount();
   },
   component: RouteComponent,
 });

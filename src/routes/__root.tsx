@@ -1,17 +1,14 @@
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { Toaster } from "@/components/ui/sonner";
-import type { RTC } from "@/lib/rtc";
-import type Auth from "@/lib/auth";
+import { App } from "@/lib/app";
 interface RouterContext {
-    auth: Auth
-    rtc: RTC,
+    app: App
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({
     async beforeLoad({ context }) {
-        console.log("beforeload __root");
-        await context.auth.init();
+        await context.app.auth.init();
     },
 
     pendingComponent: () => {
@@ -22,7 +19,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     component: () => (
         <>
             <Outlet />
-            <TanStackRouterDevtools />
+            <TanStackRouterDevtools position="bottom-right" />
             <Toaster />
         </>
     )

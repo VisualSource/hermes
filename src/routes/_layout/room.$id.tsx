@@ -1,14 +1,15 @@
-import Squares from '@/components/squares';
 import { AudioVisualizer } from '@/components/ui/audioVisualizer';
-import { useRTC } from '@/hooks/useRtc';
-import { createFileRoute } from '@tanstack/react-router'
+import { Button } from '@/components/ui/button';
+import { useRoom } from '@/hooks/use-room';
+import { createFileRoute, Link } from '@tanstack/react-router'
+
 
 export const Route = createFileRoute('/_layout/room/$id')({
-  async loader({ context, params }) {
-    await context.rtc.joinLobby(params.id);
+  async onEnter({ context, params }) {
+    await context.app.rtc.joinRoom(params.id);
   },
-  onLeave({ context, params }) {
-    context.rtc.leaveLobby(params.id);
+  async onLeave({ context, params }) {
+    await context.app.rtc.leaveRoom(params.id);
   },
   pendingComponent: () => (
     <p>Loading....</p>
@@ -17,16 +18,20 @@ export const Route = createFileRoute('/_layout/room/$id')({
 })
 
 function RouteComponent() {
-  const ctx = useRTC();
+  const params = Route.useParams();
+  const room = useRoom(params.id);
 
   return (
     <div className="h-full w-full relative">
-      <Squares speed={0.2}
-        squareSize={40}
-        direction='diagonal'
-      />
-      <div className="flex flex-wrap content-center justify-center items-center gap-4 p-8 h-full absolute z-10 w-full top-0 left-0">
-        {ctx.localMedia ? <AudioVisualizer mediaSource={ctx.localMedia} icon='' /> : null}
+      <header>
+        <Button asChild>
+          <Link to="/">Leave</Link>
+        </Button>
+      </header>
+      <div className="flex flex-wrap content-center justify-center items-center gap-4 p-8 h-full w-full ">
+        {[...room?.users ?? []].map((userId) => (
+          <AudioVisualizer key={userId} userId={userId} />
+        ))}
       </div>
     </div>
   )

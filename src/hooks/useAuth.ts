@@ -1,6 +1,6 @@
 import { useAppContext } from "./useAppContext";
 
-export const useRTC = () => {
+export const useAuth = () => {
     const ctx = useAppContext();
-    return ctx.rtc;
+    return ctx.auth;
 }

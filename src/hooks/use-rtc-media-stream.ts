@@ -5,9 +5,9 @@ export const useRTCMediaStream = (userId: string) => {
     const ctx = useRTC();
 
     const callback = useCallback((cl: () => void) => {
-        ctx.addEventListener(`stream-event::${userId}`, cl);
+        ctx.addEventListener(`media-stream::${userId}`, cl);
         return () => {
-            ctx.removeEventListener(`stream-event::${userId}`, cl);
+            ctx.removeEventListener(`media-stream::${userId}`, cl);
         }
     }, [userId, ctx]);
 

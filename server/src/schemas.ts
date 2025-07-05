@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { socketCommand } from "hermes-shared";
 
 export const schemaSignup = z.strictObject({
     username: z.string().min(3).max(200),

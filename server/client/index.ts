@@ -1,10 +1,8 @@
 const rtcConfig = {
     iceServers: [
         { urls: ["stun:stun.l.google.com:19302"] },
-        /* { urls: ["stun:stun1.l.google.com:19302"] },
-         { urls: ["stun:stun2.l.google.com:19302"] },
-         { urls: ["stun:stun3.l.google.com:19302"] },
-         { urls: ["stun:stun4.l.google.com:19302"] }*/
+        { urls: ["stun:stun1.l.google.com:19302"] },
+        { urls: ["stun:stun2.l.google.com:19302"] },
     ]
 }
 //https://medium.com/swlh/manage-dynamic-multi-peer-connections-in-webrtc-3ff4e10f75b7
@@ -20,13 +18,12 @@ class RTC {
 
     socket: WebSocket;
 
-    roomId = "91b3c4ae-e243-47e0-8124-35d8f357f211"
+    roomId: string | null = null;
     channelId = "001417d2-c76c-4622-9e75-bb6303341cd0";
 
     constructor() {
-        const user = new URLSearchParams(window.location.search);
-
-        const token = user.get("token");
+        const token = sessionStorage.getItem("token");
+        if (!token) throw new Error("Failed to get session token");
 
         this.socket = new WebSocket(`wss://${window.location.host}/ws?token=${token}`);
 
@@ -40,18 +37,24 @@ class RTC {
         const payload = JSON.parse(ev.data);
 
         switch (payload.type) {
-            case "joined": {
+            case "channel::room::user_join": {
                 const user = payload.data.user;
                 console.log("User joined", user);
+
+                if (payload.roomId !== this.roomId) return;
+
                 const peer = new RTCPeerConnection(rtcConfig);
 
                 this.addLocalMedia(peer);
 
+                peer.addEventListener("icecandidateerror", (ev) => {
+                    console.error(ev);
+                });
                 peer.addEventListener("icecandidate", (ev) => {
                     if (!ev.candidate) {
                         const description = peer.localDescription;
                         if (!description) throw new Error("Failed to get description");
-                        this.send("offer", {
+                        this.send("room::peer::offer", {
                             channelId: this.channelId,
                             roomId: this.roomId,
                             forUser: user,
@@ -72,7 +75,7 @@ class RTC {
 
                 break;
             }
-            case "offer": {
+            case "room::peer::offer": {
                 const user = payload.data.user;
 
                 console.log("Got a offer from", user);
@@ -80,13 +83,15 @@ class RTC {
                 const peer = new RTCPeerConnection(rtcConfig);
 
                 this.addLocalMedia(peer);
-
+                peer.addEventListener("icecandidateerror", (ev) => {
+                    console.error(ev);
+                });
                 peer.addEventListener("icecandidate", (ev) => {
                     if (!ev.candidate) {
                         const description = peer.localDescription;
                         if (!description) throw new Error("failed to get local description");
 
-                        this.send("answer", {
+                        this.send("room::peer::answer", {
                             channelId: this.channelId,
                             roomId: this.roomId,
                             forUser: user,
@@ -108,7 +113,7 @@ class RTC {
 
                 break;
             }
-            case "answer": {
+            case "room::peer::answer": {
                 const sdp = payload.data.sdp;
                 const user = payload.data.user;
                 console.log("Got a answer from", user)
@@ -122,6 +127,7 @@ class RTC {
                 break;
             }
             default:
+                console.log(ev.data);
                 break;
         }
     }
@@ -132,7 +138,7 @@ class RTC {
 
         const container = document.createElement("div");
 
-        let stream
+        let stream: MediaStream;
         if (ev.streams.length === 1) {
             stream = ev.streams[0];
         } else {
@@ -238,36 +244,138 @@ class RTC {
     async init(config: { video: boolean, audio: boolean }) {
         this.media.stream = await navigator.mediaDevices.getUserMedia({
             video: config.video,
-            audio: config.audio
+            audio: {
+                echoCancellation: {
+                    exact: false,
+                    ideal: true,
+                },
+                noiseSuppression: true,
+            }
         });
 
-        this.media.stream.getTracks()[0].getSettings().noiseSuppression = true;
+        this.roomId = "91b3c4ae-e243-47e0-8124-35d8f357f211";
 
-        this.send("join", {
+        this.send("channel::room::join", {
             channelId: this.channelId,
             roomId: this.roomId
         });
     }
     destroy() {
-
+        this.roomId = null;
+        this.connections.forEach(e => e.close());
+        this.connections.clear();
+        this.send("channel::room::leave", {
+            channelId: this.channelId,
+            roomId: this.roomId
+        });
     }
 }
 
-const rtc = new RTC();
-
 document.addEventListener("DOMContentLoaded", () => main());
 function main() {
+    const formId = document.getElementById("login-form");
     const startBtn = document.getElementById("start");
     const endBtn = document.getElementById("end");
 
-    startBtn?.addEventListener("click", () => {
-        rtc.init({ audio: true, video: false });
-        startBtn.toggleAttribute("disabled");
-        endBtn?.toggleAttribute("disabled");
+    const token = sessionStorage.getItem("token");
+    if (token) {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+
+        if (Date.now() >= payload.exp * 1000) {
+            sessionStorage.removeItem("token");
+            alert("Login token as expired");
+        } else {
+            document.getElementById("web-main")?.removeAttribute("inert");
+            formId?.remove();
+
+            fetch(`/api/user/${payload.sub}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            }).then(res => { if (!res.ok) throw new Error(res.statusText, { cause: res }); return res.json() })
+                .then((body) => {
+                    const el = document.querySelector("header");
+                    if (!el) throw new Error("Was unable to insert user icon");
+                    el.innerHTML = `
+                    <div id="avatar"> 
+                        <div>
+                            <img src="${body.icon}" alt="${body.username}"/>
+                        </div>
+                        <h4>${body.username}</h4>
+                    </div>
+                `;
+                });
+
+            const rtc = new RTC();
+
+            startBtn?.addEventListener("click", () => {
+                rtc.init({ audio: true, video: false });
+                startBtn.toggleAttribute("disabled");
+                endBtn?.toggleAttribute("disabled");
+            });
+            endBtn?.addEventListener("click", () => {
+                rtc.destroy();
+                startBtn?.toggleAttribute("disabled");
+                endBtn?.toggleAttribute("disabled");
+            });
+            return;
+        }
+    }
+
+    formId?.addEventListener("submit", (ev) => {
+        ev.preventDefault();
+        const data = new FormData(ev.target as HTMLFormElement);
+
+        const type = data.get("login-type")?.toString();
+
+        fetch(`/api/${type}`, {
+            method: "POST",
+            body: JSON.stringify({
+                username: data.get("username"),
+                password: data.get("password")
+            })
+        }).then(e => {
+            if (!e.ok) throw new Error("Failed to login", { cause: e });
+
+            return e.json() as Promise<{ token: string, user: { username: string; icon: string } }>;
+        }).then((body) => {
+
+            sessionStorage.setItem("token", body.token);
+            const el = document.getElementById("web-main");
+            el?.removeAttribute("inert");
+
+            const header = document.querySelector("header");
+            if (header) {
+                header.innerHTML = `
+                    <div id="avatar"> 
+                        <div>
+                            <img src="${body.user.icon}" alt="${body.user.username}"/>
+                        </div>
+                        <h4>${body.user.username}</h4>
+                    </div>
+                `;
+            }
+
+
+            const rtc = new RTC();
+
+            startBtn?.addEventListener("click", () => {
+                rtc.init({ audio: true, video: false });
+                startBtn.toggleAttribute("disabled");
+                endBtn?.toggleAttribute("disabled");
+            });
+            endBtn?.addEventListener("click", () => {
+                rtc.destroy();
+                startBtn?.toggleAttribute("disabled");
+                endBtn?.toggleAttribute("disabled");
+            });
+
+            formId.remove();
+
+        }).catch(e => {
+            console.error(e);
+            alert((e as Error).message);
+        });
     });
-    endBtn?.addEventListener("click", () => {
-        rtc.destroy();
-        startBtn?.toggleAttribute("disabled");
-        endBtn?.toggleAttribute("disabled");
-    });
+
 }

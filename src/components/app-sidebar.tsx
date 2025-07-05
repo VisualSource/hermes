@@ -1,6 +1,8 @@
-import { GalleryVerticalEnd } from "lucide-react";
+import { GalleryVerticalEnd, Settings2 } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarRail } from "./ui/sidebar";
 import { AppSidebarContent } from "./app-sidebar-content";
+import { Link } from "@tanstack/react-router";
+import { Button } from "./ui/button";
 
 export const AppSidebar: React.FC = () => {
     return (
@@ -25,8 +27,12 @@ export const AppSidebar: React.FC = () => {
             <SidebarContent>
                 <AppSidebarContent />
             </SidebarContent>
-            <SidebarFooter>
-
+            <SidebarFooter className="border-t border-primary-foreground">
+                <Button asChild size="icon">
+                    <Link to="/settings">
+                        <Settings2 />
+                    </Link>
+                </Button>
             </SidebarFooter>
             <SidebarRail />
         </Sidebar>

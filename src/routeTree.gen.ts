@@ -13,6 +13,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
+import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutRoomIdRouteImport } from './routes/_layout/room.$id'
 
 const SignupRoute = SignupRouteImport.update({
@@ -34,6 +35,11 @@ const LayoutIndexRoute = LayoutIndexRouteImport.update({
   path: '/',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutRoomIdRoute = LayoutRoomIdRouteImport.update({
   id: '/room/$id',
   path: '/room/$id',
@@ -43,12 +49,14 @@ const LayoutRoomIdRoute = LayoutRoomIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/settings': typeof LayoutSettingsRoute
   '/': typeof LayoutIndexRoute
   '/room/$id': typeof LayoutRoomIdRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/settings': typeof LayoutSettingsRoute
   '/': typeof LayoutIndexRoute
   '/room/$id': typeof LayoutRoomIdRoute
 }
@@ -57,19 +65,21 @@ export interface FileRoutesById {
   '/_layout': typeof LayoutRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/room/$id': typeof LayoutRoomIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/login' | '/signup' | '/' | '/room/$id'
+  fullPaths: '/login' | '/signup' | '/settings' | '/' | '/room/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/signup' | '/' | '/room/$id'
+  to: '/login' | '/signup' | '/settings' | '/' | '/room/$id'
   id:
     | '__root__'
     | '/_layout'
     | '/login'
     | '/signup'
+    | '/_layout/settings'
     | '/_layout/'
     | '/_layout/room/$id'
   fileRoutesById: FileRoutesById
@@ -110,6 +120,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutIndexRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/settings': {
+      id: '/_layout/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof LayoutSettingsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/room/$id': {
       id: '/_layout/room/$id'
       path: '/room/$id'
@@ -121,11 +138,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface LayoutRouteChildren {
+  LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutRoomIdRoute: typeof LayoutRoomIdRoute
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
+  LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutIndexRoute: LayoutIndexRoute,
   LayoutRoomIdRoute: LayoutRoomIdRoute,
 }
