@@ -4,7 +4,7 @@ import { useRoom } from '@/hooks/use-room';
 import { createFileRoute, Link } from '@tanstack/react-router'
 
 
-export const Route = createFileRoute('/_layout/room/$id')({
+export const Route = createFileRoute('/_layout/room/voice/$id')({
   async onEnter({ context, params }) {
     await context.app.rtc.joinRoom(params.id);
   },
@@ -29,7 +29,7 @@ function RouteComponent() {
         </Button>
       </header>
       <div className="flex flex-wrap content-center justify-center items-center gap-4 p-8 h-full w-full ">
-        {[...room?.users ?? []].map((userId) => (
+        {[...(room?.users ?? [])].map((userId) => (
           <AudioVisualizer key={userId} userId={userId} />
         ))}
       </div>

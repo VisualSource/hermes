@@ -9,8 +9,8 @@ export class RnnoiseManager {
     async init() {
         if (this.binary) return;
         this.binary = await loadRnnoise({
-            url: "/file/rnnoise.wasm",
-            simdUrl: "/file/rnnoise_simd.wasm"
+            url: "/sapphi-red/web-noise-suppressor/rnnoise.wasm",
+            simdUrl: "/sapphi-red/web-noise-suppressor/rnnoise_simd.wasm"
         });
     }
 
@@ -18,7 +18,7 @@ export class RnnoiseManager {
         if (!this.binary) throw new Error("Wasm binary was not loaded");
         const ctx = new AudioContext();
 
-        await ctx.audioWorklet.addModule("/file/workletProcessor.js");
+        await ctx.audioWorklet.addModule("/sapphi-red/web-noise-suppressor/rnnoise/workletProcessor.js");
 
         const source = ctx.createMediaStreamSource(stream);
         const dest = ctx.createMediaStreamDestination();

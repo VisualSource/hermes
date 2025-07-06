@@ -68,6 +68,10 @@
   --color-destructive-foreground: var(--destructive-foreground);
 }
 
+.scrollbar-custom {
+  scrollbar-color: var(--color-card-foreground) var(--background);
+}
+
 :root {
   --radius: 0px;
   --background: oklch(0.8452 0 0);

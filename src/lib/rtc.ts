@@ -25,30 +25,32 @@ export class RTC extends EventTarget {
 
     #streams: Map<string, MediaStream[]> = new Map();
     #currentRoomId: string | null = null;
-    #currentChannelId: string | null = "001417d2-c76c-4622-9e75-bb6303341cd0";
+    #currentChannelId: string | null = import.meta.env.VITE_DEFAULT_CHANNEL_ID;
 
-    #rooms = new Map<string, { users: Set<string>, name: string; id: string; }>();
+    #rooms = new Map<string, { users: Set<string>, name: string; id: string; type: "text" | "media" }>();
 
     #rnnoise = new RnnoiseManager();
+    #socketRetrys = 0;
+
 
     constructor(private app: App) {
         super();
 
-        this.#rooms.set("91b3c4ae-e243-47e0-8124-35d8f357f211", { users: new Set(), name: "Test Channel", id: "91b3c4ae-e243-47e0-8124-35d8f357f211" });
+        //this.#rooms.set("91b3c4ae-e243-47e0-8124-35d8f357f211", { users: new Set(), name: "Test Channel", id: "91b3c4ae-e243-47e0-8124-35d8f357f211" });
     }
 
-    //#region React
-    public async mount() {
+    public addRooms(rooms: { type: "text" | "media", id: string; name: string; }[]) {
+        for (const room of rooms) {
+            this.#rooms.set(room.id, { users: new Set(), ...room });
+        }
+    }
+
+    async initSocket() {
         const { reject, resolve, promise } = Promise.withResolvers();
-
-        await this.#rnnoise.init();
-
-        console.log("mounting socket");
-
         this.#socket = new WebSocket(`wss://${import.meta.env.VITE_SERVER_HOST}/ws?token=${localStorage.getItem("token")}`);
-
         this.#socket.addEventListener("message", this.onMessage);
         this.#socket.addEventListener("open", (_ev) => {
+            this.#socketRetrys = 0;
             this.dispatchEvent(new Event("ready"));
             resolve();
         });
@@ -57,10 +59,29 @@ export class RTC extends EventTarget {
             console.error(ev);
         });
         this.#socket.addEventListener("close", (ev) => {
-            console.log(ev);
+            this.#socketRetrys++;
+
+            console.log("retrying", this.#socketRetrys);
+
+            if (this.#socketRetrys >= 10) return;
+
+            setTimeout(() => {
+                this.initSocket().catch(e => console.error(e));
+            }, 1000 * this.#socketRetrys);
         });
 
         await promise;
+    }
+
+    //#region React
+    public async mount() {
+
+
+        await this.#rnnoise.init();
+
+        console.log("mounting socket");
+
+        this.initSocket();
     }
     public unmount() {
         this.#count--;
@@ -85,6 +106,27 @@ export class RTC extends EventTarget {
             return this.#streams.get("self");
         }
         return this.#streams.get(userId);
+    }
+
+    public async joinTextRoom(roomId: string) {
+        if (!this.#currentChannelId) throw new Error("No channel id");
+        this.#currentRoomId = roomId;
+
+        this.send("channel::room::join_text", {
+            channelId: this.#currentChannelId,
+            roomId: roomId
+        });
+    }
+
+    public async leaveTextRoom(roomId: string) {
+        if (!this.#currentChannelId) throw new Error("No channel id");
+
+        this.send("channel::room::leave_text", {
+            channelId: this.#currentChannelId,
+            roomId: roomId
+        });
+
+        this.#currentRoomId = null;
     }
 
     public async joinRoom(roomId: string) {
@@ -161,9 +203,22 @@ export class RTC extends EventTarget {
         }))
     }
 
+    public sendTextMessage(message: string) {
+        if (!this.#currentRoomId || !this.#currentChannelId) throw new Error("no room");
+
+        this.send("channel::room::send_text", {
+            message: message,
+            channelId: this.#currentChannelId,
+            roomId: this.#currentRoomId
+        })
+
+    }
+
     //#endregion
 
     //#region Internal
+
+
 
     private send<T extends SocketCommand["type"]>(type: T, payload: SocketCommandMap[T]) {
         this.#socket?.send(JSON.stringify({ type, data: payload }));
@@ -176,6 +231,27 @@ export class RTC extends EventTarget {
             console.debug("Event", type);
 
             switch (type) {
+                case "channel::room::text": {
+                    this.dispatchEvent(new CustomEvent(`room::${data.roomId}::update`, {
+                        detail: {
+                            type: "text",
+                            data
+                        }
+                    }));
+                    break;
+                }
+                case "channel::room::added": {
+                    this.#rooms.set(data.id, { users: new Set(), ...data });
+
+                    this.dispatchEvent(new CustomEvent(`room::${data.id}::update`, {
+                        detail: {
+                            type: "added",
+                            data
+                        }
+                    }));
+                    break;
+                }
+
                 case "channel::room::user_join": {
                     const room = this.#rooms.get(data.roomId);
                     if (!room) throw new Error(`Unable to update room. No room was found`);

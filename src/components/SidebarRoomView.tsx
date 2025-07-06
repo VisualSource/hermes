@@ -1,7 +1,7 @@
 
 import { SidebarMenuButton, SidebarMenuItem } from "./ui/sidebar";
 import { DropdownMenu } from "./ui/dropdown-menu";
-import { MoreHorizontal } from "lucide-react";
+import { AudioLines, Hash, MoreHorizontal } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import {
     ContextMenu,
@@ -13,15 +13,17 @@ import { useRoom } from "@/hooks/use-room";
 import { NamePlate } from "./UserIcon";
 import { Suspense } from "react";
 
-const roomCmds = [
+const roomVoiceCmds = [
     { title: "Join" }
+]
+
+const roomTextCmds = [
+    { title: "Command" }
 ]
 
 export const SidebarRoomView: React.FC<{ roomId: string }> = ({ roomId }) => {
     const navigate = useNavigate();
     const room = useRoom(roomId);
-
-    console.log(room);
 
     return (
         <DropdownMenu>
@@ -29,8 +31,8 @@ export const SidebarRoomView: React.FC<{ roomId: string }> = ({ roomId }) => {
                 <ContextMenu>
                     <div>
                         <ContextMenuTrigger asChild>
-                            <SidebarMenuButton onClick={() => navigate({ to: "/room/$id", params: { id: roomId } })} className="cursor-pointer data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
-                                {room?.name} <MoreHorizontal className="ml-auto" />
+                            <SidebarMenuButton onClick={() => navigate({ to: room?.type === "media" ? "/room/voice/$id" : "/room/text/$id", params: { id: roomId } })} className="cursor-pointer data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground shadow border-card border">
+                                {room?.type === "text" ? <Hash className="h-4 w-4" /> : <AudioLines className="h-4 w-4" />} {room?.name} <MoreHorizontal className="ml-auto" />
                             </SidebarMenuButton>
                         </ContextMenuTrigger>
                         <ul className="ml-8">
@@ -45,7 +47,7 @@ export const SidebarRoomView: React.FC<{ roomId: string }> = ({ roomId }) => {
                         </ul>
                     </div>
                     <ContextMenuContent>
-                        {roomCmds.map((e, i) => (
+                        {(room?.type === "text" ? roomTextCmds : roomVoiceCmds).map((e, i) => (
                             <ContextMenuItem key={`cmd-${i + 1}`}>{e.title}</ContextMenuItem>
                         ))}
                     </ContextMenuContent>

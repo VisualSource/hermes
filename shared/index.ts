@@ -7,6 +7,29 @@ const sdp = z.strictObject({
 
 export const socketCommand = z.discriminatedUnion("type", [
     z.strictObject({
+        type: z.literal("channel::room::send_text"),
+        data: z.strictObject({
+            channelId: z.uuidv4(),
+            roomId: z.uuidv4(),
+            message: z.string()
+        })
+    }),
+    z.strictObject({
+        type: z.literal("channel::room::join_text"),
+        data: z.strictObject({
+            channelId: z.uuidv4(),
+            roomId: z.uuidv4()
+        }),
+    }),
+    z.strictObject({
+        type: z.literal("channel::room::leave_text"),
+        data: z.strictObject({
+            channelId: z.uuidv4(),
+            roomId: z.uuidv4()
+        }),
+    }),
+
+    z.strictObject({
         type: z.literal("channel::room::join"),
         data: z.strictObject({
             channelId: z.uuidv4(),
@@ -48,6 +71,16 @@ export type SocketCommandMap = {
 
 export const socketMessage = z.discriminatedUnion("type", [
     z.strictObject({
+        type: z.literal("channel::room::text"),
+        data: z.strictObject({
+            channelId: z.uuidv4(),
+            roomId: z.uuidv4(),
+            user: z.uuidv4().describe("the user message"),
+            message: z.string(),
+            id: z.uuidv4()
+        })
+    }),
+    z.strictObject({
         type: z.literal("channel::room::user_join").describe("event name"),
         data: z.strictObject({
             channelId: z.uuidv4(),
@@ -62,6 +95,14 @@ export const socketMessage = z.discriminatedUnion("type", [
             roomId: z.uuidv4(),
             user: z.uuidv4()
         }),
+    }),
+    z.strictObject({
+        type: z.literal("channel::room::added"),
+        data: z.strictObject({
+            name: z.string(),
+            type: z.enum(["text", "media"]),
+            id: z.uuidv4()
+        })
     }),
     z.strictObject({
         type: z.literal("room::peer::offer"),

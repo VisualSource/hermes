@@ -10,7 +10,7 @@ dist
 coverage
 *.lcov
 
-/public/**
+/certs/**
 
 # logs
 logs

@@ -14,7 +14,8 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
-import { Route as LayoutRoomIdRouteImport } from './routes/_layout/room.$id'
+import { Route as LayoutRoomVoiceIdRouteImport } from './routes/_layout/room.voice.$id'
+import { Route as LayoutRoomTextIdRouteImport } from './routes/_layout/room.text.$id'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -40,9 +41,14 @@ const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => LayoutRoute,
 } as any)
-const LayoutRoomIdRoute = LayoutRoomIdRouteImport.update({
-  id: '/room/$id',
-  path: '/room/$id',
+const LayoutRoomVoiceIdRoute = LayoutRoomVoiceIdRouteImport.update({
+  id: '/room/voice/$id',
+  path: '/room/voice/$id',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutRoomTextIdRoute = LayoutRoomTextIdRouteImport.update({
+  id: '/room/text/$id',
+  path: '/room/text/$id',
   getParentRoute: () => LayoutRoute,
 } as any)
 
@@ -51,14 +57,16 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/settings': typeof LayoutSettingsRoute
   '/': typeof LayoutIndexRoute
-  '/room/$id': typeof LayoutRoomIdRoute
+  '/room/text/$id': typeof LayoutRoomTextIdRoute
+  '/room/voice/$id': typeof LayoutRoomVoiceIdRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/settings': typeof LayoutSettingsRoute
   '/': typeof LayoutIndexRoute
-  '/room/$id': typeof LayoutRoomIdRoute
+  '/room/text/$id': typeof LayoutRoomTextIdRoute
+  '/room/voice/$id': typeof LayoutRoomVoiceIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -67,13 +75,26 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/': typeof LayoutIndexRoute
-  '/_layout/room/$id': typeof LayoutRoomIdRoute
+  '/_layout/room/text/$id': typeof LayoutRoomTextIdRoute
+  '/_layout/room/voice/$id': typeof LayoutRoomVoiceIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/login' | '/signup' | '/settings' | '/' | '/room/$id'
+  fullPaths:
+    | '/login'
+    | '/signup'
+    | '/settings'
+    | '/'
+    | '/room/text/$id'
+    | '/room/voice/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/signup' | '/settings' | '/' | '/room/$id'
+  to:
+    | '/login'
+    | '/signup'
+    | '/settings'
+    | '/'
+    | '/room/text/$id'
+    | '/room/voice/$id'
   id:
     | '__root__'
     | '/_layout'
@@ -81,7 +102,8 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_layout/settings'
     | '/_layout/'
-    | '/_layout/room/$id'
+    | '/_layout/room/text/$id'
+    | '/_layout/room/voice/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -127,11 +149,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutSettingsRouteImport
       parentRoute: typeof LayoutRoute
     }
-    '/_layout/room/$id': {
-      id: '/_layout/room/$id'
-      path: '/room/$id'
-      fullPath: '/room/$id'
-      preLoaderRoute: typeof LayoutRoomIdRouteImport
+    '/_layout/room/voice/$id': {
+      id: '/_layout/room/voice/$id'
+      path: '/room/voice/$id'
+      fullPath: '/room/voice/$id'
+      preLoaderRoute: typeof LayoutRoomVoiceIdRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/room/text/$id': {
+      id: '/_layout/room/text/$id'
+      path: '/room/text/$id'
+      fullPath: '/room/text/$id'
+      preLoaderRoute: typeof LayoutRoomTextIdRouteImport
       parentRoute: typeof LayoutRoute
     }
   }
@@ -140,13 +169,15 @@ declare module '@tanstack/react-router' {
 interface LayoutRouteChildren {
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
-  LayoutRoomIdRoute: typeof LayoutRoomIdRoute
+  LayoutRoomTextIdRoute: typeof LayoutRoomTextIdRoute
+  LayoutRoomVoiceIdRoute: typeof LayoutRoomVoiceIdRoute
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutIndexRoute: LayoutIndexRoute,
-  LayoutRoomIdRoute: LayoutRoomIdRoute,
+  LayoutRoomTextIdRoute: LayoutRoomTextIdRoute,
+  LayoutRoomVoiceIdRoute: LayoutRoomVoiceIdRoute,
 }
 
 const LayoutRouteWithChildren =

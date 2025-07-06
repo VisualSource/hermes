@@ -1,5 +1,7 @@
 import type { SocketCommand, SocketMessageMap } from "hermes-shared";
 import type { User } from "../model";
+import { RoomManager } from "./roomManager";
+import { database } from "./database";
 
 type WS = Bun.ServerWebSocket<{ user: User; }>;
 type Handler = {
@@ -15,11 +17,42 @@ const formatResponse = <T extends keyof SocketMessageMap>(type: T, data: SocketM
 }
 
 export const socketHandlers: Handler = {
+    "channel::room::send_text": async (_app, ws, message) => {
+        const id = crypto.randomUUID();
+        await database.prepare("INSERT INTO messages VALUES (?,?,?,?)").run(
+            id,
+            message.message,
+            ws.data.user.id,
+            message.roomId
+        );
+
+        ws.publish(`${message.channelId}/${message.roomId}/text`, formatResponse("channel::room::text", {
+            channelId: message.channelId,
+            roomId: message.roomId,
+            message: message.message,
+            user: ws.data.user.id,
+            id
+        }));
+    },
+    "channel::room::join_text": async (_app, ws, message) => {
+        ws.subscribe(`${message.channelId}/${message.roomId}/text`);
+    },
+    "channel::room::leave_text": async (_app, ws, message) => {
+        ws.unsubscribe(`${message.channelId}/${message.roomId}/text`);
+    },
     "channel::room::join": async (_app, ws, message) => {
         const userId = ws.data.user.id;
         // TODO: validate room and channel ids
 
         ws.subscribe(`${message.channelId}/${message.roomId}/peer/${userId}`);
+
+        const manager = RoomManager.get();
+
+        if (!manager.hasRoom(message.roomId)) {
+            manager.addRoom(message.roomId);
+        }
+
+        manager.addUserToRoom(message.roomId, userId);
 
         const payload = {
             user: userId,
@@ -31,6 +64,9 @@ export const socketHandlers: Handler = {
     },
     "channel::room::leave": async (_app, ws, msg) => {
         ws.unsubscribe(`${msg.channelId}/${msg.roomId}/peer/${ws.data.user.id}`);
+
+        const manager = RoomManager.get();
+        manager.removeUserFromRoom(msg.roomId, ws.data.user.id);
 
         ws.publish(msg.channelId, formatResponse("channel::room::user_leave", {
             channelId: msg.channelId,

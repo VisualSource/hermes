@@ -23,7 +23,7 @@ class RTC {
     socket: WebSocket;
     frameManager: Record<string, number> = {};
     roomId: string | null = null;
-    channelId = "001417d2-c76c-4622-9e75-bb6303341cd0";
+    channelId = import.meta.env.DEFAULT_CHANNEL_ID as string;
 
     constructor() {
         const token = sessionStorage.getItem("token");

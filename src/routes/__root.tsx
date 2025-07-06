@@ -1,7 +1,7 @@
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { Toaster } from "@/components/ui/sonner";
-import { App } from "@/lib/app";
+import type { App } from "@/lib/app";
 interface RouterContext {
     app: App
 }

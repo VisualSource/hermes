@@ -175,6 +175,48 @@ export default class Auth extends EventTarget {
         return data;
     }
 
+    public async getTextRoomMessages(roomId: string) {
+        if (!this.#token) throw new Error("No authorization");
+
+        const response = await fetch(`https://${import.meta.env.VITE_SERVER_HOST}/api/room/${roomId}/messages`, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${this.#token}`
+            },
+            danger: {
+                acceptInvalidCerts: true,
+                acceptInvalidHostnames: false
+            }
+        });
+
+        if (!response.ok) throw new Error(response.statusText, { cause: response });
+
+        const data = await response.json() as { message: string; roomId: string; user: string }[];
+
+        return data;
+    }
+
+    public async getChannelDetails(channelId: string) {
+        if (!this.#token) throw new Error("No authorization");
+
+        const response = await fetch(`https://${import.meta.env.VITE_SERVER_HOST}/api/channel/${channelId}`, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${this.#token}`
+            },
+            danger: {
+                acceptInvalidCerts: true,
+                acceptInvalidHostnames: false
+            }
+        });
+
+        if (!response.ok) throw new Error(response.statusText, { cause: response });
+
+        const data = await response.json() as { rooms: { id: string; name: string; channelId: string; type: "text" | "media" }[] };
+
+        return data;
+    }
+
     //#endregion
 
     //#region React
