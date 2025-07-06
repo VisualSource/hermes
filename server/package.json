@@ -10,8 +10,9 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@sapphi-red/web-noise-suppressor": "^0.3.5",
+    "hermes-shared": "link:hermes-shared",
     "jose": "^6.0.11",
-    "zod": "^3.25.67",
-    "hermes-shared": "link:hermes-shared"
+    "zod": "^3.25.67"
   }
 }

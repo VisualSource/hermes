@@ -7,6 +7,7 @@ type Handler = {
 }
 
 const formatResponse = <T extends keyof SocketMessageMap>(type: T, data: SocketMessageMap[T]) => {
+    console.log(`[SERVER -> CLIENT][${type}]`);
     return JSON.stringify({
         type,
         data

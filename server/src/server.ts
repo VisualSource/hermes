@@ -1,6 +1,6 @@
 import type { BunRequest } from "bun";
 
-import { join } from "node:path";
+import { join, normalize } from "node:path";
 import { HttpError } from "./utils";
 import { password } from "bun";
 import { Database } from "bun:sqlite";
@@ -102,6 +102,9 @@ Bun.serve({
 
             try {
                 const { type, data } = socketCommand.parse(JSON.parse(message));
+
+                console.log(`[CLEINT -> SERVER][${type}]`);
+
                 const handler = socketHandlers[type];
                 if (!handler) throw new Error(`Unable to handle event '${type}'`);
                 await handler({}, ws as Bun.ServerWebSocket<{ user: User }>, data as never);
@@ -299,7 +302,16 @@ Bun.serve({
         },
 
         "/": home,
-
+        "/file/:filename": {
+            GET: (req) => {
+                const filename = req.params.filename;
+                return new Response(Bun.file(join(import.meta.dirname, "..", "public", normalize(filename))), {
+                    headers: {
+                        "Content-Type": `application/${filename.endsWith("js") ? "javascript" : "wasm"}`
+                    }
+                })
+            }
+        },
         "/*": new Response("Not Found", { status: 404 }),
     },
     error(error) {

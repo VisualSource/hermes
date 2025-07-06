@@ -1,4 +1,5 @@
 import type { App } from "./app";
+import { RnnoiseManager } from "./rnnoise";
 import { getWebSocket } from "./socketWapper";
 import { type SocketCommand, type SocketCommandMap, socketMessage } from "hermes-shared";
 
@@ -8,6 +9,8 @@ const WebSocket = getWebSocket();
 const RTCConfig = {
     iceServers: [
         { urls: ["stun:stun.l.google.com:19302"] },
+        { urls: ["stun:stun1.l.google.com:19302"] },
+        { urls: ["stun:stun2.l.google.com:19302"] },
         /* { urls: ["stun:stun1.l.google.com:19302"] },
          { urls: ["stun:stun2.l.google.com:19302"] },
          { urls: ["stun:stun3.l.google.com:19302"] },
@@ -26,6 +29,8 @@ export class RTC extends EventTarget {
 
     #rooms = new Map<string, { users: Set<string>, name: string; id: string; }>();
 
+    #rnnoise = new RnnoiseManager();
+
     constructor(private app: App) {
         super();
 
@@ -35,6 +40,8 @@ export class RTC extends EventTarget {
     //#region React
     public async mount() {
         const { reject, resolve, promise } = Promise.withResolvers();
+
+        await this.#rnnoise.init();
 
         console.log("mounting socket");
 
@@ -46,6 +53,7 @@ export class RTC extends EventTarget {
             resolve();
         });
         this.#socket.addEventListener("error", (ev) => {
+            reject(ev);
             console.error(ev);
         });
         this.#socket.addEventListener("close", (ev) => {
@@ -93,6 +101,7 @@ export class RTC extends EventTarget {
         }
 
         const config = {
+            video: false,
             audio: {
                 deviceId: "default",
                 echoCancellation: {
@@ -101,17 +110,19 @@ export class RTC extends EventTarget {
                 },
                 noiseSuppression: true
             }
-        } as MediaStreamConstraints
+        } satisfies MediaStreamConstraints;
 
         const settings = localStorage.getItem("diviceInputSettings")
         if (settings) {
-            JSON.parse(settings);
-
+            const divices = JSON.parse(settings) as { camera: string; mic: string; };
+            config.audio.deviceId = divices.mic;
         }
 
-        const media = await navigator.mediaDevices.getUserMedia(config);
+        /// https://github.com/shiguredo/rnnoise-wasm?tab=readme-ov-file
+        const stream = await navigator.mediaDevices.getUserMedia(config);
 
-        this.#streams.set("self", [media]);
+        const output = await this.#rnnoise.createProcesser(stream);
+        this.#streams.set("self", [output]);
 
         this.send("channel::room::join", { channelId: this.#currentChannelId, roomId });
         this.dispatchEvent(new Event(`media-stream::${userId}`));
@@ -139,6 +150,8 @@ export class RTC extends EventTarget {
             room?.users.delete(id);
             this.#rooms.set(room.id, { ...room });
         }
+
+        this.#streams.get("self")?.at(0)?.getTracks().forEach(e => e.stop());
 
         this.dispatchEvent(new CustomEvent(`room::${roomId}::update`, {
             detail: {
@@ -299,6 +312,7 @@ export class RTC extends EventTarget {
             stream = new MediaStream([ev.track]);
         }
 
+        console.log("Adding track for user", user);
 
         let streams = this.#streams.get(user);
         if (!streams) {

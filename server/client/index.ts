@@ -1,3 +1,6 @@
+import type { SocketMessage } from "hermes-shared";
+import { RnnoiseManager } from "./rnnoise";
+
 const rtcConfig = {
     iceServers: [
         { urls: ["stun:stun.l.google.com:19302"] },
@@ -7,6 +10,7 @@ const rtcConfig = {
 }
 //https://medium.com/swlh/manage-dynamic-multi-peer-connections-in-webrtc-3ff4e10f75b7
 class RTC {
+    rnoise = new RnnoiseManager();
     connections = new Map<string, RTCPeerConnection>();
     media: {
         stream: MediaStream | undefined;
@@ -17,7 +21,7 @@ class RTC {
         }
 
     socket: WebSocket;
-    frame
+    frameManager: Record<string, number> = {};
     roomId: string | null = null;
     channelId = "001417d2-c76c-4622-9e75-bb6303341cd0";
 
@@ -34,14 +38,28 @@ class RTC {
     }
 
     private onMessage = async (ev: MessageEvent<string>) => {
-        const payload = JSON.parse(ev.data);
+        const payload = JSON.parse(ev.data) as SocketMessage;
 
         switch (payload.type) {
+            case "channel::room::user_leave": {
+                if (payload.data.roomId !== this.roomId) return;
+
+                this.connections.get(payload.data.user)?.close();
+                this.connections.delete(payload.data.user);
+
+                cancelAnimationFrame(this.frameManager[payload.data.user]);
+                document.querySelector(`div[data-owner='${payload.data.user}']`)?.remove();
+
+                break;
+            }
             case "channel::room::user_join": {
                 const user = payload.data.user;
                 console.log("User joined", user);
 
-                if (payload.roomId !== this.roomId) return;
+                if (payload.data.roomId !== this.roomId) {
+                    console.log(`User is in room '${this.roomId}' but the event was for '${payload.data.roomId}'`);
+                    return;
+                }
 
                 const peer = new RTCPeerConnection(rtcConfig);
 
@@ -148,14 +166,19 @@ class RTC {
         const owner = document.createElement("h4");
         owner.textContent = user;
         container.appendChild(owner);
+        container.setAttribute("data-owner", user);
 
         if (ev.track.kind !== "video") {
             const audio = document.createElement("audio");
             audio.setAttribute("autoplay", "true");
             audio.setAttribute("playinline", "true");
+
+            const height = 100;
+            const width = 175;
+
             const canvus = document.createElement("canvas");
-            canvus.setAttribute("height", "300");
-            canvus.setAttribute("width", "450");
+            canvus.setAttribute("height", height.toString());
+            canvus.setAttribute("width", width.toString());
 
             audio.srcObject = stream;
             container.appendChild(canvus);
@@ -173,14 +196,14 @@ class RTC {
 
             const ctx = canvus.getContext("2d");
             if (!ctx) throw new Error("canvus");
-            ctx?.clearRect(0, 0, 450, 300);
+            ctx?.clearRect(0, 0, width, height);
 
             const draw = () => {
-                this.frame = requestAnimationFrame(draw);
+                this.frameManager[user] = requestAnimationFrame(draw);
                 analyser.getByteTimeDomainData(dataArray);
 
                 ctx.fillStyle = "rgb(200,200,200)";
-                ctx?.fillRect(0, 0, 450, 300);
+                ctx?.fillRect(0, 0, width, height);
 
                 ctx.lineWidth = 2;
                 ctx.strokeStyle = "rgb(0 0 0)";
@@ -191,7 +214,7 @@ class RTC {
 
                 for (let i = 0; i < bufferLength; i++) {
                     const v = dataArray[i] / 128.0;
-                    const y = (v * 300) / 2;
+                    const y = (v * height) / 2;
                     if (i === 0) {
                         ctx?.moveTo(x, y);
                     } else {
@@ -201,7 +224,7 @@ class RTC {
                     x += sliceWidth;
                 }
 
-                ctx?.lineTo(450, 300 / 2);
+                ctx?.lineTo(width, height / 2);
                 ctx?.stroke();
             }
 
@@ -242,18 +265,19 @@ class RTC {
     }
 
     async init(config: { video: boolean, audio: boolean }) {
-        this.media.stream = await navigator.mediaDevices.getUserMedia({
+        await this.rnoise.init();
+
+        const media = await navigator.mediaDevices.getUserMedia({
             video: config.video,
             audio: {
-                echoCancellation: {
-                    exact: false,
-                    ideal: true,
-                },
+                echoCancellation: true,
                 noiseSuppression: true,
             }
         });
 
         this.roomId = "91b3c4ae-e243-47e0-8124-35d8f357f211";
+
+        this.media.stream = await this.rnoise.createProcesser(media);
 
         this.send("channel::room::join", {
             channelId: this.channelId,
@@ -261,14 +285,18 @@ class RTC {
         });
     }
     destroy() {
-        cancelAnimationFrame(this.frame);
-        this.roomId = null;
-        this.connections.forEach(e => e.close());
-        this.connections.clear();
         this.send("channel::room::leave", {
             channelId: this.channelId,
             roomId: this.roomId
         });
+
+        this.media.stream?.getTracks().forEach(e => e.stop());
+        for (const item of Object.entries(this.frameManager)) {
+            cancelAnimationFrame(item[1]);
+        }
+        this.roomId = null;
+        this.connections.forEach(e => e.close());
+        this.connections.clear();
     }
 }
 

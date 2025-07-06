@@ -18,6 +18,13 @@ class Wrapper extends EventTarget implements WebSocket {
     constructor(public url: string, prots?: string[]) {
         super();
 
+        if (import.meta.env.DEV) {
+            import.meta.hot?.on("vite:beforeFullReload", () => {
+                this.close();
+            });
+        }
+
+        this.readyState = Wrapper.CONNECTING;
         this.abort = new AbortController();
         const signal = this.abort.signal;
         TauriWebSocket.connect(url).then((socket) => {
@@ -31,7 +38,6 @@ class Wrapper extends EventTarget implements WebSocket {
                 return;
             }
 
-            this.dispatchEvent(new Event("open"));
             socket.addListener((ev) => {
                 switch (ev.type) {
                     case "Text":
@@ -46,9 +52,11 @@ class Wrapper extends EventTarget implements WebSocket {
                         break;
                 }
             });
-
+            this.readyState = Wrapper.OPEN;
+            this.dispatchEvent(new Event("open"));
         }).catch(e => {
             console.error(e);
+            this.readyState = Wrapper.CLOSED;
             this.dispatchEvent(new Event("error"));
         });
 
@@ -60,7 +68,9 @@ class Wrapper extends EventTarget implements WebSocket {
             console.error(e);
             this.dispatchEvent(new Event("error"));
         });
+        this.readyState = Wrapper.CLOSED;
         this.socket = null;
+        this.dispatchEvent(new Event("close"));
     }
     send(data: string | ArrayBufferLike | Blob | ArrayBufferView): void {
         if (typeof data !== "string") throw new Error("Unsupported");
