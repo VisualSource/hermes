@@ -1,0 +1,35 @@
+services:
+  proxy:
+    # https://hub.docker.com/_/caddy
+    # https://caddyserver.com/docs/running#local-https-with-docker
+    image: caddy:2.11-nanoserver
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:433/udp"
+    volumes:
+      - $PWD/conf:/etc/caddy
+      - $PWD/site:/srv
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - front-tier
+      - back-tier
+
+  backend:
+    restart: unless-stopped
+    dockerfile: ../packages/server/Dockerfile
+    volumes:
+      - hermes-data:/etc/data
+    networks:
+      - back-tier
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+
+networks:
+  front-tier: {}
+  back-tier: {}

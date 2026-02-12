@@ -1,0 +1,9 @@
+[package]
+name = "hermes-server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+oxide-auth = "0.6.1"
+rocket = { version = "0.5.1" }
+rocket_ws = { version = "0.1.1" }
