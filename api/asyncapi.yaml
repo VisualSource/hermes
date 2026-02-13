@@ -7,7 +7,7 @@ info:
     Hermes chat api websocket api definition
 channels:
   hermesServer:
-    address: /
+    address: /ws
     messages:
       ping:
         $ref: '#/components/messages/ping'
@@ -30,6 +30,13 @@ operations:
     action: send
     channel:
       $ref: '#/channels/hermesServer'
+  
+  receiveJoinRoom:
+    action: receive
+    channel: 
+      $ref: '#/channels/hermesServer
+
+  # start rtc
   sendRtcOffer:
     action: send
     channel:
@@ -38,30 +45,24 @@ operations:
     action: send
     channel:
       $ref: '#/channels/hermesServer
-  reveiveChannelEvent:
-    action: receive
-    channel:
-      $ref: '#/channels/hermesServer'
-  receiveRoomEvent:
-    action: receive
-    channel:
-      $ref: '#/channels/hermesServer'
-  receiveUserJoinRoom:
-    action: receive
-    channel:
-      $ref: '#/channels/hermesServer'
-  receiveUserLeaveRoom:
-    action: receive
-    channel:
-      $ref: '#/channels/hermesServer'
+  sendRtcNewIceCandidate:
+    action: send 
+    channel: 
+      $ref: '#/channels/hermesServer
   receiveRtcOffer:
     action: receive
-    channel:
-      $ref: '#/channels/hermesServer'
+    channel: 
+      $ref: '#/channels/hermesServer
   receiveRtcAnswer:
     action: receive
-    channel:
-      $ref: '#/channels/hermesServer'
+    channel: 
+      $ref: '#/channels/hermesServer
+  receiveRtcNewIceCandidate:
+    action: receive
+    channel: 
+      $ref: '#/channels/hermesServer
+
+
   receivePing:
     action: receive
     channel:

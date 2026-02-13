@@ -1,14 +1,14 @@
 //https://medium.com/swlh/manage-dynamic-multi-peer-connections-in-webrtc-3ff4e10f75b7
-const DefaultRTCConfiguration: RTCConfiguration = {
-    iceServers: [
+const DefaultRTCIceServer: RTCIceServer[]= 
+    [
         { urls: ["stun:stun.l.google.com:19302"] },
         { urls: ["stun:stun1.l.google.com:19302"] },
         { urls: ["stun:stun2.l.google.com:19302"] },
     ]
-}
-
+    
 export class RTC extends EventTarget {
     private conns: Map<string,RTCPeerConnection> = new Map();
+
 
     /**
      * Init Rtc peer connetion and return session description that can be then set to peer
@@ -21,17 +21,9 @@ export class RTC extends EventTarget {
      * @returns 
      */
     public async initConnection(peerId: string){
-        const { reject, resolve, promise } = Promise.withResolvers<RTCSessionDescription>();
-
-        const peer = new RTCPeerConnection(DefaultRTCConfiguration);
-
-        peer.addEventListener("icecandidate",(ev)=>{
-            if (ev.candidate) return;
-            const description = peer.localDescription;
-            if(!description) return reject("unable to get localDescription");
-            resolve(description);
+        const peer = new RTCPeerConnection({
+            iceServers: DefaultRTCIceServer,
         });
-        peer.addEventListener("icecandidateerror",(ev)=>reject(ev));
         this.initSharedEventHandler(peerId,peer);
 
         const description = await peer.createOffer({
@@ -39,10 +31,11 @@ export class RTC extends EventTarget {
             offerToReceiveVideo: true,
         });
         await peer.setLocalDescription(description);
+        if(!peer.localDescription) throw new Error("local description is null");
 
         this.conns.set(peerId,peer);
 
-        return await promise;
+        return peer.localDescription;
     }
 
     /**
@@ -53,28 +46,22 @@ export class RTC extends EventTarget {
      * @returns 
      */
     public async initConnectionFromRemote(peerId: string, remoteDescription: RTCSessionDescriptionInit){
-        const peer = new RTCPeerConnection(DefaultRTCConfiguration);
-
-        const { resolve, reject, promise } = Promise.withResolvers<RTCSessionDescription>();
-
-        peer.addEventListener("icecandidate",(ev)=>{
-            if(ev.candidate) return reject("got a candidate");
-            const description = peer.localDescription;
-            if(!description) return reject("unable to get local description");
-
-            resolve(description);
+        const peer = new RTCPeerConnection({
+            iceServers: DefaultRTCIceServer
         });
-         peer.addEventListener("icecandidateerror",(ev)=>reject(ev));
+
         this.initSharedEventHandler(peerId,peer);
-        
+
         await peer.setRemoteDescription(remoteDescription);
 
         const description = await peer.createAnswer();
         await peer.setLocalDescription(description);
 
+        if(!peer.localDescription) throw new Error("local description is null");
+
         this.conns.set(peerId,peer);
 
-        return await promise;
+        return peer.localDescription;
     }
 
     /**
@@ -88,6 +75,42 @@ export class RTC extends EventTarget {
         if(!peer) throw new Error(`unable to find peer with id of "${peerId}"`);
 
         await peer.setRemoteDescription(remoteDescription);
+    }
+
+    public async addIceCandidate(peerId: string, candidate: RTCLocalIceCandidateInit){
+        const ca = new RTCIceCandidate(candidate);
+
+        const peer = this.conns.get(peerId);
+        if(!peer) throw new Error(`unable to find peer with id of "${peerId}"`);
+
+        console.debug(peer.remoteDescription);        
+
+        await peer.addIceCandidate(ca);
+    }
+
+    public async closeConnection(peerId: string){
+        const conn = this.conns.get(peerId);
+        if(!conn) return;
+
+        conn.close();
+        this.conns.delete(peerId);
+    }
+
+    public async closeConnections(){
+        for(const [_,conn] of this.conns){
+            conn.close();
+        }
+
+        this.conns.clear();
+
+        this.dispatchEvent(new Event("rtc-close"));
+    }
+
+    public getConnection(peerId: string){
+        const peer = this.conns.get(peerId);
+        if(!peer) throw new Error(`unable to find peer with id of "${peerId}"`);
+
+        return peer;
     }
 
     /**
@@ -112,13 +135,34 @@ export class RTC extends EventTarget {
     }
 
     private initSharedEventHandler(peerId: string, peer: RTCPeerConnection){
-        peer.addEventListener("connectionstatechange",()=>{
-            if(peer.connectionState === "closed") {
-                this.conns.delete(peerId);
-            }  
-
-            this.dispatchEvent(new RTCConnectionStateChangeEvent(peerId,peer.connectionState));
+        peer.addEventListener("icecandidate",(ev)=>{
+            if(!ev.candidate) return;
+            this.dispatchEvent(new RTCNewIceCandidate(peerId,ev.candidate))
         });
+        peer.addEventListener("icecandidateerror",(ev)=>{
+            console.error(ev);
+        });
+        peer.addEventListener("icegatheringstatechange",(ev)=>{
+            console.debug(ev);
+        });
+        peer.addEventListener("iceconnectionstatechange",()=>{
+            switch(peer.iceConnectionState){
+                case "closed":
+                case "failed":
+                    this.closeConnection(peerId);
+                    this.dispatchEvent(new RTCEvent(peer.iceConnectionState === "failed" ? "rtc-connection-failed" : "rtc-connection-closed",peerId));
+                break;
+            }
+        })  
+        peer.addEventListener("signalingstatechange",()=>{
+            switch(peer.signalingState){
+                case "closed":
+                    this.closeConnection(peerId);
+                    this.dispatchEvent(new RTCEvent("rtc-connection-closed",peerId));
+                    break;
+            }
+        });
+      
         peer.addEventListener("negotiationneeded",async ()=>{
              const offer = await peer.createOffer({ 
                 offerToReceiveAudio: true,
@@ -133,9 +177,17 @@ export class RTC extends EventTarget {
 
             this.dispatchEvent(new RTCNegotationEvent(peerId,peer.localDescription));
         });
+
+        peer.addEventListener("connectionstatechange",()=>{
+            if(peer.connectionState === "closed") {
+                this.conns.delete(peerId);
+            }  
+
+            this.dispatchEvent(new RTCConnectionStateChangeEvent(peerId,peer.connectionState));
+        });
         peer.addEventListener("track",(ev)=>{
             this.dispatchEvent(new RTCTrackEvent(peerId,ev.track))
-        });
+        });            
     }
 }
 
@@ -153,5 +205,17 @@ class RTCNegotationEvent extends Event {
 class RTCTrackEvent extends Event {
     constructor(public peerId: string, public track: MediaStreamTrack ){
         super("rtc-track")
+    }
+}
+
+class RTCNewIceCandidate extends Event {
+    constructor(public peerId: string, public candidate: RTCIceCandidate){
+        super("rtc-new-ice-candidate")
+    }
+}
+
+class RTCEvent extends Event {
+    constructor(name: string, public peerId: string){
+        super(name);
     }
 }
