@@ -12,6 +12,7 @@
   "dependencies": {
     "@badgateway/oauth2-client": "^3.3.1",
     "@base-ui/react": "^1.2.0",
+    "@sapphi-red/web-noise-suppressor": "^0.3.5",
     "@tanstack/react-query": "^5.90.21",
     "@tanstack/react-router": "^1.159.5",
     "@tauri-apps/api": "^2",
@@ -30,10 +31,12 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "input-otp": "^1.4.2",
-    "lucide-react": "^0.563.0",
+    "lucide-react": "^0.564.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-markdown": "^10.1.0",
     "react-window": "^2.2.6",
+    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.4.0",
     "vaul": "^1.1.2"
   },
