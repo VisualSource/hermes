@@ -1,25 +1,11 @@
-use rocket::{get,launch,routes};
-use rocket_ws::{WebSocket, Stream};
+use actix_web::{App, HttpServer, web};
+
 mod routes;
 
-#[get("/ws")]
-fn ws(ws: WebSocket) -> Stream!['static] {
-    ws.stream(|id| id)
-}
-
-#[get("/")]
-fn index() -> &'static str {
-    "hello, World"
-}
-
-#[launch]
-fn rocket() -> _ {
-    rocket::build().mount("/", routes![
-        index,
-        ws,
-        routes::oauth::token,
-        routes::oauth::authorize,
-        routes::oauth::authorize_consent,
-        routes::oauth::refresh
-    ])
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    HttpServer::new(|| App::new().service(routes::index).route("/ws", web::get().to(routes::websocket::ws)))
+        .bind(("localhost", 7433))?
+        .run()
+        .await
 }

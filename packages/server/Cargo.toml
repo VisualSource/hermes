@@ -3,8 +3,27 @@ name = "hermes-server"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "hermes-server"
+path = "src/main.rs"
+
 [dependencies]
-oxide-auth = "0.6.1"
-rocket = { version = "0.5.1" }
-rocket_ws = { version = "0.1.1" }
+actix-web = "4"
+actix-ws = "0.3"
+oxide-auth-actix = "0.3" 
+oxide-auth = "0.6"
+futures-util = "0.3"
+log = "0.4"
 sqlx = { version = "0.8", features = [ "runtime-tokio", "sqlite", "macros","migrate","bstr", "time"] }
+utoipa = "5.4"
+utoipa-actix-web = "0.1"
+log4rs = "1.4"
+totp-rs = "5.7.0"
+dotenvy = "0.15.7"
+
+[profile.release] 
+opt-level = "s"  # Optimize for binary size
+strip = true  # Remove debug symbols
+lto = true  # Enables link to optimizations
+panic =  "unwind"  # Strip expensive panic clean-up logic
+codegen-units = 1  # Compile crates one after another so the compiler can optimize better
