@@ -1,0 +1,33 @@
+setup:
+    [] oauth
+        [] code_verifier
+        [] login page
+        [] signup page
+    [] database
+        [] schema
+        [] models
+    [] utopia
+    [] rate limiter
+    
+api:
+   [] getMessages
+   [] uploadFile
+   [] getChannels
+   [] getChannel
+   [] getServer
+   [] getServers
+   [] getUsers
+   [] getUser
+
+
+websocket:
+    [ ] RTC 
+        [] new ice candiate
+        [] offer
+        [] awnser
+    [] typing
+    [] sendMessage
+    [] reseveMessage
+    [] sendEditMessage
+    [] reseveMessageEdited
+    

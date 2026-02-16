@@ -25,6 +25,7 @@ pub struct OAuthState {
 
 pub enum Extras {
     Get,
+    Post(String),
     Nothing,
 }
 
@@ -110,6 +111,13 @@ where
                         OwnerConsent::InProgress(response)
                     },
                 );
+
+                op.run(self.with_solicitor(solicitor))
+            }
+            Extras::Post(query) => {
+                let solicitor = FnSolicitor(move |_: &mut OAuthRequest, _: Solicitation| {
+                    OwnerConsent::Authorized("dummy user".to_owned())
+                });
 
                 op.run(self.with_solicitor(solicitor))
             }
