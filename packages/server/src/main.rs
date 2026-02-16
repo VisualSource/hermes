@@ -25,7 +25,6 @@ async fn main() -> std::io::Result<()> {
     let pool = web::Data::new(db);
 
     let secert = std::env::var("APP_SECRET").expect("failed to get secert");
-
     let csrf_config = CsrfMiddlewareConfig::double_submit_cookie(secert.as_bytes());
 
     HttpServer::new(move || {
