@@ -31,3 +31,13 @@ websocket:
     [] sendEditMessage
     [] reseveMessageEdited
     
+
+resources
+https://github.com/ianlintner/rust-oauth2-server/blob/main/docs/flows/authorization-code.md
+https://docs.rs/argon2/0.5.3/argon2/
+https://auth0.com/docs/get-started/authentication-and-authorization-flow/authorization-code-flow-with-pkce
+https://auth0.com/docs/get-started/authentication-and-authorization-flow/authorization-code-flow/add-login-auth-code-flow
+https://actix.rs/docs/application
+https://github.com/actix/examples/blob/main/websockets/chat-actorless/src/server.rs
+https://github.com/modrinth/code/blob/main/apps/labrinth/src/auth/oauth/mod.rs
+https://github.com/197g/oxide-auth/blob/master/oxide-auth-actix/examples/actix-example/src/main.rs#L71
