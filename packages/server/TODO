@@ -6,7 +6,7 @@ setup:
     [] database
         [] schema
         [] models
-    [] utopia
+    ✔ utopia @done(26-02-16 21:18)
     [] rate limiter
     
 api:
