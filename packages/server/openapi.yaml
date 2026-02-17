@@ -1,0 +1,82 @@
+openapi: 3.1.0
+info:
+  title: hermes-server
+  description: Hermes server
+  license:
+    name: ''
+  version: 0.1.0
+paths:
+  /authorize:
+    get:
+      tags:
+      - oauth
+      description: authorize a user for request a authorization code
+      operationId: authorize
+      responses:
+        '302':
+          description: ''
+          headers:
+            Location:
+              schema:
+                type: string
+              description: redirect to login page if needed
+  /login:
+    get:
+      tags:
+      - oauth
+      description: login page
+      operationId: login
+      responses:
+        '200':
+          description: ''
+          content:
+            text/html:
+              schema:
+                type: string
+    post:
+      tags:
+      - oauth
+      description: login page submition endpoint
+      operationId: login_post
+      requestBody:
+        content:
+          application/x-www-form-urlencoded: {}
+      responses:
+        '302':
+          description: ''
+          headers:
+            Location:
+              schema:
+                type: string
+              description: redirect to callback uri
+          content:
+            text/plain:
+              schema:
+                type: string
+  /refresh:
+    post:
+      tags:
+      - oauth
+      description: refresh a access_token using a refresh token
+      operationId: refresh
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: string
+  /token:
+    post:
+      tags:
+      - oauth
+      description: request a access_token using a authoriztion code
+      operationId: token
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: string
+components: {}

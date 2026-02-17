@@ -5,13 +5,36 @@ use actix_web::{
     middleware::{Logger, NormalizePath, TrailingSlash},
     web::{self, Data},
 };
+use utoipa::OpenApi;
 
 mod db;
+mod models;
 mod routes;
 mod state;
 
+#[derive(OpenApi)]
+#[openapi(
+    info(description = "Hermes server"),
+    paths(
+        routes::oauth::login,
+        routes::oauth::login_post,
+        routes::oauth::token,
+        routes::oauth::authorize,
+        routes::oauth::refresh
+    )
+)]
+struct ApiDoc;
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    #[cfg(debug_assertions)]
+    {
+        let api = ApiDoc::openapi()
+            .to_yaml()
+            .expect("failed to generate json");
+        std::fs::write("./openapi.yaml", api)?;
+    }
+
     if let Err(_err) = dotenvy::dotenv() {
         println!("Skipping loading .env file");
     }
@@ -33,12 +56,18 @@ async fn main() -> std::io::Result<()> {
             .app_data(pool.clone())
             .wrap(NormalizePath::new(TrailingSlash::Trim))
             .wrap(Logger::default())
-            .service(routes::index)
-            .service(
-                web::scope("/")
-                    .wrap(CsrfMiddleware::new(csrf_config.clone()))
-                    .service(routes::oauth::get_routes()),
-            )
+            .configure(|cfg| {
+                cfg.service(
+                    web::scope("/")
+                        .wrap(CsrfMiddleware::new(csrf_config.clone()))
+                        .service(routes::oauth::login)
+                        .service(routes::oauth::login_post),
+                );
+
+                cfg.service(routes::oauth::refresh)
+                    .service(routes::oauth::token)
+                    .service(routes::oauth::authorize);
+            })
             .route("/ws", web::get().to(routes::websocket::ws))
     })
     .bind(("localhost", 7433))?
