@@ -1,21 +1,31 @@
 use actix::Addr;
 use actix_csrf_middleware::{CsrfToken, DEFAULT_CSRF_TOKEN_FIELD};
-use actix_web::{HttpRequest, HttpResponse, Responder, get, http::header::ContentType, post, web};
+use actix_web::{FromRequest, HttpRequest, HttpResponse, Responder, get, http::header::ContentType, post, web::{self}};
+use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use oxide_auth::endpoint::QueryParameter;
 use oxide_auth_actix::{
-    Authorize, OAuthOperation, OAuthRequest, OAuthResponse, Refresh, Token, WebError,
+    Authorize, OAuthOperation, OAuthRequest, Refresh, Token, WebError,
 };
+use utoipa::ToSchema;
+use crate::{models, routes::error::ApiError};
 
 use sqlx::SqlitePool;
 
 use crate::state::oauth::{Extras, OAuthState};
+
+
+#[derive(Debug,serde::Deserialize, ToSchema)]
+struct LoginRequest {
+    username: String,
+    password: String,
+}
 
 #[utoipa::path(
     tag="oauth",
     description = "login page submition endpoint",
     request_body(
         content(
-            ("application/x-www-form-urlencoded")
+            ("application/x-www-form-urlencoded",)
         )
     ),
     responses(
@@ -30,26 +40,42 @@ use crate::state::oauth::{Extras, OAuthState};
 )]
 #[post("/login")]
 pub async fn login_post(
-    req: OAuthRequest,
-    r: HttpRequest,
+    req: HttpRequest,
+    form: web::Form<LoginRequest>,
     state: web::Data<Addr<OAuthState>>,
-    _db: web::Data<SqlitePool>,
-) -> Result<OAuthResponse, WebError> {
-    let body = req.body().unwrap();
-
-    let usr = body.unique_value("username");
-    let psd = body.unique_value("password");
-
-    if usr.is_none() || psd.is_none() {
-        return Err(WebError::Form);
+    db: web::Data<SqlitePool>,
+) -> Result<impl Responder,  ApiError> {
+    if form.username.len() < 4 || form.password.len() < 8 {
+        return Err(ApiError::BadRequest)
     }
 
-    // validate
-    log::debug!("{:#?}", usr);
+    let user = models::user::User::find_by_username(&form.username, &db).await.or_else(|err|{
+        log::error!("{}",err);
+        Err(ApiError::InternalError)
+    })?.ok_or_else(||ApiError::BadRequest)?;
 
-    state
-        .send(Authorize(req).wrap(Extras::Post(r.query_string().to_owned())))
-        .await?
+    let hashed_pad = PasswordHash::new(&user.psd_hash);
+    if let Err(err) = hashed_pad {
+        log::error!("{}",err);
+        return Err(ApiError::InternalError)
+    }
+    let hashed_psd = hashed_pad.expect("failed to get hashed password");
+
+
+    if let Err(err) = Argon2::default().verify_password(form.password.as_bytes(), &hashed_psd) {
+        log::error!("{}",err);
+        return Err(ApiError::BadRequest)
+    }   
+
+    let mut payload = actix_web::dev::Payload::None;
+    let request = OAuthRequest::from_request(&req, &mut payload).await.map_err(|err| {
+        log::error!("{}",err);
+        ApiError::InternalError
+    })?;
+    state.send(Authorize(request).wrap(Extras::Post(req.query_string().to_owned()))).await.map_err(|err| {
+        log::error!("{}",err);
+        ApiError::InternalError
+    })
 }
 
 #[utoipa::path(
