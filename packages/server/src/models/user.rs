@@ -6,6 +6,8 @@ use uuid::{NoContext, Timestamp, Uuid};
 pub struct User {
     pub id: Uuid,
     pub username: String,
+    pub email: String,
+    pub mfa: bool,
     #[serde(skip_serializing)]
     pub psd_hash: String,
     pub avatar: Option<String>,
@@ -15,6 +17,7 @@ pub struct User {
 impl User {
     pub async fn insert_user(
         username: &str,
+        email: &str,
         avatar: &str,
         psd_hash: &str,
         db: &SqlitePool,
@@ -24,9 +27,11 @@ impl User {
         let timestamp = time::OffsetDateTime::now_utc();
 
         sqlx::query!(
-            "INSERT INTO users VALUES (?,?,?,?,?)",
+            "INSERT INTO users (id,username,email,mfa,psd_hash,avatar,created_at) VALUES (?,?,?,?,?,?,?)",
             id,
             username,
+            email,
+            false,
             psd_hash,
             avatar,
             timestamp
@@ -38,14 +43,14 @@ impl User {
     }
 
     pub async fn find_by_uuid(id: &Uuid, db: &SqlitePool) -> Result<Option<User>, DatabaseError> {
-        let result = sqlx::query_as!(User,r#"SELECT id as "id: uuid::Uuid", username, psd_hash,avatar,created_at FROM users WHERE id = ?"#,id).fetch_optional(db).await?;
+        let result = sqlx::query_as!(User,r#"SELECT id as "id: uuid::Uuid", username, psd_hash,avatar,created_at,mfa,email FROM users WHERE id = ?"#,id).fetch_optional(db).await?;
         Ok(result)
     }
     pub async fn find_by_username(
         username: &str,
         db: &SqlitePool,
     ) -> Result<Option<User>, DatabaseError> {
-        let result = sqlx::query_as!(User,r#"SELECT id as "id: uuid::Uuid", username, psd_hash, avatar, created_at FROM users WHERE username = ?"#,username).fetch_optional(db).await?;
+        let result = sqlx::query_as!(User,r#"SELECT id as "id: uuid::Uuid", username, psd_hash, avatar, created_at,mfa,email FROM users WHERE username = ?"#,username).fetch_optional(db).await?;
 
         Ok(result)
     }
@@ -92,10 +97,7 @@ impl UserPublicKey {
         Ok(id)
     }
 
-    pub async fn remove_key_by_uuid(
-        id: &Uuid,
-        db: &sqlx::SqlitePool,
-    ) -> Result<(), DatabaseError> {
+    pub async fn remove_key_by_uuid(id: &Uuid, db: &sqlx::SqlitePool) -> Result<(), DatabaseError> {
         sqlx::query!("DELETE FROM keys WHERE id = ?", id)
             .execute(db)
             .await?;

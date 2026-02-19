@@ -3,7 +3,9 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(255) UNIQUE NOT NULL,
     psd_hash TEXT NOT NULL,
     avatar TEXT,
-    created_at DATETIME NOT NULL
+    created_at DATETIME NOT NULL,
+    mfa BOOLEAN NOT NULL DEFAULT FALSE,
+    email TEXT UNIQUE NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS keys (

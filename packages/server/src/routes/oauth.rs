@@ -1,20 +1,22 @@
+use crate::{models, routes::error::ApiError};
 use actix::Addr;
 use actix_csrf_middleware::{CsrfToken, DEFAULT_CSRF_TOKEN_FIELD};
-use actix_web::{FromRequest, HttpRequest, HttpResponse, Responder, get, http::header::ContentType, post, web::{self}};
+use actix_web::{
+    FromRequest, HttpRequest, HttpResponse, Responder, get,
+    http::header::ContentType,
+    post,
+    web::{self},
+};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use oxide_auth::endpoint::QueryParameter;
-use oxide_auth_actix::{
-    Authorize, OAuthOperation, OAuthRequest, Refresh, Token, WebError,
-};
+use oxide_auth_actix::{Authorize, OAuthOperation, OAuthRequest, Refresh, Token, WebError};
 use utoipa::ToSchema;
-use crate::{models, routes::error::ApiError};
 
 use sqlx::SqlitePool;
 
 use crate::state::oauth::{Extras, OAuthState};
 
-
-#[derive(Debug,serde::Deserialize, ToSchema)]
+#[derive(Debug, serde::Deserialize, ToSchema)]
 struct LoginRequest {
     username: String,
     password: String,
@@ -30,8 +32,7 @@ struct LoginRequest {
     ),
     responses(
         (
-            status = 302, 
-            body = String , 
+            status = 302,
             headers(
                 ("Location" = String, description = "redirect to callback uri")
             )
@@ -44,38 +45,64 @@ pub async fn login_post(
     form: web::Form<LoginRequest>,
     state: web::Data<Addr<OAuthState>>,
     db: web::Data<SqlitePool>,
-) -> Result<impl Responder,  ApiError> {
+) -> Result<impl Responder, ApiError> {
     if form.username.len() < 4 || form.password.len() < 8 {
-        return Err(ApiError::BadRequest)
+        return Err(ApiError::BadRequest);
     }
 
-    let user = models::user::User::find_by_username(&form.username, &db).await.or_else(|err|{
-        log::error!("{}",err);
-        Err(ApiError::InternalError)
-    })?.ok_or_else(||ApiError::BadRequest)?;
+    let user = models::user::User::find_by_username(&form.username, &db)
+        .await
+        .or_else(|err| {
+            log::error!("{}", err);
+            Err(ApiError::InternalError)
+        })?
+        .ok_or_else(|| ApiError::BadRequest)?;
 
     let hashed_pad = PasswordHash::new(&user.psd_hash);
     if let Err(err) = hashed_pad {
-        log::error!("{}",err);
-        return Err(ApiError::InternalError)
+        log::error!("{}", err);
+        return Err(ApiError::InternalError);
     }
     let hashed_psd = hashed_pad.expect("failed to get hashed password");
 
-
     if let Err(err) = Argon2::default().verify_password(form.password.as_bytes(), &hashed_psd) {
-        log::error!("{}",err);
-        return Err(ApiError::BadRequest)
-    }   
+        log::error!("{}", err);
+        return Err(ApiError::BadRequest);
+    }
 
     let mut payload = actix_web::dev::Payload::None;
-    let request = OAuthRequest::from_request(&req, &mut payload).await.map_err(|err| {
-        log::error!("{}",err);
-        ApiError::InternalError
-    })?;
-    state.send(Authorize(request).wrap(Extras::Post(req.query_string().to_owned()))).await.map_err(|err| {
-        log::error!("{}",err);
-        ApiError::InternalError
-    })
+    let request = OAuthRequest::from_request(&req, &mut payload)
+        .await
+        .map_err(|err| {
+            log::error!("{}", err);
+            ApiError::InternalError
+        })?;
+    state
+        .send(Authorize(request).wrap(Extras::Post(req.query_string().to_owned())))
+        .await
+        .map_err(|err| {
+            log::error!("{}", err);
+            ApiError::InternalError
+        })
+}
+
+#[utoipa::path(
+    tag = "oauth",
+    description = "Signup page",
+    responses(
+        (status = OK, content_type = "text/html", body = String)
+    )
+)]
+#[get("/signup")]
+pub async fn signup(csrf: CsrfToken) -> impl Responder {
+    let body = include_str!("../static/signup.html");
+    let content = body
+        .replace("{CSRF_TOKEN_FIELD}", DEFAULT_CSRF_TOKEN_FIELD)
+        .replace("{CSRF_TOKEN_VALUE}", &csrf.0);
+
+    HttpResponse::Ok()
+        .content_type(ContentType::html())
+        .body(content)
 }
 
 #[utoipa::path(
@@ -83,7 +110,7 @@ pub async fn login_post(
     description = "login page", 
     responses(
         (
-            status = OK, 
+            status = OK,
             content_type="text/html", 
             body = String
         )
@@ -131,7 +158,7 @@ pub async fn authorize(
     description = "request a access_token using a authoriztion code", 
     responses(
         (
-            status = OK, 
+            status = OK,
             content_type="application/json", 
             body = String
         )
@@ -153,7 +180,7 @@ pub async fn token((req, state): (OAuthRequest, web::Data<Addr<OAuthState>>)) ->
     description = "refresh a access_token using a refresh token", 
     responses(
         (
-            status = OK, 
+            status = OK,
             content_type="application/json",
             body = String
         )

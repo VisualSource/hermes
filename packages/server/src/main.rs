@@ -20,7 +20,8 @@ mod state;
         routes::oauth::login_post,
         routes::oauth::token,
         routes::oauth::authorize,
-        routes::oauth::refresh
+        routes::oauth::refresh,
+        routes::oauth::signup,
     )
 )]
 struct ApiDoc;
@@ -56,19 +57,19 @@ async fn main() -> std::io::Result<()> {
             .app_data(pool.clone())
             .wrap(NormalizePath::new(TrailingSlash::Trim))
             .wrap(Logger::default())
-            .configure(|cfg| {
-                cfg.service(
-                    web::scope("/")
-                        .wrap(CsrfMiddleware::new(csrf_config.clone()))
-                        .service(routes::oauth::login)
-                        .service(routes::oauth::login_post),
-                );
+            .wrap(CsrfMiddleware::new(csrf_config.clone()))
+            .service(routes::oauth::login)
+            .service(routes::oauth::login_post)
+            .service(routes::oauth::signup)
+            .service(routes::oauth::refresh)
+            .service(routes::oauth::token)
+            .service(routes::oauth::authorize)
+            // )
+            .service(web::scope("/api/v1"))
+        //.service(
+        //   web::scope("/")
 
-                cfg.service(routes::oauth::refresh)
-                    .service(routes::oauth::token)
-                    .service(routes::oauth::authorize);
-            })
-            .route("/ws", web::get().to(routes::websocket::ws))
+        //.route("/ws", web::get().to(routes::websocket::ws))
     })
     .bind(("localhost", 7433))?
     .run()
