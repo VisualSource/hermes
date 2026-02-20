@@ -1,5 +1,6 @@
 setup:
     [] oauth
+        [] https://developers.google.com/recaptcha/docs/v3
         [] code_verifier
         [] login page
         [] signup page

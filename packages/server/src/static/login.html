@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="preconnect" href="https://www.google.com">
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="/stylesheet.css">
+    <script src="https://www.google.com/recaptcha/api.js"></script>
+</head>
+<body class="dark">
+    <div class="bg-muted flex min-h-svh flex-col items-center justify-center p-6 md:p-10">
+        <div class="w-full max-w-sm md:max-w-4xl">
+            <main class="flex flex-col gap-6">
+                <div data-slot="card" data-size="default" class="card group/card overflow-hidden p-0">
+                    <section data-slot="card-content" class="card-content grid p-0 md:grid-cols-2">
+                        <form id="login-form" class="p-6 md:p-8">
+                            <input type="hidden" name="{CSRF_TOKEN_FIELD}" value="{CSRF_TOKEN_VALUE}" />
+                            <div data-slot="field-group" class="field-group group/field-group">
+                                <div class="flex flex-col items-center gap-2 text-center">
+                                    <h1 class="text-2xl font-bold">Welcome back</h1>
+                                    <p class="text-muted-foreground text-balance"> Login to your Hermes account</p>
+                                </div>
+                                <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
+                                    <label for="username" class="field-label group/field-label peer/field-label" data-slot="field-label">Username</label>
+                                    <input class="input" data-slot="input" id="username" name="username" type="text" minlength="4" placeholder="hermes" required/>
+                                </div>
+                                <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
+                                    <div class="flex items-center">
+                                        <label for="password" class="field-label group/field-label peer/field-label" data-slot="field-label">Password</label>
+                                        <a href="/forget-psd" class="ml-auto text-sm underline-offset-2 hover:underline">Forgot your password?</a>
+                                    </div>
+                                    <input class="input" data-slot="input" id="password" name="password" required type="password" minlength="8"/>
+                                </div>
+                                <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
+                                    <button data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">Login</button>
+                                </div>
+                                <div data-slot="field-description" class="field-description text-center">
+                                    Don&apos;t have an account? <a href="/signup">Sign up</a>
+                                </div>
+                            </div>
+                        </form>
+                        <div class="bg-muted relative hidden md:block">
+                            <img src="/placeholder.svg" alt="Image" class="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"/>
+                        </div>
+                    </section>
+                </div>
+                <div data-slot="field-description" class="field-description px-6 text-center">
+                    By clicking continue, you agree to our <a href="/terms-of-service">Terms of Service</a> and <a href="/privacy-policy">Privacy Policy</a>.
+                </div>
+            </main>
+        </div>
+    </div>
+    <script type="module">
+        document.addEventListener("DOMContentLoaded",()=>{
+            document.getElementById("login-form").addEventListener("submit",async (ev)=> {
+                ev.preventDefault();
+                const path = new URL("/login",window.location.origin);
+                path.search = window.location.search;
+
+               try {
+                    await new Promise(ok=>grecaptcha.ready(ok));
+
+                    const token = await grecaptcha.execute("{reCAPTCHA_SITE_KEY}", {action: 'login'});
+
+                    const data = new FormData(ev.target);
+                    data.set("recaptcha",token);
+
+                    const response = await fetch(path,{
+                        method: "post",
+                        body: data
+                    });
+                    /**@type {{ redirect: string; }|{ status: number, reason: string }}*/
+                    const body = await response.json();
+                    
+                    if(!response.ok) throw new Error(response.statusText,{ cause: { body, response } });
+
+                    window.location.herf = body.redirect;
+               } catch (error) {
+                    console.error(error);
+               }
+            });
+        });
+    </script>
+</body>
+</html>
