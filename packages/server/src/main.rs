@@ -28,13 +28,7 @@ struct ApiDoc;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    #[cfg(debug_assertions)]
-    {
-        let api = ApiDoc::openapi()
-            .to_yaml()
-            .expect("failed to generate json");
-        std::fs::write("./openapi.yaml", api)?;
-    }
+
 
     if let Err(_err) = dotenvy::dotenv() {
         println!("Skipping loading .env file");
@@ -61,13 +55,12 @@ async fn main() -> std::io::Result<()> {
             .service(routes::oauth::login)
             .service(routes::oauth::login_post)
             .service(routes::oauth::signup)
+            .service(routes::oauth::signup_post)
             .service(routes::oauth::refresh)
             .service(routes::oauth::token)
             .service(routes::oauth::authorize)
-            // )
-            .service(web::scope("/api/v1"))
-        //.service(
-        //   web::scope("/")
+            .service(routes::static_files::get_static_files())
+            .service(web::scope("/api").service(routes::api::api_routes()))
 
         //.route("/ws", web::get().to(routes::websocket::ws))
     })

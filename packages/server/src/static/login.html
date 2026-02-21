@@ -6,8 +6,8 @@
     <title>Login</title>
     <link rel="preconnect" href="https://www.google.com">
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="/stylesheet.css">
+    <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="/static/stylesheet.css">
     <script src="https://www.google.com/recaptcha/api.js"></script>
 </head>
 <body class="dark">
@@ -32,7 +32,7 @@
                                         <label for="password" class="field-label group/field-label peer/field-label" data-slot="field-label">Password</label>
                                         <a href="/forget-psd" class="ml-auto text-sm underline-offset-2 hover:underline">Forgot your password?</a>
                                     </div>
-                                    <input class="input" data-slot="input" id="password" name="password" required type="password" minlength="8"/>
+                                    <input class="input" data-slot="input" id="password" name="password" required type="password" minlength="8" maxlength="384"/>
                                 </div>
                                 <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
                                     <button data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">Login</button>
@@ -63,14 +63,14 @@
                try {
                     await new Promise(ok=>grecaptcha.ready(ok));
 
-                    const token = await grecaptcha.execute("{reCAPTCHA_SITE_KEY}", {action: 'login'});
+                    const token = await grecaptcha.execute("{RECAPTCHA_SITE_KEY}", {action: 'login'});
 
                     const data = new FormData(ev.target);
                     data.set("recaptcha",token);
 
                     const response = await fetch(path,{
                         method: "post",
-                        body: data
+                        body: new URLSearchParams(data.entries())
                     });
                     /**@type {{ redirect: string; }|{ status: number, reason: string }}*/
                     const body = await response.json();

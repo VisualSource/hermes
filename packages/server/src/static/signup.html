@@ -6,11 +6,21 @@
     <title>Signup</title>
     <link rel="preconnect" href="https://www.google.com">
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="/stylesheet.css">
-    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
-    <script src="https://www.google.com/recaptcha/api.js"></script>
+    <link rel="stylesheet" href="/static/stylesheet.css">
+    <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
+    <head>
+    <script src="https://www.google.com/recaptcha/enterprise.js?render={RECAPTCHA_SITE_KEY}"></script>
+</head>
   </head>
 <body class="dark">
+    <template id="account-created">
+        <div data-slot="card" data-size="default" class="card group/card text-center">
+             <section data-slot="card-content" class="card-content">
+                <h1>Account Created</h1>
+                <p>Download the Hermes desktop or mobile app to get started.</p>
+             </section>
+        </div>
+    </template>
     <div class="bg-muted flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
         <div class="flex w-full max-w-sm flex-col gap-6">
             <a href="#" class="flex items-center gap-2 self-center font-medium">
@@ -52,14 +62,14 @@
                                     <div data-slot="field" role="group" data-orientation="vertical" class="field group/field grid grid-cols-2 gap-4">
                                         <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
                                             <label class="field-label group/field-label peer/field-label" data-slot="field-label" for="password">Password</label>
-                                            <input id="password" name="password" type="password" class="input" required/>
+                                            <input id="password" name="password" type="password" class="input" required minlength="8" maxlength="384"/>
                                             <div id="password-errors" role="alert" data-slot="field-error" class="field-error hidden">
                                                 <ul></ul>
                                             </div>
                                         </div>
                                         <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
                                             <label class="field-label group/field-label peer/field-label" data-slot="field-label" for="confirm-password">Confirm Password</label>
-                                            <input id="confirm-password" name="confirm-password" type="password" class="input" required/>
+                                            <input id="confirm-password" name="confirm-password" type="password" class="input" required minlength="8" maxlength="384"/>
                                              <div id="confirm-password-errors" role="alert" data-slot="field-error" class="field-error hidden">
                                                 <ul></ul>
                                             </div>
@@ -70,7 +80,7 @@
                                     </div>
                                 </div>
                                 <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
-                                    <button data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">Create Account</button>
+                                    <button id="submit-btn" data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">Create Account</button>
                                     <div data-slot="field-description" class="field-description text-center">
                                         Already have an account? <a href="/login">Sign in</a>
                                     </div>
@@ -114,21 +124,29 @@
                 const list = reporter.querySelector("ul");
 
                 target.addEventListener("change",()=>{
-                    target.checkValidity();
+                    if(!target.checkValidity()){
+                        target.setAttribute("aria-invalid","true");
+                        console.log(target.validity);
+
+
+                    }
+
+
+                    /*target.checkValidity();
                     if(!target.validationMessage){
                         target.removeAttribute("aria-invalid");
+                        reporter.classList.add("hidden");
                         if(list.children.length === 0) {
-                            reporter.classList.add("hidden");
                             for(const child of list.children) child.remove();
                         }
                     } else {
-                        target.setAttribute("aria-invalid","true");
+                      
                         const error = document.createElement("li");
                         error.setAttribute("class","text-xs");
                         error.textContent = target.validationMessage;
                         list.replaceChildren(error);
                         reporter.classList.remove("hidden");
-                    }
+                    }*/
                 });
             }
 
@@ -139,29 +157,44 @@
             document.getElementById("signup-form").addEventListener("submit",async (ev)=>{
                 ev.preventDefault();
 
+                /**@type {HTMLButtonElement|null}*/
+                const btn = document.getElementById("submit-btn");
+
                 const path = new URL("/signup",window.location.origin);
                 path.search = window.location.search;
 
                 try {
-                    await new Promise(ok=>grecaptcha.ready(ok));
+                    btn.setAttribute("disabled","true");
+   
+                    await new Promise(ok=>grecaptcha.enterprise.ready(ok));
 
-                    const token = await grecaptcha.execute("{reCAPTCHA_SITE_KEY}", {action: 'signup'});
+                    const token = await grecaptcha.enterprise.execute("{RECAPTCHA_SITE_KEY}", {action: "signup"});
 
                     const data = new FormData(ev.target);
                     data.set("recaptcha",token);
-             
+                    data.delete("confirm-password");
+
                     const response = await fetch(path,{
                         method: "POST",
-                        body: data,
+                        body: new URLSearchParams(data.entries()),
                     });
+                  
+                    if(!response.ok) throw new Error(response.statusText, { cause: { response } });
+
+                    if(response.status === 202) {
+                        /**@type {HTMLTemplateElement|null}*/
+                        const temp = document.getElementById("account-created");
+                        const content = temp.cloneNode(true);
+                        const target = document.querySelector("main");
+                        target.replaceChildren(content);
+                        return;
+                    }
 
                     /**@type {{ redirect: string }}*/
                     const body = await response.json();
-                    
-                    if(!response.ok) throw new Error(response.statusText, { cause: { body, response } });
-
                     window.location.href = body.redirect;
                 } catch (error) {
+                    btn.removeAttribute("disabled");
                     console.error(error);
                 }
             });

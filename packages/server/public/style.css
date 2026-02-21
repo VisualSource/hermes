@@ -293,14 +293,7 @@
 		@apply [&>a:hover]:text-primary [&>a]:underline [&>a]:underline-offset-4;
 	}
 
-	/*
-		<div role="alert" data-slot="field-error">
-			<ul>
-				<li>
-			</ul>
-		</div>
-	*/
-		.field-error {
+	.field-error {
 		@apply text-destructive text-sm font-normal;
 		& > ul {
 			@apply ml-4 flex list-disc flex-col gap-1;
