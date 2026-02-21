@@ -1,6 +1,10 @@
-use std::env;
+use std::{env, io::Read};
 
-use crate::{models, routes::error::ApiError, state::{password::verify_password, recaptcha}};
+use crate::{
+    models,
+    routes::error::ApiError,
+    state::{password::verify_password, recaptcha},
+};
 use actix::Addr;
 use actix_csrf_middleware::{CsrfToken, DEFAULT_CSRF_TOKEN_FIELD};
 use actix_web::{
@@ -97,55 +101,53 @@ struct SignupFormRequest {
 }
 
 impl SignupFormRequest {
-    fn verify_fields(&self) -> Result<(),Vec<(&str,isize)>>{
+    fn verify_fields(&self) -> Result<(), Vec<(&str, isize)>> {
         let mut errors = Vec::with_capacity(5);
         let usr_len = self.username.len();
         let psd_len = self.password.len();
 
         if usr_len < 4 || usr_len > 255 {
-            errors.push(("username",0));
+            errors.push(("username", 0));
         }
 
         if psd_len < 8 || psd_len > 384 {
-            errors.push(("password",0));
+            errors.push(("password", 0));
         }
- 
-        
+
         if errors.len() > 0 {
-            return Err(errors)
+            return Err(errors);
         }
 
         Ok(())
     }
 }
 
-#[utoipa::path(
-    description = "Signup endpoint"
-)]
+#[utoipa::path(description = "Signup endpoint")]
 #[post("/signup")]
-pub async fn signup_post(req: HttpRequest, form: web::Form<SignupFormRequest>, db: web::Data<SqlitePool>,) -> impl Responder {    
+pub async fn signup_post(
+    req: HttpRequest,
+    form: web::Form<SignupFormRequest>,
+    db: web::Data<SqlitePool>,
+) -> impl Responder {
     let errors = form.verify_fields();
 
     match recaptcha::get_recaptcha_assessment(&form.recaptcha, "signup").await {
-        Err(_)=>{}
-        Ok(_) =>{}
+        Err(_) => {}
+        Ok(_) => {}
     }
 
     match models::user::User::find_by_username(&form.username, &db).await {
-        Ok(Some(user)) => {
-            match verify_password(&form.password, &user.psd_hash) {
-                Ok(_) => {},
-                Err(err) => {
-                    log::error!("{}",err);
-                },
+        Ok(Some(user)) => match verify_password(&form.password, &user.psd_hash) {
+            Ok(_) => {}
+            Err(err) => {
+                log::error!("{}", err);
             }
         },
         Ok(None) => {}
         Err(err) => {
-            log::error!("{}",err);
-        },
+            log::error!("{}", err);
+        }
     }
-
 
     //TODO: check for redirect query
     // to auth provider
@@ -161,23 +163,27 @@ pub async fn signup_post(req: HttpRequest, form: web::Form<SignupFormRequest>, d
     )
 )]
 #[get("/signup")]
-pub async fn signup(csrf: CsrfToken) -> impl Responder {
+pub async fn signup(csrf: CsrfToken) -> std::io::Result<impl Responder> {
     let site_key = env::var("RECAPTCHA_SITE_KEY");
     if let Err(err) = site_key {
         log::error!("{}", err);
-        return HttpResponse::InternalServerError().finish();
+        return Ok(HttpResponse::InternalServerError().finish());
     }
     let site_key = site_key.unwrap_or_default();
 
-    let body = include_str!("../static/signup.html");
-    let content = body
+    let mut file = actix_files::NamedFile::open_async("./public/signup.html").await?;
+
+    let mut buffer = String::new();
+    file.read_to_string(&mut buffer)?;
+
+    let content = buffer
         .replace("{CSRF_TOKEN_FIELD}", DEFAULT_CSRF_TOKEN_FIELD)
         .replace("{CSRF_TOKEN_VALUE}", &csrf.0)
         .replace("{RECAPTCHA_SITE_KEY}", &site_key);
 
-    HttpResponse::Ok()
+    Ok(HttpResponse::Ok()
         .content_type(ContentType::html())
-        .body(content)
+        .body(content))
 }
 
 #[utoipa::path(
@@ -192,24 +198,26 @@ pub async fn signup(csrf: CsrfToken) -> impl Responder {
     )
 )]
 #[get("/login")]
-pub async fn login(csrf: CsrfToken) -> impl Responder {
+pub async fn login(csrf: CsrfToken) -> std::io::Result<impl Responder> {
     let site_key = env::var("RECAPTCHA_SITE_KEY");
     if let Err(err) = site_key {
         log::error!("{}", err);
-        return HttpResponse::InternalServerError().finish();
+        return Ok(HttpResponse::InternalServerError().finish());
     }
     let site_key = site_key.unwrap_or_default();
-    let body = include_str!("../static/login.html");
+       let mut file = actix_files::NamedFile::open_async("./public/signup.html").await?;
 
-    let content = body
+    let mut buffer = String::new();
+    file.read_to_string(&mut buffer)?;
+
+    let content = buffer
         .replace("{CSRF_TOKEN_FIELD}", DEFAULT_CSRF_TOKEN_FIELD)
         .replace("{CSRF_TOKEN_VALUE}", &csrf.0)
         .replace("{RECAPTCHA_SITE_KEY}", &site_key);
 
-    //TODO: validate client_id and redirect_uri
-    HttpResponse::Ok()
+    Ok(HttpResponse::Ok()
         .content_type(ContentType::html())
-        .body(content)
+        .body(content))
 }
 
 // https://auth0.com/docs/get-started/authentication-and-authorization-flow/authorization-code-flow

@@ -13,6 +13,9 @@
 </head>
   </head>
 <body class="dark">
+    <template id="field-error">
+        <li class="text-xs text-left"></li>
+    </template>
     <template id="account-created">
         <div data-slot="card" data-size="default" class="card group/card text-center">
              <section data-slot="card-content" class="card-content">
@@ -102,6 +105,9 @@
             /** @type {HTMLInputElement|null} */
             const psdCof = document.getElementById("confirm-password");
 
+            /**@type {HTMLTemplateElement|null}*/
+            const fieldError = document.getElementById("field-error");
+
             psdCof?.addEventListener("change",(ev)=>{
                 if(psd.value !== ev.target.value){
                     psdCof.setAttribute("aria-invalid","true");
@@ -113,6 +119,12 @@
                 psdCof.reportValidity();
             });
 
+            /**@param data {ValidityState}*/
+            const getErrorMessage = (data) => {
+                if(data.tooLong) return "Too long";
+                if(data.tooShort) return "Too short";
+                if(data.valueMissing) return "field is required";
+            }   
 
             /**
              * @param target {HTMLInputElement|null}
@@ -123,30 +135,19 @@
                 if(!reporter) return;
                 const list = reporter.querySelector("ul");
 
-                target.addEventListener("change",()=>{
+                target.addEventListener("input",()=>{
                     if(!target.checkValidity()){
+                        reporter.classList.remove("hidden");
                         target.setAttribute("aria-invalid","true");
-                        console.log(target.validity);
-
-
-                    }
-
-
-                    /*target.checkValidity();
-                    if(!target.validationMessage){
+                        
+                        const message = getErrorMessage(target.validity);
+                        const el = fieldError.cloneNode(true);
+                        el.textContent = message;
+                        list.replaceChildren(el);
+                    } else {
                         target.removeAttribute("aria-invalid");
                         reporter.classList.add("hidden");
-                        if(list.children.length === 0) {
-                            for(const child of list.children) child.remove();
-                        }
-                    } else {
-                      
-                        const error = document.createElement("li");
-                        error.setAttribute("class","text-xs");
-                        error.textContent = target.validationMessage;
-                        list.replaceChildren(error);
-                        reporter.classList.remove("hidden");
-                    }*/
+                    }
                 });
             }
 

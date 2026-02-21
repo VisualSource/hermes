@@ -28,8 +28,6 @@ struct ApiDoc;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-
-
     if let Err(_err) = dotenvy::dotenv() {
         println!("Skipping loading .env file");
     }

@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "pnpm exec tailwindcss --cmd ./src/static -i ./public/style.css -o ./src/static/stylesheet.css --watch",
-    "build": "pnpm exec tailwindcss --cmd ./src/static -i ./public/style.css -o ./src/static/stylesheet.css --minify"
+    "dev": "pnpm exec tailwindcss --cmd ./public -i ./public/style.css -o ./public/stylesheet.css --watch",
+    "build": "pnpm exec tailwindcss --cmd ./public -i ./public/style.css -o ./public/stylesheet.css --minify"
   },
   "keywords": [],
   "author": "",
