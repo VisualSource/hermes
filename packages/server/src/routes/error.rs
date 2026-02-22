@@ -2,23 +2,23 @@ use actix_web::{
     HttpResponse, error,
     http::{StatusCode, header::ContentType},
 };
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
-#[derive(Debug, Display, Error)]
+#[derive(Debug, Error)]
 pub enum ApiError {
-    #[display("internal error")]
+    #[error("internal error")]
     InternalError,
-    #[display("bad request")]
+    #[error("bad request")]
     BadRequest,
-    #[display("unauthorized")]
+    #[error("unauthorized")]
     Unauthorized,
-    #[display("forbidden")]
+    #[error("forbidden")]
     Forbidden,
-    #[display("not found")]
+    #[error("not found")]
     NotFound,
-    #[display("not acceptable")]
+    #[error("not acceptable")]
     NotAcceptable,
-    #[display("too many request")]
+    #[error("too many request")]
     TooManyRequest,
 }
 
@@ -38,6 +38,63 @@ impl error::ResponseError for ApiError {
             ApiError::NotFound => StatusCode::NOT_FOUND,
             ApiError::NotAcceptable => StatusCode::NOT_ACCEPTABLE,
             ApiError::TooManyRequest => StatusCode::TOO_MANY_REQUESTS,
+        }
+    }
+}
+
+
+//TODO: impl better error object => https://docs.oasis-open.org/odata/odata-json-format/v4.0/errata02/os/odata-json-format-v4.0-errata02-os-complete.html#_Toc403940655
+#[derive(Debug,Error)]
+pub enum AuthPageError {
+    #[error("invalid form data")]
+    InvalidFormData(Vec<(String,isize)>),
+    #[error("invalid user")]
+    Recaptcha,
+
+    #[error(transparent)]
+    WebError(#[from] oxide_auth_actix::WebError),
+
+    #[error(transparent)]
+    MailBoxError(#[from] actix::MailboxError),
+
+    #[error("argron error")]
+    Argon,
+    #[error(transparent)]
+    DbError(#[from] sqlx::Error),
+
+    #[error("custom error")]
+    Custom(StatusCode,String)
+}
+
+impl AuthPageError {
+    fn get_body(&self) ->  impl serde::Serialize {
+        match &self {
+            Self::InvalidFormData(errors) => serde_json::json!({ "reason":"invalid_formdata", "errors": errors.to_owned()  }),
+            Self::Custom(_, reason) => {
+                serde_json::json!({
+                    "reason": reason
+                })
+            }
+            Self::WebError(web_error) => {
+                let reason = web_error.to_string();
+                serde_json::json!({ "reason": reason, })
+            }
+            _ => serde_json::json!({ "reason": "internal_server_error" })
+         }
+    }
+}
+
+impl error::ResponseError for AuthPageError{
+    fn error_response(&self) -> HttpResponse<actix_web::body::BoxBody> {
+        HttpResponse::build(self.status_code()).json(self.get_body())
+    }
+    fn status_code(&self) -> StatusCode {
+        match &self {
+            Self::InvalidFormData(_) => StatusCode::BAD_REQUEST,
+            Self::Recaptcha => StatusCode::FORBIDDEN,
+            Self::WebError(web_error) => web_error.status_code(),
+            Self::Custom(status, _) => *status,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }

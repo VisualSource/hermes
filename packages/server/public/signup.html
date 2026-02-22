@@ -8,14 +8,9 @@
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
     <link rel="stylesheet" href="/static/stylesheet.css">
     <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
-    <head>
     <script src="https://www.google.com/recaptcha/enterprise.js?render={RECAPTCHA_SITE_KEY}"></script>
 </head>
-  </head>
 <body class="dark">
-    <template id="field-error">
-        <li class="text-xs text-left"></li>
-    </template>
     <template id="account-created">
         <div data-slot="card" data-size="default" class="card group/card text-center">
              <section data-slot="card-content" class="card-content">
@@ -100,65 +95,60 @@
     </div>
     <script type="module">
         document.addEventListener("DOMContentLoaded",()=>{
-            /** @type {HTMLInputElement|null} */
-            const psd = document.getElementById("password");
-            /** @type {HTMLInputElement|null} */
-            const psdCof = document.getElementById("confirm-password");
+            const passwordCheck = () => {
+                const psd = document.getElementById("password");
+                const psdCof = document.getElementById("confirm-password");
+                psdCof?.addEventListener("input",(ev)=>{
+                    const isSame = psd.value === ev.target.value;
+                    psdCof.setCustomValidity(isSame ? "" : "Passwords do not match");
+                    psdCof.reportValidity();
+                });
+            }
 
-            /**@type {HTMLTemplateElement|null}*/
-            const fieldError = document.getElementById("field-error");
-
-            psdCof?.addEventListener("change",(ev)=>{
-                if(psd.value !== ev.target.value){
-                    psdCof.setAttribute("aria-invalid","true");
-                    psdCof.setCustomValidity("Passwords do not match");        
-                } else {
-                    psdCof.removeAttribute("aria-invalid");
-                    psdCof.setCustomValidity("");
-                }
-                psdCof.reportValidity();
-            });
-
-            /**@param data {ValidityState}*/
-            const getErrorMessage = (data) => {
-                if(data.tooLong) return "Too long";
-                if(data.tooShort) return "Too short";
-                if(data.valueMissing) return "field is required";
+            const getErrorMessage = (target) => {
+                const validity = target.validity;
+                if(validity.tooLong) return "Field is too long";
+                if(validity.tooShort) return "Field is too short";
+                if(validity.valueMissing) return "field is required";
+                if(validity.customError) return target.validationMessage;
+                return null;
             }   
 
-            /**
-             * @param target {HTMLInputElement|null}
-            */
-            function errorReport(target){
+            const errorReport = (target) => {
                 if(!target) return;
                 const reporter = document.getElementById(`${target.name}-errors`);
                 if(!reporter) return;
                 const list = reporter.querySelector("ul");
 
+                target.addEventListener("invalid",(ev)=>ev.preventDefault() )
                 target.addEventListener("input",()=>{
                     if(!target.checkValidity()){
                         reporter.classList.remove("hidden");
                         target.setAttribute("aria-invalid","true");
                         
-                        const message = getErrorMessage(target.validity);
-                        const el = fieldError.cloneNode(true);
-                        el.textContent = message;
-                        list.replaceChildren(el);
+                        const message = getErrorMessage(target);
+
+                        const error = document.createElement("li");
+                        error.setAttribute("class","text-xs text-left")
+                        error.textContent = message;
+
+                        list.replaceChildren(error);
                     } else {
                         target.removeAttribute("aria-invalid");
                         reporter.classList.add("hidden");
+                    
                     }
                 });
             }
 
-            ["username","password","password","confirm-password"].forEach(el=>{
+            passwordCheck();
+
+            ["username","password","confirm-password"].forEach(el=>{
                 errorReport(document.getElementById(el))
             });
 
             document.getElementById("signup-form").addEventListener("submit",async (ev)=>{
                 ev.preventDefault();
-
-                /**@type {HTMLButtonElement|null}*/
                 const btn = document.getElementById("submit-btn");
 
                 const path = new URL("/signup",window.location.origin);
@@ -180,10 +170,9 @@
                         body: new URLSearchParams(data.entries()),
                     });
                   
-                    if(!response.ok) throw new Error(response.statusText, { cause: { response } });
+                    if(!response.ok) throw response;
 
                     if(response.status === 202) {
-                        /**@type {HTMLTemplateElement|null}*/
                         const temp = document.getElementById("account-created");
                         const content = temp.cloneNode(true);
                         const target = document.querySelector("main");
@@ -191,11 +180,15 @@
                         return;
                     }
 
-                    /**@type {{ redirect: string }}*/
                     const body = await response.json();
                     window.location.href = body.redirect;
                 } catch (error) {
                     btn.removeAttribute("disabled");
+                    if(error instanceof Response) {
+
+
+                        return;
+                    }
                     console.error(error);
                 }
             });

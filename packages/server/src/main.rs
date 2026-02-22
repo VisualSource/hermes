@@ -16,12 +16,7 @@ mod state;
 #[openapi(
     info(description = "Hermes server"),
     paths(
-        routes::oauth::login,
-        routes::oauth::login_post,
-        routes::oauth::token,
-        routes::oauth::authorize,
-        routes::oauth::refresh,
-        routes::oauth::signup,
+
     )
 )]
 struct ApiDoc;
@@ -50,13 +45,8 @@ async fn main() -> std::io::Result<()> {
             .wrap(NormalizePath::new(TrailingSlash::Trim))
             .wrap(Logger::default())
             .wrap(CsrfMiddleware::new(csrf_config.clone()))
-            .service(routes::oauth::login)
-            .service(routes::oauth::login_post)
-            .service(routes::oauth::signup)
-            .service(routes::oauth::signup_post)
-            .service(routes::oauth::refresh)
-            .service(routes::oauth::token)
-            .service(routes::oauth::authorize)
+            .service(routes::auth::get_account_routes())
+            .service(routes::auth::get_oauth_routes())
             .service(routes::static_files::get_static_files())
             .service(web::scope("/api").service(routes::api::api_routes()))
 

@@ -8,24 +8,27 @@
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
     <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="/static/stylesheet.css">
-    <script src="https://www.google.com/recaptcha/api.js"></script>
+    <script src="https://www.google.com/recaptcha/enterprise.js?render={RECAPTCHA_SITE_KEY}"></script>
 </head>
 <body class="dark">
-    <div class="bg-muted flex min-h-svh flex-col items-center justify-center p-6 md:p-10">
-        <div class="w-full max-w-sm md:max-w-4xl">
+    <div class="bg-muted flex min-h-svh w-full items-center justify-center p-6 md:p-10">
+        <div class="w-full max-w-sm">
             <main class="flex flex-col gap-6">
-                <div data-slot="card" data-size="default" class="card group/card overflow-hidden p-0">
-                    <section data-slot="card-content" class="card-content grid p-0 md:grid-cols-2">
-                        <form id="login-form" class="p-6 md:p-8">
+                <div data-slot="card" data-size="default" class="card group/card">
+                    <header data-slot="card-header" class="card-header group/card-header">
+                        <div data-slot="card-title" class="card-title">Login to your account</div>
+                        <div data-slot="card-description" class="card-description">Enter your username below to login to your account.</div>
+                    </header>
+                    <section data-slot="card-content" class="card-content">
+                        <form id="login-form">
                             <input type="hidden" name="{CSRF_TOKEN_FIELD}" value="{CSRF_TOKEN_VALUE}" />
                             <div data-slot="field-group" class="field-group group/field-group">
-                                <div class="flex flex-col items-center gap-2 text-center">
-                                    <h1 class="text-2xl font-bold">Welcome back</h1>
-                                    <p class="text-muted-foreground text-balance"> Login to your Hermes account</p>
-                                </div>
                                 <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
                                     <label for="username" class="field-label group/field-label peer/field-label" data-slot="field-label">Username</label>
-                                    <input class="input" data-slot="input" id="username" name="username" type="text" minlength="4" placeholder="hermes" required/>
+                                    <input class="input" data-slot="input" id="username" name="username" type="text" minlength="4" maxlength="255" placeholder="hermes" required/>
+                                     <div id="username-errors" role="alert" data-slot="field-error" class="field-error hidden">
+                                        <ul></ul>
+                                    </div>
                                 </div>
                                 <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
                                     <div class="flex items-center">
@@ -33,28 +36,73 @@
                                         <a href="/forget-psd" class="ml-auto text-sm underline-offset-2 hover:underline">Forgot your password?</a>
                                     </div>
                                     <input class="input" data-slot="input" id="password" name="password" required type="password" minlength="8" maxlength="384"/>
+                                    <div id="password-errors" role="alert" data-slot="field-error" class="field-error hidden">
+                                        <ul></ul>
+                                    </div>
                                 </div>
                                 <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
                                     <button data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">Login</button>
                                 </div>
                                 <div data-slot="field-description" class="field-description text-center">
-                                    Don&apos;t have an account? <a href="/signup">Sign up</a>
+                                    Don&apos;t have an account? <a href="/signup" id="signup-link">Sign up</a>
                                 </div>
                             </div>
                         </form>
-                        <div class="bg-muted relative hidden md:block">
-                            <img src="/placeholder.svg" alt="Image" class="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"/>
-                        </div>
                     </section>
                 </div>
                 <div data-slot="field-description" class="field-description px-6 text-center">
-                    By clicking continue, you agree to our <a href="/terms-of-service">Terms of Service</a> and <a href="/privacy-policy">Privacy Policy</a>.
+                    By clicking continue, you agree to our <a href="/terms-of-service" rel="terms-of-service">Terms of Service</a> and <a href="/privacy-policy" rel="privacy-policy">Privacy Policy</a>.
                 </div>
             </main>
         </div>
     </div>
     <script type="module">
         document.addEventListener("DOMContentLoaded",()=>{
+            const getErrorMessage = (target) => {
+                const validity = target.validity;
+                if(validity.tooLong) return "Field is too long";
+                if(validity.tooShort) return "Field is too short";
+                if(validity.valueMissing) return "field is required";
+                if(validity.customError) return target.validationMessage;
+                return null;
+            }   
+            const errorReport = (target) => {
+                if(!target) return;
+                const reporter = document.getElementById(`${target.name}-errors`);
+                if(!reporter) return;
+                const list = reporter.querySelector("ul");
+
+                target.addEventListener("invalid",(ev)=>ev.preventDefault() )
+                target.addEventListener("input",()=>{
+                    if(!target.checkValidity()){
+                        reporter.classList.remove("hidden");
+                        target.setAttribute("aria-invalid","true");
+                        
+                        const message = getErrorMessage(target);
+
+                        const error = document.createElement("li");
+                        error.setAttribute("class","text-xs text-left")
+                        error.textContent = message;
+
+                        list.replaceChildren(error);
+                    } else {
+                        target.removeAttribute("aria-invalid");
+                        reporter.classList.add("hidden");
+                    
+                    }
+                });
+            }
+
+            ["username","password"].forEach(el=>{
+                errorReport(document.getElementById(el))
+            });
+
+            /**@type {HTMLAnchorElement|null}*/
+            const link = document.getElementById("signup-link");
+            if(link){
+                link.href = `${link.href}${window.location.search}`;
+            }
+           
             document.getElementById("login-form").addEventListener("submit",async (ev)=> {
                 ev.preventDefault();
                 const path = new URL("/login",window.location.origin);

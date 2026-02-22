@@ -7,6 +7,8 @@ use thiserror::Error;
 pub enum RecaptchaError {
     #[error("failed to get env var")]
     MissingEnv(#[from] env::VarError),
+    #[error("invalid request")]
+    FailedAssessment
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -42,7 +44,7 @@ struct Analysis {
 pub async fn get_recaptcha_assessment(
     token: &str,
     expected_action: &str,
-) -> Result<bool, RecaptchaError> {
+) -> Result<(), RecaptchaError> {
     let api_key = env::var("GOOGLE_API_KEY")?;
     let project = env::var("GOOGLE_PROJECT_ID")?;
     let site_key = env::var("RECAPTCHA_SITE_KEY")?;
@@ -60,8 +62,11 @@ pub async fn get_recaptcha_assessment(
 
     log::debug!("verifing recaptcha: {}, {:#?}", url, body);
 
-    // check if valid
-    // check if score > 0.5
+    let score = 0.5;
 
-    Ok(true)
+    if score < 0.5 {
+        return Err(RecaptchaError::FailedAssessment)
+    }
+    
+    Ok(())
 }
