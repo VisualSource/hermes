@@ -1,9 +1,22 @@
 setup:
     ☐ oauth
+        [] pcke
         ☐ https://developers.google.com/recaptcha/docs/v3
-        ☐ code_verifier
+            [] recaptcha finish
         ☐ login page
+            [] page layout
+            [] api route 
+            [] finish error handing client
+            [] test
         ☐ signup page
+            [] page layout 
+            [] api route
+            [] finish error handling on client
+            [] test
+        api routes:
+            [] token 
+            [] authorize
+            [] refresh
     ☐ database
         ☐ schema
         ☐ models
@@ -26,6 +39,7 @@ websocket:
         [] new ice candiate
         [] offer
         [] awnser
+    [] notifications?
     [] typing
     [] sendMessage
     [] reseveMessage

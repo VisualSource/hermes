@@ -6,6 +6,7 @@ use actix_web::{
     web::{self, Data},
 };
 use utoipa::OpenApi;
+use actix_governor::{Governor, GovernorConfigBuilder};
 
 mod db;
 mod models;
@@ -27,6 +28,11 @@ async fn main() -> std::io::Result<()> {
 
     let oauth = state::oauth::OAuthState::preconfigured().start();
 
+    let governor_conf = GovernorConfigBuilder::default()
+        .seconds_per_request(2)
+        .burst_size(5)
+        .finish().expect("failed to construct ratelimiter config");
+
     let db = db::connect().await?;
     let pool = web::Data::new(db);
 
@@ -40,6 +46,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(NormalizePath::new(TrailingSlash::Trim))
             .wrap(Logger::default())
             .wrap(CsrfMiddleware::new(csrf_config.clone()))
+            .wrap(Governor::new(&governor_conf))
             .service(routes::auth::get_account_routes())
             .service(routes::auth::get_oauth_routes())
             .service(routes::static_files::get_static_files())
