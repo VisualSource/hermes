@@ -8,7 +8,7 @@ pub enum RecaptchaError {
     #[error("failed to get env var")]
     MissingEnv(#[from] env::VarError),
     #[error("invalid request")]
-    FailedAssessment
+    FailedAssessment,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -65,8 +65,8 @@ pub async fn get_recaptcha_assessment(
     let score = 0.5;
 
     if score < 0.5 {
-        return Err(RecaptchaError::FailedAssessment)
+        return Err(RecaptchaError::FailedAssessment);
     }
-    
+
     Ok(())
 }

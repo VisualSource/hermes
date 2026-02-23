@@ -1117,7 +1117,6 @@ dependencies = [
  "actix-web",
  "actix-ws",
  "argon2",
- "derive_more",
  "dotenvy",
  "futures-util",
  "log",

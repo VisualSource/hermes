@@ -1,14 +1,14 @@
 setup:
-    [] oauth
-        [] https://developers.google.com/recaptcha/docs/v3
-        [] code_verifier
-        [] login page
-        [] signup page
-    [] database
-        [] schema
-        [] models
-    ✔ utopia @done(26-02-16 21:18)
-    [] rate limiter
+    ☐ oauth
+        ☐ https://developers.google.com/recaptcha/docs/v3
+        ☐ code_verifier
+        ☐ login page
+        ☐ signup page
+    ☐ database
+        ☐ schema
+        ☐ models
+    ☐ utopia
+    ☐ rate limiter
     
 api:
    [] getMessages
@@ -34,6 +34,8 @@ websocket:
     
 
 resources
+https://developers.google.com/recaptcha/docs/v3
+https://www.dicebear.com/styles/rings/
 https://github.com/ianlintner/rust-oauth2-server/blob/main/docs/flows/authorization-code.md
 https://docs.rs/argon2/0.5.3/argon2/
 https://auth0.com/docs/get-started/authentication-and-authorization-flow/authorization-code-flow-with-pkce

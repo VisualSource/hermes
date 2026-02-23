@@ -1,6 +1,6 @@
 use crate::{
-    models::{self},
-    routes::error::AuthPageError,
+    models,
+    routes::error::{ApplicationError, AuthPageError, ErrorDetail, InnerError},
     state::{
         oauth::{Extras, OAuthState},
         password::{hash_password, verify_password},
@@ -18,6 +18,11 @@ use oxide_auth_actix::{Authorize, OAuthOperation, OAuthRequest};
 use sqlx::SqlitePool;
 use std::{env, io::Read};
 use utoipa::ToSchema;
+
+#[derive(Debug,serde::Serialize,ToSchema)]
+pub struct LoginResponse {
+    redirect: String
+}
 
 #[utoipa::path(
     tag="oauth", 
@@ -92,22 +97,36 @@ struct LoginRequest {
 }
 
 impl LoginRequest {
-    fn verify_payload(&self) -> Result<(), Vec<(String, isize)>> {
-        let mut errors = Vec::new();
+    fn verify_payload(&self) -> Result<(), AuthPageError> {
+        let mut errors = Vec::<ErrorDetail>::new();
 
         let psd_len = self.password.len();
         let usr_len = self.username.len();
 
-        if psd_len < 8 || psd_len > 384 {
-            errors.push(("password".to_string(), 0));
+        if psd_len < 8 {
+            errors.push(ErrorDetail::new(0, "password", "password is too short"));
         }
 
-        if usr_len < 4 || usr_len > 255 {
-            errors.push(("username".to_string(), 0));
+        if psd_len > 384 {
+            errors.push(ErrorDetail::new(1, "password", "password is too long"));
+        }
+
+        if usr_len < 4 {
+            errors.push(ErrorDetail::new(2, "username", "username is too short"));
+        }
+
+        if usr_len > 255 {
+            errors.push(ErrorDetail::new(2, "username", "username is too long"));
         }
 
         if errors.len() > 0 {
-            return Err(errors);
+            return Err(AuthPageError::Request(ApplicationError::new(
+                StatusCode::BAD_REQUEST.as_u16(),
+                "one or more field failed to validate",
+                "body",
+                errors,
+                None,
+            )));
         }
 
         Ok(())
@@ -138,29 +157,38 @@ pub async fn login_post(
     state: web::Data<Addr<OAuthState>>,
     db: web::Data<SqlitePool>,
 ) -> Result<impl Responder, AuthPageError> {
-    if let Err(errors) = form.verify_payload() {
-        return Err(AuthPageError::InvalidFormData(errors));
-    }
+    form.verify_payload()?;
 
-    match recaptcha::get_recaptcha_assessment(&form.recaptcha, "login").await {
-        Err(RecaptchaError::FailedAssessment) => return Err(AuthPageError::Recaptcha),
-        Err(RecaptchaError::MissingEnv(err)) => {
-            log::error!("{}", err);
-            return Err(AuthPageError::Custom(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "internal server error".to_string(),
-            ));
+    if let Err(err) = recaptcha::get_recaptcha_assessment(&form.recaptcha, "login").await {
+        match err {
+            RecaptchaError::FailedAssessment => return Err(AuthPageError::Recaptcha),
+            RecaptchaError::MissingEnv(err) => {
+                log::error!("{}", err);
+                return Err(AuthPageError::Request(ApplicationError::new(
+                    StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
+                    "internal server error",
+                    "server",
+                    Vec::default(),
+                    Some(InnerError::new(err.to_string())),
+                )));
+            }
         }
-        Ok(_) => {}
     }
 
     let user = match models::user::User::find_by_username(&form.username, &db).await {
         Ok(Some(user)) => user,
         Ok(None) => {
-            return Err(AuthPageError::InvalidFormData(vec![(
-                "invalid_psd_or_usr".to_string(),
-                0,
-            )]));
+            return Err(AuthPageError::Request(ApplicationError::new(
+                StatusCode::BAD_REQUEST.as_u16(),
+                "username or password is invalid",
+                "body",
+                vec![ErrorDetail::new(
+                    404,
+                    "psd_or_usr",
+                    "invalid username or password",
+                )],
+                None,
+            )));
         }
         Err(err) => {
             log::error!("{}", err);
@@ -169,16 +197,23 @@ pub async fn login_post(
     };
 
     match verify_password(&form.password, &user.psd_hash) {
-        Ok(_) => {}
+        Ok(true) => {}
         Ok(false) => {
-            return Err(AuthPageError::InvalidFormData(vec![(
-                "invalid_psd_or_usr".to_string(),
-                0,
-            )]));
+            return Err(AuthPageError::Request(ApplicationError::new(
+                StatusCode::BAD_REQUEST.as_u16(),
+                "username or password is invalid",
+                "body",
+                vec![ErrorDetail::new(
+                    404,
+                    "psd_or_usr",
+                    "invalid username or password",
+                )],
+                None,
+            )));
         }
         Err(err) => {
             log::error!("{}", err);
-            return Err(AuthPageError::Argon);
+            return Err(AuthPageError::Argon(err.to_string()));
         }
     }
 
@@ -190,13 +225,17 @@ pub async fn login_post(
         .await??;
 
     let headers = response.get_headers();
-
     let header = match headers.get("location") {
         None => {
-            return Err(AuthPageError::Custom(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "failed to get redirect uri".to_string(),
-            ));
+            return Err(AuthPageError::Request(ApplicationError::new(
+                StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
+                "internal server error",
+                "server",
+                Vec::default(),
+                Some(InnerError::new(
+                    "Failed to get location header from oauth response".to_string(),
+                )),
+            )));
         }
         Some(header) => header,
     };
@@ -205,16 +244,17 @@ pub async fn login_post(
         Ok(v) => v,
         Err(err) => {
             log::error!("{}", err);
-            return Err(AuthPageError::Custom(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "convertion error".to_string(),
-            ));
+            return Err(AuthPageError::Request(ApplicationError::new(
+                StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
+                "internal server error",
+                "server",
+                Vec::default(),
+                None,
+            )));
         }
     };
 
-    Ok(HttpResponse::Ok().json(serde_json::json!({
-        "redirect": value
-    })))
+    Ok(HttpResponse::Ok().json(LoginResponse{ redirect: value.to_string() }))
 }
 
 #[derive(Debug, serde::Deserialize, ToSchema)]
@@ -226,21 +266,34 @@ struct SignupFormRequest {
 }
 
 impl SignupFormRequest {
-    fn verify_fields(&self) -> Result<(), Vec<(String, isize)>> {
+    fn verify_fields(&self) -> Result<(), AuthPageError> {
         let mut errors = Vec::with_capacity(5);
         let usr_len = self.username.len();
         let psd_len = self.password.len();
 
-        if usr_len < 4 || usr_len > 255 {
-            errors.push(("username".to_string(), 0));
+        if usr_len < 4 {
+            errors.push(ErrorDetail::new(401, "username", "username is too short"));
+        }
+        if usr_len > 255 {
+            errors.push(ErrorDetail::new(402, "username", "username is too long"));
         }
 
-        if psd_len < 8 || psd_len > 384 {
-            errors.push(("password".to_string(), 0));
+        if psd_len < 8 {
+            errors.push(ErrorDetail::new(403, "password", "password is too short"));
+        }
+
+        if psd_len > 384 {
+            errors.push(ErrorDetail::new(403, "password", "password is too long"));
         }
 
         if errors.len() > 0 {
-            return Err(errors);
+            return Err(AuthPageError::Request(ApplicationError::new(
+                StatusCode::BAD_REQUEST.as_u16(),
+                "one or more fields failed validation",
+                "body",
+                errors,
+                None,
+            )));
         }
 
         Ok(())
@@ -255,29 +308,37 @@ pub async fn signup_post(
     db: web::Data<SqlitePool>,
     state: web::Data<Addr<OAuthState>>,
 ) -> impl Responder {
-    if let Err(err) = form.verify_fields() {
-        return Err(AuthPageError::InvalidFormData(err));
-    }
+    form.verify_fields()?;
 
-    match recaptcha::get_recaptcha_assessment(&form.recaptcha, "signup").await {
-        Err(RecaptchaError::FailedAssessment) => return Err(AuthPageError::Recaptcha),
-        Err(err) => {
-            log::error!("{}", err);
-            return Err(AuthPageError::Custom(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "internal server error".to_string(),
-            ));
+    if let Err(err) = recaptcha::get_recaptcha_assessment(&form.recaptcha, "signup").await {
+        match err {
+            RecaptchaError::FailedAssessment => return Err(AuthPageError::Recaptcha),
+            RecaptchaError::MissingEnv(err) => {
+                log::error!("{}", err);
+                return Err(AuthPageError::Request(ApplicationError::new(
+                    StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
+                    "internal server error",
+                    "server",
+                    Vec::default(),
+                    Some(InnerError::new(err.to_string())),
+                )));
+            }
         }
-        Ok(_) => {}
     }
 
     match models::user::User::user_already_exists(&form.username, &form.email, &db).await {
         Ok(false) => {}
         Ok(true) => {
-            return Err(AuthPageError::InvalidFormData(vec![(
-                "username_email_already_exists".to_string(),
-                0,
-            )]));
+            return Err(AuthPageError::Request(ApplicationError::new(
+                StatusCode::BAD_REQUEST.as_u16(),
+                "user already exists",
+                "body",
+                vec![
+                    ErrorDetail::new(405, "username", "a user with given username already exists"),
+                    ErrorDetail::new(406, "email", "a user with given email already exists"),
+                ],
+                None,
+            )));
         }
         Err(err) => {
             log::error!("{}", err);
@@ -289,12 +350,14 @@ pub async fn signup_post(
         Ok(h) => h,
         Err(err) => {
             log::error!("{}", err);
-            return Err(AuthPageError::Argon);
+            return Err(AuthPageError::Argon(err.to_string()));
         }
     };
 
+    let avatar = format!("https://api.dicebear.com/9.x/rings/svg?seed={}&backgroundType=gradientLinear&backgroundColor=b6e3f4,c0aede,d1d4f9",form.username);
+
     let uuid =
-        match models::user::User::insert_user(&form.username, &form.email, "", &hash, &db).await {
+        match models::user::User::insert_user(&form.username, &form.email, &avatar, &hash, &db).await {
             Err(err) => {
                 log::error!("{}", err);
                 return Err(AuthPageError::DbError(err));
@@ -314,10 +377,15 @@ pub async fn signup_post(
 
         let location = match header.get("location") {
             None => {
-                return Err(AuthPageError::Custom(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "internal server error".to_string(),
-                ));
+                return Err(AuthPageError::Request(ApplicationError::new(
+                    StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
+                    "internal server error",
+                    "server",
+                    Vec::default(),
+                    Some(InnerError::new(
+                        "failed to get location header from oauth response".to_string(),
+                    )),
+                )));
             }
             Some(loc) => loc,
         };
@@ -326,16 +394,17 @@ pub async fn signup_post(
             Ok(value) => value,
             Err(err) => {
                 log::error!("{}", err);
-                return Err(AuthPageError::Custom(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "internal server error".to_string(),
-                ));
+                return Err(AuthPageError::Request(ApplicationError::new(
+                    StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
+                    "internal server error",
+                    "server",
+                    Vec::default(),
+                    Some(InnerError::new(err.to_string())),
+                )));
             }
         };
 
-        return Ok(HttpResponse::Ok().json(serde_json::json!({
-            "redirect": value
-        })));
+        return Ok(HttpResponse::Ok().json(LoginResponse{ redirect: value.to_owned() }));
     }
 
     Ok(HttpResponse::Created().finish())

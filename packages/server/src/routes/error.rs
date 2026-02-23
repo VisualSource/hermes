@@ -1,53 +1,78 @@
-use actix_web::{
-    HttpResponse, error,
-    http::{StatusCode, header::ContentType},
-};
+use actix_web::{HttpResponse, ResponseError, error, http::StatusCode};
 use thiserror::Error;
 
-#[derive(Debug, Error)]
-pub enum ApiError {
-    #[error("internal error")]
-    InternalError,
-    #[error("bad request")]
-    BadRequest,
-    #[error("unauthorized")]
-    Unauthorized,
-    #[error("forbidden")]
-    Forbidden,
-    #[error("not found")]
-    NotFound,
-    #[error("not acceptable")]
-    NotAcceptable,
-    #[error("too many request")]
-    TooManyRequest,
+#[derive(Debug, serde::Serialize, Clone)]
+pub struct ErrorDetail {
+    code: u16,
+    target: String,
+    message: String,
 }
 
-impl error::ResponseError for ApiError {
-    fn error_response(&self) -> HttpResponse {
-        HttpResponse::build(self.status_code())
-            .insert_header(ContentType::json())
-            .body(self.to_string())
-    }
-
-    fn status_code(&self) -> StatusCode {
-        match *self {
-            ApiError::InternalError => StatusCode::INTERNAL_SERVER_ERROR,
-            ApiError::BadRequest => StatusCode::BAD_REQUEST,
-            ApiError::Unauthorized => StatusCode::BAD_REQUEST,
-            ApiError::Forbidden => StatusCode::FORBIDDEN,
-            ApiError::NotFound => StatusCode::NOT_FOUND,
-            ApiError::NotAcceptable => StatusCode::NOT_ACCEPTABLE,
-            ApiError::TooManyRequest => StatusCode::TOO_MANY_REQUESTS,
+impl ErrorDetail {
+    pub fn new<S: Into<String>, R: Into<String>>(code: u16, target: S, message: R) -> Self {
+        Self {
+            code,
+            target: target.into(),
+            message: message.into(),
         }
     }
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct InnerError {
+    trace: Vec<String>,
+}
+
+impl InnerError {
+    pub fn new(trace: String) -> Self {
+        Self { trace: vec![trace] }
+    }
+}
+
+#[derive(Debug, serde::Serialize, Clone)]
+pub struct ApplicationError {
+    code: u16,
+    message: String,
+    target: String,
+    details: Vec<ErrorDetail>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    innererror: Option<InnerError>,
+}
+
+impl ApplicationError {
+    pub fn with_context(&mut self, trace: String) {
+        #[cfg(debug_assertions)]
+        {
+            self.innererror = Some(InnerError::new(trace))
+        }
+    }
+    pub fn new<S: Into<String>, R: Into<String>>(
+        code: u16,
+        message: S,
+        target: R,
+        details: Vec<ErrorDetail>,
+        error_context: Option<InnerError>,
+    ) -> Self {
+        #[cfg(debug_assertions)]
+        let ctx = { error_context };
+
+        #[cfg(not(debug_assertions))]
+        let ctx = { None };
+
+        Self {
+            code,
+            message: message.into(),
+            target: target.into(),
+            details,
+            innererror: ctx,
+        }
+    }
+}
 
 //TODO: impl better error object => https://docs.oasis-open.org/odata/odata-json-format/v4.0/errata02/os/odata-json-format-v4.0-errata02-os-complete.html#_Toc403940655
-#[derive(Debug,Error)]
+#[derive(Debug, Error)]
 pub enum AuthPageError {
-    #[error("invalid form data")]
-    InvalidFormData(Vec<(String,isize)>),
     #[error("invalid user")]
     Recaptcha,
 
@@ -56,44 +81,78 @@ pub enum AuthPageError {
 
     #[error(transparent)]
     MailBoxError(#[from] actix::MailboxError),
-
-    #[error("argron error")]
-    Argon,
     #[error(transparent)]
     DbError(#[from] sqlx::Error),
+    #[error("argon error")]
+    Argon(String),
 
-    #[error("custom error")]
-    Custom(StatusCode,String)
+    #[error("a error happened in the request")]
+    Request(ApplicationError),
 }
 
 impl AuthPageError {
-    fn get_body(&self) ->  impl serde::Serialize {
+    fn get_body(&self) -> ApplicationError {
         match &self {
-            Self::InvalidFormData(errors) => serde_json::json!({ "reason":"invalid_formdata", "errors": errors.to_owned()  }),
-            Self::Custom(_, reason) => {
-                serde_json::json!({
-                    "reason": reason
-                })
-            }
+            Self::Request(error) => error.clone(),
+
             Self::WebError(web_error) => {
                 let reason = web_error.to_string();
-                serde_json::json!({ "reason": reason, })
+
+                ApplicationError::new(
+                    self.status_code().as_u16(),
+                    reason,
+                    "server",
+                    Vec::default(),
+                    None,
+                )
             }
-            _ => serde_json::json!({ "reason": "internal_server_error" })
-         }
+
+            Self::DbError(err) => ApplicationError::new(
+                self.status_code().as_u16(),
+                "Internal Server Error",
+                "server",
+                Vec::default(),
+                Some(InnerError::new(err.to_string())),
+            ),
+
+            Self::MailBoxError(err) => ApplicationError::new(
+                self.status_code().as_u16(),
+                "Internal Server Error",
+                "server",
+                Vec::default(),
+                Some(InnerError::new(err.to_string())),
+            ),
+
+            Self::Argon(reason) => ApplicationError::new(
+                self.status_code().as_u16(),
+                "Internal Server Error",
+                "server",
+                Vec::default(),
+                Some(InnerError::new(reason.to_owned())),
+            ),
+
+            _ => ApplicationError::new(
+                self.status_code().as_u16(),
+                "Internal Server Error",
+                "server",
+                Vec::default(),
+                None,
+            ),
+        }
     }
 }
 
-impl error::ResponseError for AuthPageError{
+impl error::ResponseError for AuthPageError {
     fn error_response(&self) -> HttpResponse<actix_web::body::BoxBody> {
         HttpResponse::build(self.status_code()).json(self.get_body())
     }
     fn status_code(&self) -> StatusCode {
         match &self {
-            Self::InvalidFormData(_) => StatusCode::BAD_REQUEST,
+            Self::Request(r) => {
+                StatusCode::from_u16(r.code).expect("failed to convert u16 to status code")
+            }
             Self::Recaptcha => StatusCode::FORBIDDEN,
             Self::WebError(web_error) => web_error.status_code(),
-            Self::Custom(status, _) => *status,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

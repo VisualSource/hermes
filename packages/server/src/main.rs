@@ -13,12 +13,7 @@ mod routes;
 mod state;
 
 #[derive(OpenApi)]
-#[openapi(
-    info(description = "Hermes server"),
-    paths(
-
-    )
-)]
+#[openapi(info(description = "Hermes server"), paths())]
 struct ApiDoc;
 
 #[actix_web::main]
