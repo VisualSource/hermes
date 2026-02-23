@@ -1,0 +1,17 @@
+[package]
+name = "hermes-overlay"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+asdf-overlay-client = "1.2.0"
+tokio = { version = "1.49", features = ["full"]}
+anyhow = "1.0"
+egui = "0.33"
+
+[profile.release] 
+opt-level = "s"  # Optimize for binary size
+strip = true  # Remove debug symbols
+lto = true  # Enables link to optimizations
+panic =  "unwind"  # Strip expensive panic clean-up logic
+codegen-units = 1  # Compile crates one after another so the compiler can optimize better
