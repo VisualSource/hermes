@@ -34,7 +34,7 @@ async fn main() -> std::io::Result<()> {
         .finish()
         .expect("failed to construct ratelimiter config");
 
-    let db = db::connect().await?;
+    let db = db::connect().await.map_err(|err| std::io::Error::new(ErrorKind::Other, err))?;
     let pool = web::Data::new(db);
 
     let secert = std::env::var("APP_SECRET").expect("failed to get secert");

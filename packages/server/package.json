@@ -12,7 +12,6 @@
   "license": "ISC",
   "packageManager": "pnpm@10.28.2",
   "dependencies": {
-    "-": "^0.0.1",
     "@biomejs/biome": "^2.4.4",
     "@tailwindcss/cli": "^4.2.1",
     "tailwindcss": "^4.2.1",
