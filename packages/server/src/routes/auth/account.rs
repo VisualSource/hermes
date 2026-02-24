@@ -19,9 +19,9 @@ use sqlx::SqlitePool;
 use std::{env, io::Read};
 use utoipa::ToSchema;
 
-#[derive(Debug,serde::Serialize,ToSchema)]
+#[derive(Debug, serde::Serialize, ToSchema)]
 pub struct LoginResponse {
-    redirect: String
+    redirect: String,
 }
 
 #[utoipa::path(
@@ -184,7 +184,7 @@ pub async fn login_post(
                 "body",
                 vec![ErrorDetail::new(
                     404,
-                    "psd_or_usr",
+                    "body",
                     "invalid username or password",
                 )],
                 None,
@@ -205,7 +205,7 @@ pub async fn login_post(
                 "body",
                 vec![ErrorDetail::new(
                     404,
-                    "psd_or_usr",
+                    "body",
                     "invalid username or password",
                 )],
                 None,
@@ -254,7 +254,9 @@ pub async fn login_post(
         }
     };
 
-    Ok(HttpResponse::Ok().json(LoginResponse{ redirect: value.to_string() }))
+    Ok(HttpResponse::Ok().json(LoginResponse {
+        redirect: value.to_string(),
+    }))
 }
 
 #[derive(Debug, serde::Deserialize, ToSchema)]
@@ -354,10 +356,15 @@ pub async fn signup_post(
         }
     };
 
-    let avatar = format!("https://api.dicebear.com/9.x/rings/svg?seed={}&backgroundType=gradientLinear&backgroundColor=b6e3f4,c0aede,d1d4f9",form.username);
+    let avatar = format!(
+        "https://api.dicebear.com/9.x/rings/svg?seed={}&backgroundType=gradientLinear&backgroundColor=b6e3f4,c0aede,d1d4f9",
+        form.username
+    );
 
     let uuid =
-        match models::user::User::insert_user(&form.username, &form.email, &avatar, &hash, &db).await {
+        match models::user::User::insert_user(&form.username, &form.email, &avatar, &hash, &db)
+            .await
+        {
             Err(err) => {
                 log::error!("{}", err);
                 return Err(AuthPageError::DbError(err));
@@ -404,7 +411,9 @@ pub async fn signup_post(
             }
         };
 
-        return Ok(HttpResponse::Ok().json(LoginResponse{ redirect: value.to_owned() }));
+        return Ok(HttpResponse::Ok().json(LoginResponse {
+            redirect: value.to_owned(),
+        }));
     }
 
     Ok(HttpResponse::Created().finish())

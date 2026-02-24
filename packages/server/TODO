@@ -4,13 +4,13 @@ setup:
         ☐ https://developers.google.com/recaptcha/docs/v3
             [] recaptcha finish
         ☐ login page
-            [] page layout
-            [] api route 
+            ✔ page layout @done(26-02-23 17:10)
+            ✔ api route @done(26-02-23 17:10)
             [] finish error handing client
             [] test
         ☐ signup page
-            [] page layout 
-            [] api route
+            ✔ page layout @done(26-02-23 17:10)
+            ✔ api route @done(26-02-23 17:10)
             [] finish error handling on client
             [] test
         api routes:

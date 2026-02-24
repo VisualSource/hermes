@@ -11,6 +11,12 @@
     <script src="https://www.google.com/recaptcha/enterprise.js?render={RECAPTCHA_SITE_KEY}"></script>
 </head>
 <body class="dark">
+    <dialog id="message-dialog">
+        <form method="dialog">
+            <p></p>
+            <button type="submit">Ok</button>
+        </form>
+    </dialog>
     <template id="account-created">
         <div data-slot="card" data-size="default" class="card group/card text-center">
              <section data-slot="card-content" class="card-content">
@@ -77,8 +83,14 @@
                                         Must be at least 8 characters long.
                                     </div>
                                 </div>
+                                <div id="body-errors" role="alert" data-slot="field-error" class="field-error hidden">
+                                    <ul></ul>
+                                </div>
                                 <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
-                                    <button id="submit-btn" data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">Create Account</button>
+                                    <button id="submitBtn" data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">
+                                        Create Account
+                                        <svg role="status" aria-label="Loading" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-loader-circle-icon lucide-loader-circle animate-spin size-4 hidden"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                                    </button>
                                     <div data-slot="field-description" class="field-description text-center">
                                         Already have an account? <a href="/login">Sign in</a>
                                     </div>
@@ -94,6 +106,7 @@
         </div>
     </div>
     <script type="module">
+        import { reportError, onFormSubmit, getRecaptchaToken, handleErrorResponse, showMessage } from "/static/shared.js";
         document.addEventListener("DOMContentLoaded",()=>{
             const passwordCheck = () => {
                 const psd = document.getElementById("password");
@@ -104,77 +117,40 @@
                     psdCof.reportValidity();
                 });
             }
-
-            const getErrorMessage = (target) => {
-                const validity = target.validity;
-                if(validity.tooLong) return "Field is too long";
-                if(validity.tooShort) return "Field is too short";
-                if(validity.valueMissing) return "field is required";
-                if(validity.customError) return target.validationMessage;
-                return null;
-            }   
-
-            const errorReport = (target) => {
-                if(!target) return;
-                const reporter = document.getElementById(`${target.name}-errors`);
-                if(!reporter) return;
-                const list = reporter.querySelector("ul");
-
-                target.addEventListener("invalid",(ev)=>ev.preventDefault() )
-                target.addEventListener("input",()=>{
-                    if(!target.checkValidity()){
-                        reporter.classList.remove("hidden");
-                        target.setAttribute("aria-invalid","true");
-                        
-                        const message = getErrorMessage(target);
-
-                        const error = document.createElement("li");
-                        error.setAttribute("class","text-xs text-left")
-                        error.textContent = message;
-
-                        list.replaceChildren(error);
-                    } else {
-                        target.removeAttribute("aria-invalid");
-                        reporter.classList.add("hidden");
-                    
-                    }
-                });
-            }
-
             passwordCheck();
+            reportError(["username","password","confirm-password"]);
 
-            ["username","password","confirm-password"].forEach(el=>{
-                errorReport(document.getElementById(el))
-            });
+            const submitBtn = document.getElementById("submitBtn");
+            const spinner = submitBtn.querySelector("svg");
 
-            document.getElementById("signup-form").addEventListener("submit",async (ev)=>{
-                ev.preventDefault();
-                const btn = document.getElementById("submit-btn");
-
+            onFormSubmit("signup-form",async (formData)=> {
                 const path = new URL("/signup",window.location.origin);
                 path.search = window.location.search;
 
                 try {
-                    btn.setAttribute("disabled","true");
-   
-                    await new Promise(ok=>grecaptcha.enterprise.ready(ok));
+			        document.getElementById("body-errors")?.classList.add("hidden");
+                    submitBtn.setAttribute("disabled","true");
+                    spinner.classList.remove("hidden");
+                    const token = await getRecaptchaToken("{RECAPTCHA_SITE_KEY}","signup");
 
-                    const token = await grecaptcha.enterprise.execute("{RECAPTCHA_SITE_KEY}", {action: "signup"});
-
-                    const data = new FormData(ev.target);
-                    data.set("recaptcha",token);
-                    data.delete("confirm-password");
+                    formData.set("recaptcha",token);
+                    formData.delete("confirm-password");
 
                     const response = await fetch(path,{
                         method: "POST",
-                        body: new URLSearchParams(data.entries()),
+                        body: new URLSearchParams(formData.entries()),
                     });
-                  
-                    if(!response.ok) throw response;
+
+                    if(!response.ok) {
+                        await handleErrorResponse(response);
+                        return;
+                    }
 
                     if(response.status === 202) {
                         const temp = document.getElementById("account-created");
                         const content = temp.cloneNode(true);
+                        content.querySelector("h1").textContent = "Account Created";
+                        context.querySelector("p").textContent = "Download the Hermes desktop or mobile app to get started.";
                         const target = document.querySelector("main");
                         target.replaceChildren(content);
                         return;
@@ -182,14 +158,27 @@
 
                     const body = await response.json();
                     window.location.href = body.redirect;
+
+                    const temp = document.getElementById("account-created");
+                    const content = temp.cloneNode(true);
+
+                    content.querySelector("h1").textContent = "Opening Hermes";
+                    context.querySelector("p").textContent = "Returning you to the app";
+
+                    const target = document.querySelector("main");
+                    target.replaceChildren(content);
+
                 } catch (error) {
-                    btn.removeAttribute("disabled");
-                    if(error instanceof Response) {
-
-
-                        return;
-                    }
                     console.error(error);
+
+                    if(error instanceof Response) {
+                        const body = error.json();
+                        showMessage(body.message);
+                    }
+
+                } finally {
+                    submitBtn.removeAttribute("disabled");
+                    spinner.classList.add("hidden");
                 }
             });
         });

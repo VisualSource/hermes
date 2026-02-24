@@ -11,6 +11,9 @@
     <script src="https://www.google.com/recaptcha/enterprise.js?render={RECAPTCHA_SITE_KEY}"></script>
 </head>
 <body class="dark">
+    <dialog id="message-dialog">
+        <p></p>
+    </dialog>
     <div class="bg-muted flex min-h-svh w-full items-center justify-center p-6 md:p-10">
         <div class="w-full max-w-sm">
             <main class="flex flex-col gap-6">
@@ -40,8 +43,14 @@
                                         <ul></ul>
                                     </div>
                                 </div>
+                                <div id="body-errors" role="alert" data-slot="field-error" class="field-error hidden">
+                                        <ul></ul>
+                                    </div>
                                 <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
-                                    <button data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">Login</button>
+                                    <button id="submitBtn" data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">
+                                        Login
+                                        <svg role="status" aria-label="Loading" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-loader-circle-icon lucide-loader-circle animate-spin size-4 hidden"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                                    </button>
                                 </div>
                                 <div data-slot="field-description" class="field-description text-center">
                                     Don&apos;t have an account? <a href="/signup" id="signup-link">Sign up</a>
@@ -57,78 +66,53 @@
         </div>
     </div>
     <script type="module">
+        import {onFormSubmit,reportError,getRecaptchaToken, handleErrorResponse,  showMessage} from "/static/shared.js";
         document.addEventListener("DOMContentLoaded",()=>{
-            const getErrorMessage = (target) => {
-                const validity = target.validity;
-                if(validity.tooLong) return "Field is too long";
-                if(validity.tooShort) return "Field is too short";
-                if(validity.valueMissing) return "field is required";
-                if(validity.customError) return target.validationMessage;
-                return null;
-            }   
-            const errorReport = (target) => {
-                if(!target) return;
-                const reporter = document.getElementById(`${target.name}-errors`);
-                if(!reporter) return;
-                const list = reporter.querySelector("ul");
+            reportError(["username","password"]);
 
-                target.addEventListener("invalid",(ev)=>ev.preventDefault() )
-                target.addEventListener("input",()=>{
-                    if(!target.checkValidity()){
-                        reporter.classList.remove("hidden");
-                        target.setAttribute("aria-invalid","true");
-                        
-                        const message = getErrorMessage(target);
-
-                        const error = document.createElement("li");
-                        error.setAttribute("class","text-xs text-left")
-                        error.textContent = message;
-
-                        list.replaceChildren(error);
-                    } else {
-                        target.removeAttribute("aria-invalid");
-                        reporter.classList.add("hidden");
-                    
-                    }
-                });
-            }
-
-            ["username","password"].forEach(el=>{
-                errorReport(document.getElementById(el))
-            });
+            const submitBtn = document.getElementById("submitBtn");
+            const spinner = submitBtn.querySelector("svg");
 
             /**@type {HTMLAnchorElement|null}*/
             const link = document.getElementById("signup-link");
             if(link){
                 link.href = `${link.href}${window.location.search}`;
             }
-           
-            document.getElementById("login-form").addEventListener("submit",async (ev)=> {
-                ev.preventDefault();
+
+            onFormSubmit("login-form",async (formData)=>{
                 const path = new URL("/login",window.location.origin);
                 path.search = window.location.search;
 
-               try {
-                    await new Promise(ok=>grecaptcha.ready(ok));
+                try {
+                    document.getElementById("body-errors")?.classList.add("hidden");
+                    submitBtn.setAttribute("disabled","true");
+                    spinner.classList.remove("hidden");
 
-                    const token = await grecaptcha.execute("{RECAPTCHA_SITE_KEY}", {action: 'login'});
-
-                    const data = new FormData(ev.target);
-                    data.set("recaptcha",token);
+                    const token = await getRecaptchaToken("{RECAPTCHA_SITE_KEY}","login");
+                    formData.set("recaptcha",token);
 
                     const response = await fetch(path,{
                         method: "post",
-                        body: new URLSearchParams(data.entries())
+                        body: new URLSearchParams(formData.entries())
                     });
-                    /**@type {{ redirect: string; }|{ status: number, reason: string }}*/
-                    const body = await response.json();
-                    
-                    if(!response.ok) throw new Error(response.statusText,{ cause: { body, response } });
 
+                    if(!response.ok) {
+                        await handleErrorResponse(response);
+                        return;
+                    }
+
+                    const body = await response.json();
                     window.location.herf = body.redirect;
-               } catch (error) {
+                } catch (error) {
                     console.error(error);
-               }
+                    if(error instanceof Response) {
+                        const body = await error.json();
+                        showMessage(body.message);
+                    }
+                } finally {
+                    submitBtn.removeAttribute("disabled");
+                    spinner.classList.add("hidden");
+                }
             });
         });
     </script>

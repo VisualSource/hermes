@@ -7,8 +7,9 @@ use crate::state::oauth::{Extras, OAuthState};
 
 // https://auth0.com/docs/get-started/authentication-and-authorization-flow/authorization-code-flow
 #[utoipa::path(
+    get,
     tag="oauth",
-    path = "/auth/authorize"
+    path = "/auth/authorize",
     description = "authorize a user for request a authorization code", 
     responses(
         (
@@ -30,8 +31,9 @@ pub async fn authorize(
 }
 
 #[utoipa::path(
+    post,
     tag="oauth",
-    path = "/auth/token"
+    path = "/auth/token",
     description = "request a access_token using a authoriztion code", 
     responses(
         (
@@ -53,8 +55,9 @@ pub async fn token((req, state): (OAuthRequest, web::Data<Addr<OAuthState>>)) ->
 }
 
 #[utoipa::path(
+    post,
     tag = "oauth", 
-    path = "/auth/refresh"
+    path = "/auth/refresh",
     description = "refresh a access_token using a refresh token", 
     responses(
         (

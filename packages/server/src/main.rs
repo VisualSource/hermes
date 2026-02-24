@@ -1,12 +1,12 @@
 use actix::Actor;
 use actix_csrf_middleware::{CsrfMiddleware, CsrfMiddlewareConfig};
+use actix_governor::{Governor, GovernorConfigBuilder};
 use actix_web::{
     App, HttpServer,
     middleware::{Logger, NormalizePath, TrailingSlash},
     web::{self, Data},
 };
 use utoipa::OpenApi;
-use actix_governor::{Governor, GovernorConfigBuilder};
 
 mod db;
 mod models;
@@ -31,7 +31,8 @@ async fn main() -> std::io::Result<()> {
     let governor_conf = GovernorConfigBuilder::default()
         .seconds_per_request(2)
         .burst_size(5)
-        .finish().expect("failed to construct ratelimiter config");
+        .finish()
+        .expect("failed to construct ratelimiter config");
 
     let db = db::connect().await?;
     let pool = web::Data::new(db);
@@ -46,10 +47,11 @@ async fn main() -> std::io::Result<()> {
             .wrap(NormalizePath::new(TrailingSlash::Trim))
             .wrap(Logger::default())
             .wrap(Governor::new(&governor_conf))
-            .service(web::scope("/")
-                .wrap(CsrfMiddleware::new(csrf_config.clone()))
-                .service(routes::static_files::get_static_files())
-                .service(routes::auth::get_account_routes())
+            .service(
+                web::scope("")
+                    .wrap(CsrfMiddleware::new(csrf_config.clone()))
+                    .service(routes::static_files::get_static_files())
+                    .service(routes::auth::get_account_routes()),
             )
             .service(web::scope("/auth").service(routes::auth::get_oauth_routes()))
             .service(web::scope("/api").service(routes::api::api_routes()))

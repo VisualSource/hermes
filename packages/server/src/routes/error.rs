@@ -107,6 +107,14 @@ impl AuthPageError {
                 )
             }
 
+            Self::Recaptcha => ApplicationError::new(
+                self.status_code().as_u16(),
+                "Unable to complate operation",
+                "user",
+                Vec::default(),
+                None,
+            ),
+
             Self::DbError(err) => ApplicationError::new(
                 self.status_code().as_u16(),
                 "Internal Server Error",
