@@ -6,12 +6,12 @@ setup:
         ☐ login page
             ✔ page layout @done(26-02-23 17:10)
             ✔ api route @done(26-02-23 17:10)
-            [] finish error handing client
+            ✔ finish error handing client @done(26-02-24 17:06)
             [] test
         ☐ signup page
             ✔ page layout @done(26-02-23 17:10)
             ✔ api route @done(26-02-23 17:10)
-            [] finish error handling on client
+            ✔ finish error handling on client @done(26-02-24 17:06)
             [] test
         api routes:
             [] token 
