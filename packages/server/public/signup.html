@@ -11,17 +11,26 @@
     <script src="https://www.google.com/recaptcha/enterprise.js?render={RECAPTCHA_SITE_KEY}"></script>
 </head>
 <body class="dark">
-    <dialog id="message-dialog">
-        <form method="dialog">
-            <p></p>
-            <button type="submit">Ok</button>
+    <dialog id="message-dialog" class="backdrop:bg-black/10 backdrop:supports-backdrop-filter:backdrop-blur-xs">
+        <form method="dialog" data-slot="alert-dialog-content" data-size="default" class="dialog-content group/alert-dialog-content">
+            <header data-slot="alert-dialog-header" class="dialog-header">
+                <h1 data-slot="alert-dialog-title" class="dialog-title">Error</h1>
+                <p data-slot="alert-dialog-description" class="dialog-description"></p>
+            </header>
+            <footer data-slot="alert-dialog-footer" class="dialog-footer">
+                <button data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">
+                    Ok
+                </button>
+            </footer>
         </form>
     </dialog>
     <template id="account-created">
         <div data-slot="card" data-size="default" class="card group/card text-center">
              <section data-slot="card-content" class="card-content">
-                <h1>Account Created</h1>
-                <p>Download the Hermes desktop or mobile app to get started.</p>
+                <h1 class="text-lg font-bold">Account Created</h1>
+                <p class="text-muted-foreground mt-4">
+                    Download the Hermes desktop or mobile app to get started.
+                </p>
              </section>
         </div>
     </template>
@@ -30,6 +39,7 @@
             <a href="#" class="flex items-center gap-2 self-center font-medium">
                 <div class="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-gallery-vertical-end size-4">
+                        <title>Logo</title>
                         <path d="M7 2h10"></path>
                         <path d="M5 6h14"></path>
                         <rect width="18" height="12" x="3" y="10" rx="2">
@@ -106,7 +116,7 @@
         </div>
     </div>
     <script type="module">
-        import { reportError, onFormSubmit, getRecaptchaToken, handleErrorResponse, showMessage } from "/static/shared.js";
+        import { getRecaptchaToken, handleErrorResponse, onFormSubmit, reportError, showMessage } from "/static/shared.js";
         document.addEventListener("DOMContentLoaded",()=>{
             const passwordCheck = () => {
                 const psd = document.getElementById("password");
@@ -146,36 +156,34 @@
                         return;
                     }
 
-                    if(response.status === 202) {
+                    if(response.status === 201) {
                         const temp = document.getElementById("account-created");
-                        const content = temp.cloneNode(true);
-                        content.querySelector("h1").textContent = "Account Created";
-                        context.querySelector("p").textContent = "Download the Hermes desktop or mobile app to get started.";
+                        const clone = document.importNode(temp.content,true);
+                        clone.querySelector("h1").textContent = "Account Created";
+                        clone.querySelector("p").textContent = "Download the Hermes desktop or mobile app to get started.";
                         const target = document.querySelector("main");
-                        target.replaceChildren(content);
+                        target.replaceChildren(clone);
                         return;
                     }
 
                     const body = await response.json();
-                    window.location.href = body.redirect;
-
+                   
+                    /**@type {HTMLTemplateElement}*/
                     const temp = document.getElementById("account-created");
-                    const content = temp.cloneNode(true);
+                    const clone = document.importNode(temp.content,true);
 
-                    content.querySelector("h1").textContent = "Opening Hermes";
-                    context.querySelector("p").textContent = "Returning you to the app";
+                    clone.querySelector("h1").textContent = "Opening Hermes";
+                    clone.querySelector("p").textContent = "Returning you to the app";
+
+                    clone.querySelector("section").insertAdjacentHTML("beforeend",`If app doesn't open <a href="${body.redirect}" class="underline text-primary-foreground">click here</a>`);
 
                     const target = document.querySelector("main");
-                    target.replaceChildren(content);
+                    target.replaceChildren(clone);
 
+                    window.location.href = body.redirect;
                 } catch (error) {
                     console.error(error);
-
-                    if(error instanceof Response) {
-                        const body = error.json();
-                        showMessage(body.message);
-                    }
-
+                    showMessage(typeof error === "object" && "message" in error ? error.message : "Unknown error");
                 } finally {
                     submitBtn.removeAttribute("disabled");
                     spinner.classList.add("hidden");

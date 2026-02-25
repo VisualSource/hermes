@@ -1,7 +1,8 @@
 use actix_web::{HttpResponse, ResponseError, error, http::StatusCode};
 use thiserror::Error;
+use utoipa::{ToResponse, ToSchema};
 
-#[derive(Debug, serde::Serialize, Clone)]
+#[derive(Debug, serde::Serialize, Clone, ToSchema)]
 pub struct ErrorDetail {
     code: u16,
     target: String,
@@ -18,7 +19,7 @@ impl ErrorDetail {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, ToSchema)]
 pub struct InnerError {
     trace: Vec<String>,
 }
@@ -29,7 +30,8 @@ impl InnerError {
     }
 }
 
-#[derive(Debug, serde::Serialize, Clone)]
+#[derive(Debug, serde::Serialize, Clone, ToResponse)]
+#[response(description = "Error response object containing reason for error")]
 pub struct ApplicationError {
     code: u16,
     message: String,
@@ -41,12 +43,6 @@ pub struct ApplicationError {
 }
 
 impl ApplicationError {
-    pub fn with_context(&mut self, trace: String) {
-        #[cfg(debug_assertions)]
-        {
-            self.innererror = Some(InnerError::new(trace))
-        }
-    }
     pub fn new<S: Into<String>, R: Into<String>>(
         code: u16,
         message: S,
@@ -98,13 +94,44 @@ impl AuthPageError {
             Self::WebError(web_error) => {
                 let reason = web_error.to_string();
 
-                ApplicationError::new(
-                    self.status_code().as_u16(),
-                    reason,
-                    "server",
-                    Vec::default(),
-                    None,
-                )
+                match web_error {
+                    oxide_auth_actix::WebError::Endpoint(oauth_error) => ApplicationError::new(
+                        self.status_code().as_u16(),
+                        "Internal Server Error: code (2252)",
+                        "server",
+                        Vec::default(),
+                        Some(InnerError {
+                            trace: vec![oauth_error.to_string()],
+                        }),
+                    ),
+                    oxide_auth_actix::WebError::Header(invalid_header_value) => {
+                        ApplicationError::new(
+                            self.status_code().as_u16(),
+                            "Internal Server Error: code (2253)",
+                            "server",
+                            Vec::default(),
+                            Some(InnerError {
+                                trace: vec![invalid_header_value.to_string()],
+                            }),
+                        )
+                    }
+                    oxide_auth_actix::WebError::Encoding
+                    | oxide_auth_actix::WebError::Mailbox
+                    | oxide_auth_actix::WebError::Form
+                    | oxide_auth_actix::WebError::Canceled
+                    | oxide_auth_actix::WebError::Authorization
+                    | oxide_auth_actix::WebError::Body
+                    | oxide_auth_actix::WebError::Query
+                    | oxide_auth_actix::WebError::InternalError(_) => ApplicationError::new(
+                        self.status_code().as_u16(),
+                        "Internal Server Error: code (2254)",
+                        "server",
+                        Vec::default(),
+                        Some(InnerError {
+                            trace: vec![reason],
+                        }),
+                    ),
+                }
             }
 
             Self::Recaptcha => ApplicationError::new(
@@ -117,7 +144,7 @@ impl AuthPageError {
 
             Self::DbError(err) => ApplicationError::new(
                 self.status_code().as_u16(),
-                "Internal Server Error",
+                "Internal Server Error: code (2255)",
                 "server",
                 Vec::default(),
                 Some(InnerError::new(err.to_string())),
@@ -125,7 +152,7 @@ impl AuthPageError {
 
             Self::MailBoxError(err) => ApplicationError::new(
                 self.status_code().as_u16(),
-                "Internal Server Error",
+                "Internal Server Error: code (2256)",
                 "server",
                 Vec::default(),
                 Some(InnerError::new(err.to_string())),
@@ -133,18 +160,10 @@ impl AuthPageError {
 
             Self::Argon(reason) => ApplicationError::new(
                 self.status_code().as_u16(),
-                "Internal Server Error",
+                "Internal Server Error: code (2257)",
                 "server",
                 Vec::default(),
                 Some(InnerError::new(reason.to_owned())),
-            ),
-
-            _ => ApplicationError::new(
-                self.status_code().as_u16(),
-                "Internal Server Error",
-                "server",
-                Vec::default(),
-                None,
             ),
         }
     }

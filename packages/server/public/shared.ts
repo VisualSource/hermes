@@ -77,7 +77,7 @@ export const showMessage = (message: string) => {
 
 	content.textContent = message;
 
-	dialog.show();
+	dialog.showModal();
 };
 
 export const handleErrorResponse = async (response: Response) => {
@@ -87,10 +87,14 @@ export const handleErrorResponse = async (response: Response) => {
 		case 400:
 			for (const err of body.details) {
 				addError(err.message, getErrorReporter(err.target));
+				document
+					.getElementById(`${err.target}-errors`)
+					?.classList.remove("hidden");
 			}
 
 			document.getElementById("body-errors")?.classList.remove("hidden");
 			break;
+		case 500:
 		case 403:
 			showMessage(body.message);
 			break;

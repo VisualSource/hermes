@@ -56,7 +56,7 @@ export const showMessage = (message) => {
     if (!content)
         throw new Error("Failed to find content element");
     content.textContent = message;
-    dialog.show();
+    dialog.showModal();
 };
 export const handleErrorResponse = async (response) => {
     const body = (await response.json());
@@ -64,9 +64,13 @@ export const handleErrorResponse = async (response) => {
         case 400:
             for (const err of body.details) {
                 addError(err.message, getErrorReporter(err.target));
+                document
+                    .getElementById(`${err.target}-errors`)
+                    ?.classList.remove("hidden");
             }
             document.getElementById("body-errors")?.classList.remove("hidden");
             break;
+        case 500:
         case 403:
             showMessage(body.message);
             break;

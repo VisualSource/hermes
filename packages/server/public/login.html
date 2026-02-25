@@ -11,9 +11,29 @@
     <script src="https://www.google.com/recaptcha/enterprise.js?render={RECAPTCHA_SITE_KEY}"></script>
 </head>
 <body class="dark">
-    <dialog id="message-dialog">
-        <p></p>
+    <dialog id="message-dialog" class="backdrop:bg-black/10 backdrop:supports-backdrop-filter:backdrop-blur-xs">
+        <form method="dialog" data-slot="alert-dialog-content" data-size="default" class="dialog-content group/alert-dialog-content">
+            <header data-slot="alert-dialog-header" class="dialog-header">
+                <h1 data-slot="alert-dialog-title" class="dialog-title">Error</h1>
+                <p data-slot="alert-dialog-description" class="dialog-description"></p>
+            </header>
+            <footer data-slot="alert-dialog-footer" class="dialog-footer">
+                <button data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">
+                    Ok
+                </button>
+            </footer>
+        </form>
     </dialog>
+     <template id="login-done">
+        <div data-slot="card" data-size="default" class="card group/card text-center">
+             <section data-slot="card-content" class="card-content">
+                <h1 class="text-lg font-bold">Your loggedin.</h1>
+                <p class="text-muted-foreground mt-4">
+                    If the app doesn't open try <a class="underline text-primary-foreground" href="">clicking here</a>
+                </p>
+             </section>
+        </div>
+    </template>
     <div class="bg-muted flex min-h-svh w-full items-center justify-center p-6 md:p-10">
         <div class="w-full max-w-sm">
             <main class="flex flex-col gap-6">
@@ -102,13 +122,16 @@
                     }
 
                     const body = await response.json();
-                    window.location.herf = body.redirect;
+
+                    const template = document.getElementById("login-done");
+                    const clone = document.importNode(template.content,true);
+                    clone.querySelector("a").setAttribute("href",body.redirect);
+                    document.querySelector("main").replaceChildren(clone);
+
+                    window.location.href = body.redirect;
                 } catch (error) {
-                    console.error(error);
-                    if(error instanceof Response) {
-                        const body = await error.json();
-                        showMessage(body.message);
-                    }
+                    console.error("error");
+                    showMessage(typeof error === "object" && "message" in error ? error.message : "Unknown error");
                 } finally {
                     submitBtn.removeAttribute("disabled");
                     spinner.classList.add("hidden");

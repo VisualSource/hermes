@@ -27,6 +27,7 @@ pub enum Extras {
     Get,
     Post(uuid::Uuid),
     Nothing,
+    AuthoriztionCode
 }
 
 impl OAuthState {
@@ -121,6 +122,15 @@ where
 
                 op.run(self.with_solicitor(solicitor))
             }
+
+            Extras::AuthoriztionCode => {
+                let solicitor = FnSolicitor(move |_: &mut OAuthRequest, solicitation: Solicitation|{
+                    OwnerConsent::Authorized( solicitation.pre_grant().client_id.clone())
+                });
+
+                op.run(self.with_solicitor(solicitor))
+            }
+
             _ => op.run(&mut self.endpoint),
         }
     }

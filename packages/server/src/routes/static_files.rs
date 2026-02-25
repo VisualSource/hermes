@@ -16,5 +16,5 @@ pub async fn get_sharedjs() -> impl Responder {
 }
 
 pub fn get_static_files() -> Scope {
-    web::scope("/static").service((get_favicon, get_stylesheet,get_sharedjs))
+    web::scope("/static").service((get_favicon, get_stylesheet, get_sharedjs))
 }

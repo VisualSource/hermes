@@ -1,6 +1,6 @@
 use actix::Addr;
 use actix_web::{Responder, get, post, web};
-use oxide_auth::endpoint::QueryParameter;
+use oxide_auth::{code_grant::authorization::Authorization, endpoint::QueryParameter};
 use oxide_auth_actix::{Authorize, OAuthOperation, OAuthRequest, Refresh, Token, WebError};
 
 use crate::state::oauth::{Extras, OAuthState};
@@ -47,11 +47,12 @@ pub async fn authorize(
 pub async fn token((req, state): (OAuthRequest, web::Data<Addr<OAuthState>>)) -> impl Responder {
     let grant_type = req.body().and_then(|body| body.unique_value("grant_type"));
 
-    if grant_type.is_none() {
-        return Err(WebError::Query);
+    match  grant_type.as_deref() {
+        Some("authorization_code") => {
+            state.send(Token(req).wrap(Extras::AuthoriztionCode)).await?
+        }
+        _ => state.send(Token(req).wrap(Extras::Nothing)).await?
     }
-
-    state.send(Token(req).wrap(Extras::Nothing)).await?
 }
 
 #[utoipa::path(

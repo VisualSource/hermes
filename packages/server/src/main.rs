@@ -1,3 +1,5 @@
+use std::io::ErrorKind;
+
 use actix::Actor;
 use actix_csrf_middleware::{CsrfMiddleware, CsrfMiddlewareConfig};
 use actix_governor::{Governor, GovernorConfigBuilder};
@@ -34,7 +36,9 @@ async fn main() -> std::io::Result<()> {
         .finish()
         .expect("failed to construct ratelimiter config");
 
-    let db = db::connect().await.map_err(|err| std::io::Error::new(ErrorKind::Other, err))?;
+    let db = db::connect()
+        .await
+        .map_err(|err| std::io::Error::new(ErrorKind::Other, err))?;
     let pool = web::Data::new(db);
 
     let secert = std::env::var("APP_SECRET").expect("failed to get secert");
@@ -47,14 +51,15 @@ async fn main() -> std::io::Result<()> {
             .wrap(NormalizePath::new(TrailingSlash::Trim))
             .wrap(Logger::default())
             .wrap(Governor::new(&governor_conf))
+            .service(web::scope("/auth").service(routes::auth::get_oauth_routes()))
+            .service(web::scope("/api").service(routes::api::api_routes()))
             .service(
                 web::scope("")
                     .wrap(CsrfMiddleware::new(csrf_config.clone()))
                     .service(routes::static_files::get_static_files())
                     .service(routes::auth::get_account_routes()),
             )
-            .service(web::scope("/auth").service(routes::auth::get_oauth_routes()))
-            .service(web::scope("/api").service(routes::api::api_routes()))
+ 
 
         //.route("/ws", web::get().to(routes::websocket::ws))
     })

@@ -309,7 +309,7 @@ pub async fn signup_post(
     form: web::Form<SignupFormRequest>,
     db: web::Data<SqlitePool>,
     state: web::Data<Addr<OAuthState>>,
-) -> impl Responder {
+) -> Result<HttpResponse, AuthPageError> {
     form.verify_fields()?;
 
     if let Err(err) = recaptcha::get_recaptcha_assessment(&form.recaptcha, "signup").await {
@@ -335,10 +335,11 @@ pub async fn signup_post(
                 StatusCode::BAD_REQUEST.as_u16(),
                 "user already exists",
                 "body",
-                vec![
-                    ErrorDetail::new(405, "username", "a user with given username already exists"),
-                    ErrorDetail::new(406, "email", "a user with given email already exists"),
-                ],
+                vec![ErrorDetail::new(
+                    405,
+                    "body",
+                    "a user with given username or email already exists",
+                )],
                 None,
             )));
         }
