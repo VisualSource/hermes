@@ -47,6 +47,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(NormalizePath::new(TrailingSlash::Trim))
             .wrap(Logger::default())
             .wrap(Governor::new(&governor_conf))
+            .service()
             .service(web::scope("/auth").service(routes::auth::get_oauth_routes()))
             .service(web::scope("/api").service(routes::api::api_routes()))
             .service(

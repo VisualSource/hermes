@@ -80,8 +80,6 @@ struct OAuthToken {
     grant_type: String,
     client_id: String,
     code: String,
-    // Optional (OAuth 2.1), required
-    redirect_uri: Option<String>,
     code_verifier: String,
 }
 
@@ -132,7 +130,6 @@ pub async fn token(body: web::Form<OAuthToken>) -> Result<HttpResponse, OAuthErr
         return Err(OAuthError::BadRequest);
     }
 
-    //  body.redirect_uri != oauth::OAUTH_REDIRECT_URI
     // TODO get code challenge and method
     let code_challenage = "";
     let code_method = "S256";
@@ -148,8 +145,10 @@ pub async fn token(body: web::Form<OAuthToken>) -> Result<HttpResponse, OAuthErr
     let now = time::UtcDateTime::now();
     let exp = now.add(time::Duration::days(1)).unix_timestamp();
 
+    let iss = std::env::var("SERVER_ORIGIN")?;
+
     let claims = Claims {
-        iss: "http://localhost:7433".to_string(), // TODO get from env
+        iss: iss.to_string(), // TODO get from env
         aud: oauth::OAUTH_CLIENT_ID.to_string(),
         exp: exp,
         iat: now.unix_timestamp(),
