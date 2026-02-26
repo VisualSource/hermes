@@ -73,9 +73,6 @@ pub enum AuthPageError {
     Recaptcha,
 
     #[error(transparent)]
-    WebError(#[from] oxide_auth_actix::WebError),
-
-    #[error(transparent)]
     MailBoxError(#[from] actix::MailboxError),
     #[error(transparent)]
     DbError(#[from] sqlx::Error),
@@ -90,49 +87,6 @@ impl AuthPageError {
     fn get_body(&self) -> ApplicationError {
         match &self {
             Self::Request(error) => error.clone(),
-
-            Self::WebError(web_error) => {
-                let reason = web_error.to_string();
-
-                match web_error {
-                    oxide_auth_actix::WebError::Endpoint(oauth_error) => ApplicationError::new(
-                        self.status_code().as_u16(),
-                        "Internal Server Error: code (2252)",
-                        "server",
-                        Vec::default(),
-                        Some(InnerError {
-                            trace: vec![oauth_error.to_string()],
-                        }),
-                    ),
-                    oxide_auth_actix::WebError::Header(invalid_header_value) => {
-                        ApplicationError::new(
-                            self.status_code().as_u16(),
-                            "Internal Server Error: code (2253)",
-                            "server",
-                            Vec::default(),
-                            Some(InnerError {
-                                trace: vec![invalid_header_value.to_string()],
-                            }),
-                        )
-                    }
-                    oxide_auth_actix::WebError::Encoding
-                    | oxide_auth_actix::WebError::Mailbox
-                    | oxide_auth_actix::WebError::Form
-                    | oxide_auth_actix::WebError::Canceled
-                    | oxide_auth_actix::WebError::Authorization
-                    | oxide_auth_actix::WebError::Body
-                    | oxide_auth_actix::WebError::Query
-                    | oxide_auth_actix::WebError::InternalError(_) => ApplicationError::new(
-                        self.status_code().as_u16(),
-                        "Internal Server Error: code (2254)",
-                        "server",
-                        Vec::default(),
-                        Some(InnerError {
-                            trace: vec![reason],
-                        }),
-                    ),
-                }
-            }
 
             Self::Recaptcha => ApplicationError::new(
                 self.status_code().as_u16(),
@@ -179,7 +133,36 @@ impl error::ResponseError for AuthPageError {
                 StatusCode::from_u16(r.code).expect("failed to convert u16 to status code")
             }
             Self::Recaptcha => StatusCode::FORBIDDEN,
-            Self::WebError(web_error) => web_error.status_code(),
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum OAuthError {
+    #[error("bad request")]
+    BadRequest,
+
+    #[error(transparent)]
+    Jwt(#[from] jsonwebtoken::errors::Error),
+    #[error(transparent)]
+    Url(#[from] url::ParseError),
+}
+
+impl error::ResponseError for OAuthError {
+    fn error_response(&self) -> HttpResponse<actix_web::body::BoxBody> {
+        HttpResponse::build(self.status_code()).json(ApplicationError::new(
+            5000,
+            "unimplemented",
+            "server",
+            Vec::default(),
+            None,
+        ))
+    }
+
+    fn status_code(&self) -> StatusCode {
+        match &self {
+            OAuthError::BadRequest => StatusCode::BAD_REQUEST,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

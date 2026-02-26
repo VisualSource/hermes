@@ -1,137 +1,41 @@
-use actix::{Actor, Context, Handler};
+use base64::Engine;
+use rand::RngExt;
+pub const OAUTH_CLIENT_ID: &str = "";
+pub const OAUTH_REDIRECT_URI: &str = "";
+pub const OAUTH_CLIENT_SECRET: &str = "";
 
-use oxide_auth::{
-    endpoint::{Endpoint, OwnerConsent, OwnerSolicitor, Scope, Solicitation, WebResponse},
-    frontends::simple::endpoint::{ErrorInto, FnSolicitor, Generic, Vacant},
-    primitives::{
-        issuer::TokenMap,
-        prelude::{AuthMap, Client, ClientMap, RandomGenerator},
-    },
-};
-use oxide_auth_actix::{OAuthMessage, OAuthOperation, OAuthRequest, OAuthResponse, WebError};
-
-pub type HermesEndpoint = Generic<
-    ClientMap,
-    AuthMap<RandomGenerator>,
-    TokenMap<RandomGenerator>,
-    Vacant,
-    Vec<Scope>,
-    fn() -> OAuthResponse,
->;
-
-pub struct OAuthState {
-    endpoint: HermesEndpoint,
-}
-
-pub enum Extras {
-    Get,
-    Post(uuid::Uuid),
-    Nothing,
-    AuthoriztionCode
-}
-
-impl OAuthState {
-    pub fn preconfigured() -> Self {
-        Self {
-            endpoint: Generic {
-                registrar: vec![Client::confidential(
-                    "SomeClientId",
-                    "hermes://oauth"
-                        .parse::<url::Url>()
-                        .expect("failed to parse")
-                        .into(),
-                    "read".parse().expect("failed to parse scopes"),
-                    "ClientSecret".as_bytes(),
-                )]
-                .into_iter()
-                .collect(),
-                authorizer: AuthMap::new(RandomGenerator::new(16)),
-                issuer: TokenMap::new(RandomGenerator::new(16)),
-                solicitor: Vacant,
-                scopes: vec!["read".parse().expect("failed to parse scope")],
-                response: OAuthResponse::ok,
-            },
-        }
-    }
-
-    pub fn with_solicitor<'a, S>(
-        &'a mut self,
-        solicitor: S,
-    ) -> impl Endpoint<OAuthRequest, Error = WebError> + 'a
-    where
-        S: OwnerSolicitor<OAuthRequest> + 'static,
-    {
-        ErrorInto::new(Generic {
-            authorizer: &mut self.endpoint.authorizer,
-            registrar: &mut self.endpoint.registrar,
-            issuer: &mut self.endpoint.issuer,
-            solicitor,
-            scopes: &mut self.endpoint.scopes,
-            response: OAuthResponse::ok,
+// expires in 10min
+pub fn generate_code() -> String {
+    let mut rng = rand::rng();
+    let code: String = (0..32)
+        .map(|_| {
+            let idx = rng.random_range(0..62);
+            match idx {
+                0..=25 => (b'a' + idx) as char,
+                26..=51 => (b'A' + (idx - 26)) as char,
+                _ => (b'0' + (idx - 52)) as char,
+            }
         })
+        .collect();
+    code
+}
+
+pub fn validate_pkce(challenge: &str, verifier: &str, method: &str) -> bool {
+    if verifier.len() < 43 || verifier.len() > 128 {
+        return false;
     }
-}
 
-impl Actor for OAuthState {
-    type Context = Context<Self>;
-}
+    match method {
+        "S256" => {
+            use sha2::{Digest, Sha256};
 
-impl<Op> Handler<OAuthMessage<Op, Extras>> for OAuthState
-where
-    Op: OAuthOperation,
-{
-    type Result = Result<Op::Item, Op::Error>;
+            let mut hasher = Sha256::new();
+            hasher.update(verifier.as_bytes());
+            let result = hasher.finalize();
+            let encoded = base64::prelude::BASE64_URL_SAFE_NO_PAD.encode(result);
 
-    fn handle(&mut self, msg: OAuthMessage<Op, Extras>, _ctx: &mut Self::Context) -> Self::Result {
-        let (op, ex) = msg.into_inner();
-
-        match ex {
-            Extras::Get => {
-                let solicitor = FnSolicitor(
-                    move |_: &mut OAuthRequest, pre_grant: Solicitation| {
-                        let grant = pre_grant.pre_grant();
-                        let state = pre_grant.state();
-                        let mut response = OAuthResponse::default();
-
-                        response
-                            .redirect(
-                                format!(
-                                    "http://localhost:7433/login?response_type=code&client_id={}&redirect_uri={}&scope={}{}",
-                                    grant.client_id,
-                                    grant.redirect_uri,
-                                    grant.scope,
-                                    state
-                                        .and_then(|x| Some(format!("&state={}", x)))
-                                        .unwrap_or("".to_string())
-                                )
-                                .parse::<url::Url>()
-                                .expect("failed to parse url"),
-                            )
-                            .expect("failed to set redirect");
-
-                        OwnerConsent::InProgress(response)
-                    },
-                );
-
-                op.run(self.with_solicitor(solicitor))
-            }
-            Extras::Post(uuid) => {
-                let solicitor = FnSolicitor(move |_: &mut OAuthRequest, _: Solicitation| {
-                    OwnerConsent::Authorized(uuid.to_string())
-                });
-
-                op.run(self.with_solicitor(solicitor))
-            }
-
-            Extras::AuthoriztionCode => {
-                let solicitor = FnSolicitor(move |_: &mut OAuthRequest, solicitation: Solicitation|{
-                    OwnerConsent::Authorized( solicitation.pre_grant().client_id.clone())
-                });
-
-                op.run(self.with_solicitor(solicitor))
-            }
-
-            _ => op.run(&mut self.endpoint),
+            challenge == encoded
         }
+        _ => false,
     }
 }

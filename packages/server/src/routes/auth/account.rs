@@ -2,19 +2,18 @@ use crate::{
     models,
     routes::error::{ApplicationError, AuthPageError, ErrorDetail, InnerError},
     state::{
-        oauth::{Extras, OAuthState},
         password::{hash_password, verify_password},
         recaptcha::{self, RecaptchaError},
     },
 };
-use actix::Addr;
+
 use actix_csrf_middleware::{CsrfToken, DEFAULT_CSRF_TOKEN_FIELD};
 use actix_web::{
-    FromRequest, HttpRequest, HttpResponse, Responder, get,
+    HttpRequest, HttpResponse, Responder, get,
     http::{StatusCode, header::ContentType},
     post, web,
 };
-use oxide_auth_actix::{Authorize, OAuthOperation, OAuthRequest};
+
 use sqlx::SqlitePool;
 use std::{env, io::Read};
 use utoipa::ToSchema;
@@ -154,7 +153,6 @@ impl LoginRequest {
 pub async fn login_post(
     req: HttpRequest,
     form: web::Form<LoginRequest>,
-    state: web::Data<Addr<OAuthState>>,
     db: web::Data<SqlitePool>,
 ) -> Result<impl Responder, AuthPageError> {
     form.verify_payload()?;
@@ -217,7 +215,8 @@ pub async fn login_post(
         }
     }
 
-    let mut payload = actix_web::dev::Payload::None;
+    //TODO start verify
+    /*  let mut payload = actix_web::dev::Payload::None;
     let request = OAuthRequest::from_request(&req, &mut payload).await?;
 
     let response = state
@@ -252,10 +251,10 @@ pub async fn login_post(
                 None,
             )));
         }
-    };
+    };*/
 
     Ok(HttpResponse::Ok().json(LoginResponse {
-        redirect: value.to_string(),
+        redirect: "".to_string(), // value.to_string(),
     }))
 }
 
@@ -308,7 +307,6 @@ pub async fn signup_post(
     req: HttpRequest,
     form: web::Form<SignupFormRequest>,
     db: web::Data<SqlitePool>,
-    state: web::Data<Addr<OAuthState>>,
 ) -> Result<HttpResponse, AuthPageError> {
     form.verify_fields()?;
 
@@ -374,7 +372,7 @@ pub async fn signup_post(
         };
 
     if req.query_string().len() != 0 {
-        let mut payload = actix_web::dev::Payload::None;
+        /*  let mut payload = actix_web::dev::Payload::None;
         let request = OAuthRequest::from_request(&req, &mut payload).await?;
 
         let result = state
@@ -410,10 +408,10 @@ pub async fn signup_post(
                     Some(InnerError::new(err.to_string())),
                 )));
             }
-        };
+        };*/
 
         return Ok(HttpResponse::Ok().json(LoginResponse {
-            redirect: value.to_owned(),
+            redirect: "".to_string(), // value.to_owned(),
         }));
     }
 

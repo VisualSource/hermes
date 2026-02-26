@@ -13,11 +13,13 @@ actix = "0.13"
 actix-files = "0.6"
 actix-web = "4"
 actix-ws = "0.4.0"
-oxide-auth-actix = "0.3" 
-oxide-auth = "0.6"
+jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
 actix-governor = "0.10"
 futures-util = "0.3"
+sha2 = "0.10"
 log = "0.4"
+base64 = "0.22"
+rand = "0.10"
 sqlx = { version = "0.8", features = [ "runtime-tokio", "sqlite","derive", "macros","migrate","bstr", "time","uuid"] }
 utoipa = { version = "5.4", features = ["actix_extras","yaml"]}
 utoipa-actix-web = "0.1"

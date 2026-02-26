@@ -1,12 +1,11 @@
 use std::io::ErrorKind;
 
-use actix::Actor;
 use actix_csrf_middleware::{CsrfMiddleware, CsrfMiddlewareConfig};
 use actix_governor::{Governor, GovernorConfigBuilder};
 use actix_web::{
     App, HttpServer,
     middleware::{Logger, NormalizePath, TrailingSlash},
-    web::{self, Data},
+    web::{self},
 };
 use utoipa::OpenApi;
 
@@ -28,8 +27,6 @@ async fn main() -> std::io::Result<()> {
     log4rs::init_file("./log4rs.yaml", Default::default())
         .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err.to_string()))?;
 
-    let oauth = state::oauth::OAuthState::preconfigured().start();
-
     let governor_conf = GovernorConfigBuilder::default()
         .seconds_per_request(2)
         .burst_size(5)
@@ -46,7 +43,6 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
-            .app_data(Data::new(oauth.clone()))
             .app_data(pool.clone())
             .wrap(NormalizePath::new(TrailingSlash::Trim))
             .wrap(Logger::default())
@@ -59,7 +55,6 @@ async fn main() -> std::io::Result<()> {
                     .service(routes::static_files::get_static_files())
                     .service(routes::auth::get_account_routes()),
             )
- 
 
         //.route("/ws", web::get().to(routes::websocket::ws))
     })
