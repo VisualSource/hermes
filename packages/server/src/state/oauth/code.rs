@@ -1,8 +1,5 @@
 use base64::Engine;
 use rand::RngExt;
-pub const OAUTH_CLIENT_ID: &str = "";
-pub const OAUTH_REDIRECT_URI: &str = "";
-pub const OAUTH_CLIENT_SECRET: &str = "";
 
 // expires in 10min
 pub fn generate_code() -> String {

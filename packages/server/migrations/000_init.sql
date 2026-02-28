@@ -17,3 +17,14 @@ CREATE TABLE IF NOT EXISTS keys (
             ON DELETE CASCADE 
             ON UPDATE NO ACTION
 );
+
+CREATE TABLE IF NOT EXISTS grants (
+    id BLOB NOT NULL PRIMARY KEY,
+    code TEXT NOT NULL,
+    user_id BLOB NOT NULL,
+    created_at DATETIME NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used BOOLEAN NOT NULL DEFAULT FALSE,
+    code_challenge TEXT NOT NULL,
+    code_challenge_method TEXT NOT NULL 
+);

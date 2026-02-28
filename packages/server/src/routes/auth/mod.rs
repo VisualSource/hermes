@@ -13,5 +13,5 @@ pub fn get_account_routes() -> impl HttpServiceFactory {
 }
 
 pub fn get_oauth_routes() -> impl HttpServiceFactory {
-    (oauth::authorize, oauth::refresh, oauth::token)
+    (oauth::authorize, oauth::token)
 }

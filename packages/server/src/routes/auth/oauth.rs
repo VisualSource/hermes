@@ -1,33 +1,16 @@
-use std::ops::Add;
-
-use actix_web::{HttpResponse, get, http::header, post, web};
-use base64::Engine;
-use serde::Deserialize;
-
-use crate::{
-    routes::error::OAuthError,
-    state::{self, oauth},
+use crate::state::oauth::{
+    self,
+    errors::{OAuthError, OAuthErrorType},
+    jwt::Claims,
 };
+use actix_web::{
+    HttpResponse, get,
+    http::header::{self, CacheDirective},
+    post, web,
+};
+use sqlx::SqlitePool;
 
 use utoipa::ToSchema;
-
-#[derive(Debug, Deserialize)]
-struct OAuthAuthorizeQuery {
-    // Must be code for authorization code flow
-    response_type: String,
-    // The client identifier
-    client_id: String,
-    // Where to redirect after authorization
-    redirect_uri: String,
-    // Random string for CSRF protection
-    state: String,
-    // Space-separated list of requested permissions
-    scope: Option<String>,
-    // PKCE challenge derived from code_verifier
-    code_challenge: String,
-    // Must be S256
-    code_challenge_method: String,
-}
 
 // https://auth0.com/docs/get-started/authentication-and-authorization-flow/authorization-code-flow
 #[utoipa::path(
@@ -45,61 +28,94 @@ struct OAuthAuthorizeQuery {
     )
 )]
 #[get("/authorize")]
-pub async fn authorize(query: web::Query<OAuthAuthorizeQuery>) -> Result<HttpResponse, OAuthError> {
-    if query.response_type != "code"
-        || query.client_id != oauth::OAUTH_CLIENT_ID
-        || !query.redirect_uri.starts_with(oauth::OAUTH_REDIRECT_URI)
-        || query.code_challenge_method != "S256"
-    {
-        return Err(OAuthError::BadRequest);
+pub async fn authorize(
+    query: web::Query<oauth::OAuthAuthorizeQuery>,
+) -> Result<HttpResponse, OAuthError> {
+    let authed = false;
+    if !authed {
+        let iss = std::env::var("SERVER_ORIGIN")?;
+        let mut return_to = format!(
+            "{}/auth/authorize?response_type={}&client_id={}&redirect_uri={}&code_challenge={}&code_challenge_method={}",
+            iss,
+            query.response_type,
+            query.client_id,
+            query.redirect_uri,
+            query.code_challenge,
+            query.code_challenge_method
+        );
+        if let Some(state) = &query.state {
+            return_to = format!("{return_to}&state={state}")
+        }
+        let redirect_uri = format!("{iss}/login?return_to={return_to}",);
+        let resp = HttpResponse::Found()
+            .insert_header((header::REFERRER_POLICY, "no-referrer"))
+            .insert_header((header::X_FRAME_OPTIONS, "DENY"))
+            .insert_header((header::CONTENT_SECURITY_POLICY, "frame-ancestors 'none'"))
+            .insert_header((header::X_CONTENT_TYPE_OPTIONS, "nosniff"))
+            .insert_header((header::LOCATION, redirect_uri))
+            .finish();
+
+        return Ok(resp);
     }
 
-    //TODO: store code_challenge
-    //TODO: validate scopes
+    query.validate()?;
 
-    //TODO get return url from env
-    let url = url::Url::parse_with_params(
-        "http://localhost:7433/login",
-        &[
-            ("response_type", "code"),
-            ("client_id", &query.client_id),
-            ("redirect_uri", &query.redirect_uri),
-            ("state", &query.state),
-        ],
-    )?;
+    let code = oauth::code::generate_code();
 
-    let resp = HttpResponse::Found()
-        .insert_header((header::LOCATION, url.to_string()))
-        .finish();
+    // insert request into db
 
-    Ok(resp)
+    let mut redirect_uri = format!("{}?code={}", query.redirect_uri, code);
+    if let Some(state) = &query.state {
+        redirect_uri = format!("{redirect_uri}&state={state}");
+    }
+
+    return Ok(HttpResponse::Found()
+        .insert_header((header::LOCATION, redirect_uri))
+        .insert_header((header::REFERRER_POLICY, "no-referrer"))
+        .insert_header((header::X_FRAME_OPTIONS, "DENY"))
+        .insert_header((header::CONTENT_SECURITY_POLICY, "frame-ancestors 'none'"))
+        .insert_header((header::X_CONTENT_TYPE_OPTIONS, "nosniff"))
+        .finish());
 }
 
 #[derive(Debug, serde::Deserialize, ToSchema)]
-struct OAuthToken {
+struct OAuthTokenRequest {
     grant_type: String,
     client_id: String,
     code: String,
     code_verifier: String,
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-struct Claims {
-    iss: String,
-    // In OAuth 2.0, an identity provider (IdP) issues tokens with the aud claim set to the client ID.
-    aud: String,
-    iat: i64,
-    exp: i64,
-    sub: uuid::Uuid,
+impl OAuthTokenRequest {
+    fn validate(&self) -> Result<(), OAuthError> {
+        if self.grant_type != "refresh_token" || self.grant_type != "authorization_code" {
+            return Err(OAuthError::error(OAuthErrorType::UnsupportedGrantType));
+        }
+
+        if self.client_id != oauth::OAUTH_CLIENT_ID {
+            return Err(OAuthError::error(OAuthErrorType::InvalidClientId));
+        }
+
+        if self.code_verifier.len() < 43 || self.code_verifier.len() > 128 {
+            return Err(OAuthError::error(OAuthErrorType::MalformedCodeVerifier));
+        }
+
+        if self.code.len() != 32 {
+            return Err(OAuthError::error(OAuthErrorType::MalformatedCode));
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, serde::Serialize)]
-struct OauthTokenResponse {
+struct OAuthTokenResponse {
     access_token: jsonwebtoken::jws::Jws<Claims>,
-    refresh_token: String,
+    refresh_token: Option<jsonwebtoken::jws::Jws<Claims>>,
     token_type: String,
+    /// number that represents the lifetime in seconds of the access token.
     expires_in: i64,
-    scope: String,
+    scope: Option<String>,
 }
 
 #[utoipa::path(
@@ -116,60 +132,30 @@ struct OauthTokenResponse {
     )
 )]
 #[post("/token")]
-pub async fn token(body: web::Form<OAuthToken>) -> Result<HttpResponse, OAuthError> {
-    if body.client_id != oauth::OAUTH_CLIENT_ID {
-        return Err(OAuthError::BadRequest);
-    }
+pub async fn token(
+    body: web::Form<OAuthTokenRequest>,
+    db: web::Data<SqlitePool>,
+) -> Result<HttpResponse, OAuthError> {
+    body.validate()?;
 
-    if body.grant_type == "refresh_token" {
-        // return refresh token
-        return Err(OAuthError::BadRequest);
-    }
+    let method = "S256";
+    let challenge = "";
 
-    if body.grant_type != "authorization_code" {
-        return Err(OAuthError::BadRequest);
-    }
-
-    // TODO get code challenge and method
-    let code_challenage = "";
-    let code_method = "S256";
-
-    if !state::oauth::validate_pkce(code_challenage, &body.code_verifier, code_method) {
-        return Err(OAuthError::BadRequest);
-    }
-
-    // TODO: get user id
-
-    let user_id = uuid::Uuid::now_v7();
-
-    let now = time::UtcDateTime::now();
-    let exp = now.add(time::Duration::days(1)).unix_timestamp();
-
-    let iss = std::env::var("SERVER_ORIGIN")?;
-
-    let claims = Claims {
-        iss: iss.to_string(), // TODO get from env
-        aud: oauth::OAUTH_CLIENT_ID.to_string(),
-        exp: exp,
-        iat: now.unix_timestamp(),
-        sub: user_id,
+    if !oauth::code::validate_pkce(challenge, &body.code_verifier, method) {
+        return Err(OAuthError::error(OAuthErrorType::AccessDenied));
     };
 
-    //TODO: replace with better key
-    let key = jsonwebtoken::EncodingKey::from_secret(b"TODO REPLACE ME WITH A BETTER KEY");
+    // lookup code in db get request
 
-    let mut header = jsonwebtoken::Header::default();
-    header.alg = jsonwebtoken::Algorithm::HS512;
-
-    let token = jsonwebtoken::jws::encode::<Claims>(&header, Some(&claims), &key)?;
-
-    let res = OauthTokenResponse {
-        access_token: token,
-        refresh_token: "".to_string(),
+    let res = OAuthTokenResponse {
+        access_token: todo!(),
+        refresh_token: None,
         token_type: "Bearer".to_string(),
         expires_in: 3600,
-        scope: "".to_string(),
+        scope: None,
     };
 
-    Ok(HttpResponse::Ok().json(res))
+    Ok(HttpResponse::Ok()
+        .insert_header(header::CacheControl(vec![CacheDirective::NoStore]))
+        .json(res))
 }
