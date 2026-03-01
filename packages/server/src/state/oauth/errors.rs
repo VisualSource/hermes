@@ -1,7 +1,8 @@
+use crate::state::api_errors::{ApplicationError, ErrorDetail, InnerError};
+use crate::state::oauth::jwt::JwtError;
+use actix_identity::error::GetIdentityError;
 use actix_web::HttpResponse;
 use actix_web::http::{StatusCode, header};
-
-use crate::state::api_errors::{ApplicationError, ErrorDetail, InnerError};
 
 #[derive(Debug, thiserror::Error)]
 #[error("{}",.error_type)]
@@ -54,20 +55,20 @@ impl actix_web::ResponseError for OAuthError {
                 "{}?error={}&error_description={}",
                 redirect_uri,
                 self.error_type.name(),
-                self.error_type
+                urlencoding::encode(&self.error_type.to_string())
             );
 
             if let Some(state) = self.state.as_ref() {
                 redirect_uri = format!("{redirect_uri}&state={state}")
             }
 
-            HttpResponse::Ok()
+            HttpResponse::Found()
                 .append_header((header::LOCATION, redirect_uri.clone()))
                 .insert_header((header::REFERRER_POLICY, "no-referrer"))
                 .insert_header((header::X_FRAME_OPTIONS, "DENY"))
                 .insert_header((header::CONTENT_SECURITY_POLICY, "frame-ancestors 'none'"))
                 .insert_header((header::X_CONTENT_TYPE_OPTIONS, "nosniff"))
-                .body(redirect_uri)
+                .finish()
         } else {
             HttpResponse::build(self.status_code()).json(ApplicationError::new(
                 400,
@@ -82,6 +83,8 @@ impl actix_web::ResponseError for OAuthError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum OAuthErrorType {
+    #[error("The provided refresh token was malformed")]
+    MalformatedRefreshToken,
     #[error("The provided code was malformed")]
     MalformatedCode,
     #[error("The provided code verifier was malformed")]
@@ -101,12 +104,20 @@ pub enum OAuthErrorType {
     InvalidCodeChallenge,
 
     #[error("Internal Server Error")]
+    Session(#[from] GetIdentityError),
+    #[error("Internal Server Error")]
     EnvVar(#[from] std::env::VarError),
     #[error("Internal Server Error")]
     UrlParse(#[from] url::ParseError),
 
     #[error("Internal Server Error")]
     Db(#[from] sqlx::Error),
+
+    #[error("Internal Server Error")]
+    Jwt(#[from] JwtError),
+
+    #[error("Internal Server Error")]
+    Uuid(#[from] uuid::Error),
 
     #[error("The provided authorization grant type is not supported by the authorization server.")]
     UnsupportedGrantType,
@@ -116,12 +127,21 @@ impl OAuthErrorType {
     pub fn name(&self) -> String {
         match self {
             Self::UnsupportedGrantType => "unsupported_grant_type",
-            Self::EnvVar(_) | Self::UrlParse(_) | Self::Db(_) => "server_error",
+            Self::EnvVar(_)
+            | Self::UrlParse(_)
+            | Self::Db(_)
+            | Self::Session(_)
+            | Self::Uuid(_) => "server_error",
+            Self::Jwt(err) => match err {
+                JwtError::Jwt(_) => "invalid_request",
+                _ => "server_error",
+            },
             Self::InvalidRedirect
             | Self::UnsupportedCodeChallengeMethod
             | Self::InvalidCodeChallenge
             | Self::MalformedCodeVerifier
-            | Self::MalformatedCode => "invalid_request",
+            | Self::MalformatedCode
+            | Self::MalformatedRefreshToken => "invalid_request",
             Self::AccessDenied => "access_denied",
             Self::InvalidClientId => "invalid_client",
             Self::InvalidCodeGrant => "invalid_grant",
@@ -130,9 +150,20 @@ impl OAuthErrorType {
     }
     pub fn get_context(&self) -> Option<InnerError> {
         match self {
-            Self::EnvVar(err) => Some(InnerError::new(err.to_string())),
-            Self::UrlParse(err) => Some(InnerError::new(err.to_string())),
-            Self::Db(err) => Some(InnerError::new(err.to_string())),
+            Self::Jwt(err) => {
+                match err {
+                    JwtError::Var(var_error) => Some(InnerError::labeled("env".into(), var_error.to_string())),
+                    JwtError::Jwt(error) => Some(InnerError::labeled("jwt".into(), error.to_string())),
+                }
+            }
+            Self::EnvVar(err) => Some(InnerError::labeled("env".into(), err.to_string())),
+            Self::UrlParse(err) => Some(InnerError::labeled(
+                "url parse".to_string(),
+                err.to_string(),
+            )),
+            Self::Db(err) => Some(InnerError::labeled("db".into(), err.to_string())),
+            Self::Session(err) => Some(InnerError::labeled("session".into(), err.to_string())),
+            Self::Uuid(err) => Some(InnerError::labeled("uuid".to_string(), err.to_string())),
             _ => None,
         }
     }

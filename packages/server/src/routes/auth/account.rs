@@ -1,15 +1,16 @@
 use crate::{
     models,
-    routes::error::{ApplicationError, AuthPageError, ErrorDetail, InnerError},
+    routes::error::AuthPageError,
     state::{
+        api_errors::{ApplicationError, ErrorDetail, InnerError},
         password::{hash_password, verify_password},
         recaptcha::{self, RecaptchaError},
     },
 };
-
 use actix_csrf_middleware::{CsrfToken, DEFAULT_CSRF_TOKEN_FIELD};
+use actix_identity::Identity;
 use actix_web::{
-    HttpRequest, HttpResponse, Responder, get,
+    HttpMessage, HttpRequest, HttpResponse, Responder, get,
     http::{StatusCode, header::ContentType},
     post, web,
 };
@@ -17,11 +18,6 @@ use actix_web::{
 use sqlx::SqlitePool;
 use std::{env, io::Read};
 use utoipa::ToSchema;
-
-#[derive(Debug, serde::Serialize, ToSchema)]
-pub struct LoginResponse {
-    redirect: String,
-}
 
 #[utoipa::path(
     tag="oauth", 
@@ -35,7 +31,7 @@ pub struct LoginResponse {
     )
 )]
 #[get("/login")]
-pub async fn login(csrf: CsrfToken) -> std::io::Result<impl Responder> {
+pub async fn login(/*csrf: CsrfToken*/) -> std::io::Result<impl Responder> {
     let site_key = env::var("RECAPTCHA_SITE_KEY");
     if let Err(err) = site_key {
         log::error!("{}", err);
@@ -48,8 +44,8 @@ pub async fn login(csrf: CsrfToken) -> std::io::Result<impl Responder> {
     file.read_to_string(&mut buffer)?;
 
     let content = buffer
-        .replace("{CSRF_TOKEN_FIELD}", DEFAULT_CSRF_TOKEN_FIELD)
-        .replace("{CSRF_TOKEN_VALUE}", &csrf.0)
+        /* .replace("{CSRF_TOKEN_FIELD}", DEFAULT_CSRF_TOKEN_FIELD)
+        .replace("{CSRF_TOKEN_VALUE}", &csrf.0)*/
         .replace("{RECAPTCHA_SITE_KEY}", &site_key);
 
     Ok(HttpResponse::Ok()
@@ -65,22 +61,21 @@ pub async fn login(csrf: CsrfToken) -> std::io::Result<impl Responder> {
     )
 )]
 #[get("/signup")]
-pub async fn signup(csrf: CsrfToken) -> std::io::Result<impl Responder> {
+pub async fn signup(/*csrf: CsrfToken*/) -> std::io::Result<impl Responder> {
     let site_key = env::var("RECAPTCHA_SITE_KEY");
     if let Err(err) = site_key {
         log::error!("{}", err);
         return Ok(HttpResponse::InternalServerError().finish());
     }
     let site_key = site_key.unwrap_or_default();
-
     let mut file = actix_files::NamedFile::open_async("./public/signup.html").await?;
 
     let mut buffer = String::new();
     file.read_to_string(&mut buffer)?;
 
     let content = buffer
-        .replace("{CSRF_TOKEN_FIELD}", DEFAULT_CSRF_TOKEN_FIELD)
-        .replace("{CSRF_TOKEN_VALUE}", &csrf.0)
+        /*.replace("{CSRF_TOKEN_FIELD}", DEFAULT_CSRF_TOKEN_FIELD)
+        .replace("{CSRF_TOKEN_VALUE}", &csrf.0) */
         .replace("{RECAPTCHA_SITE_KEY}", &site_key);
 
     Ok(HttpResponse::Ok()
@@ -215,47 +210,9 @@ pub async fn login_post(
         }
     }
 
-    //TODO start verify
-    /*  let mut payload = actix_web::dev::Payload::None;
-    let request = OAuthRequest::from_request(&req, &mut payload).await?;
+    Identity::login(&req.extensions(), user.id.into())?;
 
-    let response = state
-        .send(Authorize(request).wrap(Extras::Post(user.id)))
-        .await??;
-
-    let headers = response.get_headers();
-    let header = match headers.get("location") {
-        None => {
-            return Err(AuthPageError::Request(ApplicationError::new(
-                StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
-                "internal server error",
-                "server",
-                Vec::default(),
-                Some(InnerError::new(
-                    "Failed to get location header from oauth response".to_string(),
-                )),
-            )));
-        }
-        Some(header) => header,
-    };
-
-    let value = match header.to_str() {
-        Ok(v) => v,
-        Err(err) => {
-            log::error!("{}", err);
-            return Err(AuthPageError::Request(ApplicationError::new(
-                StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
-                "internal server error",
-                "server",
-                Vec::default(),
-                None,
-            )));
-        }
-    };*/
-
-    Ok(HttpResponse::Ok().json(LoginResponse {
-        redirect: "".to_string(), // value.to_string(),
-    }))
+    Ok(HttpResponse::NoContent().finish())
 }
 
 #[derive(Debug, serde::Deserialize, ToSchema)]
@@ -371,49 +328,7 @@ pub async fn signup_post(
             Ok(u) => u,
         };
 
-    if req.query_string().len() != 0 {
-        /*  let mut payload = actix_web::dev::Payload::None;
-        let request = OAuthRequest::from_request(&req, &mut payload).await?;
-
-        let result = state
-            .send(Authorize(request).wrap(Extras::Post(uuid)))
-            .await??;
-
-        let header = result.get_headers();
-
-        let location = match header.get("location") {
-            None => {
-                return Err(AuthPageError::Request(ApplicationError::new(
-                    StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
-                    "internal server error",
-                    "server",
-                    Vec::default(),
-                    Some(InnerError::new(
-                        "failed to get location header from oauth response".to_string(),
-                    )),
-                )));
-            }
-            Some(loc) => loc,
-        };
-
-        let value = match location.to_str() {
-            Ok(value) => value,
-            Err(err) => {
-                log::error!("{}", err);
-                return Err(AuthPageError::Request(ApplicationError::new(
-                    StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
-                    "internal server error",
-                    "server",
-                    Vec::default(),
-                    Some(InnerError::new(err.to_string())),
-                )));
-            }
-        };*/
-
-        return Ok(HttpResponse::Ok().json(LoginResponse {
-            redirect: "".to_string(), // value.to_owned(),
-        }));
-    }
+    Identity::login(&req.extensions(), uuid.into())?;
 
     Ok(HttpResponse::Created().finish())
 }

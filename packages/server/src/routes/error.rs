@@ -1,6 +1,5 @@
 use actix_web::{HttpResponse, ResponseError, error, http::StatusCode};
 use thiserror::Error;
-use utoipa::{ToResponse, ToSchema};
 
 use crate::state::api_errors::{ApplicationError, InnerError};
 
@@ -19,11 +18,21 @@ pub enum AuthPageError {
 
     #[error("a error happened in the request")]
     Request(ApplicationError),
+
+    #[error("failed to insert value")]
+    Login(#[from] actix_identity::error::LoginError),
 }
 
 impl AuthPageError {
     fn get_body(&self) -> ApplicationError {
         match &self {
+            Self::Login(err) => ApplicationError::new(
+                500,
+                "Internal Server Error",
+                "server",
+                Vec::default(),
+                Some(InnerError::new(err.to_string())),
+            ),
             Self::Request(error) => error.clone(),
 
             Self::Recaptcha => ApplicationError::new(

@@ -26,6 +26,11 @@ impl InnerError {
     pub fn new(trace: String) -> Self {
         Self { trace: vec![trace] }
     }
+    pub fn labeled(label: String, reason: String) -> Self {
+        Self {
+            trace: vec![label, reason],
+        }
+    }
 }
 
 #[derive(Debug, serde::Serialize, Clone, ToResponse)]

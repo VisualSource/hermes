@@ -29,7 +29,7 @@
              <section data-slot="card-content" class="card-content">
                 <h1 class="text-lg font-bold">Your loggedin.</h1>
                 <p class="text-muted-foreground mt-4">
-                    If the app doesn't open try <a class="underline text-primary-foreground" href="">clicking here</a>
+                    If the app doesn't open try <a class="underline text-primary-foreground" href="hermes://open">clicking here</a>
                 </p>
              </section>
         </div>
@@ -101,8 +101,7 @@
 
             onFormSubmit("login-form",async (formData)=>{
                 const path = new URL("/login",window.location.origin);
-                path.search = window.location.search;
-
+     
                 try {
                     document.getElementById("body-errors")?.classList.add("hidden");
                     submitBtn.setAttribute("disabled","true");
@@ -113,7 +112,8 @@
 
                     const response = await fetch(path,{
                         method: "post",
-                        body: new URLSearchParams(formData.entries())
+                        body: new URLSearchParams(formData.entries()),
+                        credentials: "same-origin"
                     });
 
                     if(!response.ok) {
@@ -121,14 +121,20 @@
                         return;
                     }
 
-                    const body = await response.json();
-
                     const template = document.getElementById("login-done");
                     const clone = document.importNode(template.content,true);
-                    clone.querySelector("a").setAttribute("href",body.redirect);
                     document.querySelector("main").replaceChildren(clone);
 
-                    window.location.href = body.redirect;
+                   try {
+                      const query = new URLSearchParams(window.location.search);
+                      const returnTo = query.get("return_to");
+                        if(!returnTo) return;
+                      const url = new URL(returnTo);
+                      if(url.origin !== window.location.origin) return;
+                      window.location.href = url.toString();
+                   } catch (error) {
+                     console.error(error);
+                   }
                 } catch (error) {
                     console.error("error");
                     showMessage(typeof error === "object" && "message" in error ? error.message : "Unknown error");

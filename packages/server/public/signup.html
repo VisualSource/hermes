@@ -135,7 +135,6 @@
 
             onFormSubmit("signup-form",async (formData)=> {
                 const path = new URL("/signup",window.location.origin);
-                path.search = window.location.search;
 
                 try {
 			        document.getElementById("body-errors")?.classList.add("hidden");
@@ -163,24 +162,30 @@
                         clone.querySelector("p").textContent = "Download the Hermes desktop or mobile app to get started.";
                         const target = document.querySelector("main");
                         target.replaceChildren(clone);
-                        return;
+                    } else {
+                        const temp = document.getElementById("account-created");
+                        const clone = document.importNode(temp.content,true);
+
+                        clone.querySelector("h1").textContent = "Opening Hermes";
+                        clone.querySelector("p").textContent = "Returning you to the app";
+
+                        clone.querySelector("section").insertAdjacentHTML("beforeend",`If app doesn't open <a href="${body.redirect}" class="underline text-primary-foreground">click here</a>`);
+
+                        const target = document.querySelector("main");
+                        target.replaceChildren(clone);
                     }
 
-                    const body = await response.json();
-                   
-                    /**@type {HTMLTemplateElement}*/
-                    const temp = document.getElementById("account-created");
-                    const clone = document.importNode(temp.content,true);
+                    try {
+                      const query = new URLSearchParams(window.location.search);
+                      const returnTo = query.get("return_to");
+                      if(!returnTo) return;
 
-                    clone.querySelector("h1").textContent = "Opening Hermes";
-                    clone.querySelector("p").textContent = "Returning you to the app";
-
-                    clone.querySelector("section").insertAdjacentHTML("beforeend",`If app doesn't open <a href="${body.redirect}" class="underline text-primary-foreground">click here</a>`);
-
-                    const target = document.querySelector("main");
-                    target.replaceChildren(clone);
-
-                    window.location.href = body.redirect;
+                      const url = new URL(returnTo);
+                      if(url.origin !== window.location.origin) return;
+                      window.location.href = url.toString();
+                   } catch (error) {
+                     console.error(error);
+                   }
                 } catch (error) {
                     console.error(error);
                     showMessage(typeof error === "object" && "message" in error ? error.message : "Unknown error");

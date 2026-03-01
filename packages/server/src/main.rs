@@ -1,12 +1,13 @@
-use std::io::ErrorKind;
-
 use actix_csrf_middleware::{CsrfMiddleware, CsrfMiddlewareConfig};
 use actix_governor::{Governor, GovernorConfigBuilder};
+use actix_identity::IdentityMiddleware;
+use actix_session::SessionMiddleware;
 use actix_web::{
     App, HttpServer,
     middleware::{Logger, NormalizePath, TrailingSlash},
     web::{self},
 };
+use std::io::ErrorKind;
 use utoipa::OpenApi;
 
 mod db;
@@ -38,8 +39,10 @@ async fn main() -> std::io::Result<()> {
         .map_err(|err| std::io::Error::new(ErrorKind::Other, err))?;
     let pool = web::Data::new(db);
 
-    let secert = std::env::var("APP_SECRET").expect("failed to get secert");
-    let csrf_config = CsrfMiddlewareConfig::double_submit_cookie(secert.as_bytes());
+    //let secert = std::env::var("APP_SECRET").expect("failed to get secert");
+    //let csrf_config = CsrfMiddlewareConfig::double_submit_cookie(secert.as_bytes());
+
+    let session_key = actix_web::cookie::Key::generate(); //TODO replace with better key
 
     HttpServer::new(move || {
         App::new()
@@ -47,12 +50,17 @@ async fn main() -> std::io::Result<()> {
             .wrap(NormalizePath::new(TrailingSlash::Trim))
             .wrap(Logger::default())
             .wrap(Governor::new(&governor_conf))
-            .service()
+            .wrap(IdentityMiddleware::default())
+            .wrap(SessionMiddleware::new(
+                actix_session::storage::CookieSessionStore::default(),
+                session_key.clone(),
+            ))
+            .service(routes::oauth_server_details)
             .service(web::scope("/auth").service(routes::auth::get_oauth_routes()))
             .service(web::scope("/api").service(routes::api::api_routes()))
             .service(
                 web::scope("")
-                    .wrap(CsrfMiddleware::new(csrf_config.clone()))
+                    //.wrap(CsrfMiddleware::new(csrf_config.clone()))
                     .service(routes::static_files::get_static_files())
                     .service(routes::auth::get_account_routes()),
             )

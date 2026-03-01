@@ -1,13 +1,15 @@
 use std::ops::Add;
 
-use jsonwebtoken::jws;
+use jsonwebtoken::{Algorithm, TokenData, Validation, jws};
 use thiserror::Error;
+
+use crate::state::oauth::OAUTH_CLIENT_ID;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct Claims {
     iss: String,
     // In OAuth 2.0, an identity provider (IdP) issues tokens with the aud claim set to the client ID.
-    aud: String,
+    aud: uuid::Uuid,
     iat: i64,
     exp: i64,
     sub: uuid::Uuid,
@@ -21,7 +23,53 @@ pub enum JwtError {
     Jwt(#[from] jsonwebtoken::errors::Error),
 }
 
-pub fn create_jwt(user_id: uuid::Uuid, client_id: String) -> Result<jws::Jws<Claims>, JwtError> {
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+pub struct RefreshClaims {
+    pub iss: String,
+    pub aud: uuid::Uuid, // client_id
+    pub sub: uuid::Uuid, // user_id
+
+    pub exp: i64,
+    pub nbf: i64,
+    pub iat: i64,
+    pub jti: uuid::Uuid,
+}
+
+pub fn create_refresh_jwt(
+    client_id: uuid::Uuid,
+    user_id: uuid::Uuid,
+) -> Result<String, JwtError> {
+    let jti = uuid::Uuid::now_v7();
+
+    let iss = std::env::var("SERVER_ORIGIN")?;
+    let secret = std::env::var("JWT_SECRET_KEY")?;
+    let key = jsonwebtoken::EncodingKey::from_secret(secret.as_bytes());
+
+    let now = time::UtcDateTime::now();
+    let exp = now.add(time::Duration::days(10)).unix_timestamp();
+
+    let claims = RefreshClaims {
+        iss,
+        aud: client_id,
+        sub: user_id,
+        exp,
+        nbf: 0,
+        iat: now.unix_timestamp(),
+        jti,
+    };
+
+    let mut header = jsonwebtoken::Header::default();
+    header.alg = jsonwebtoken::Algorithm::HS512;
+
+    let token = jsonwebtoken::encode::<RefreshClaims>(&header, &claims, &key)?;
+
+    Ok(token)
+}
+
+pub fn create_jwt(
+    user_id: uuid::Uuid,
+    client_id: uuid::Uuid,
+) -> Result<String, JwtError> {
     let now = time::UtcDateTime::now();
     let exp = now.add(time::Duration::days(1)).unix_timestamp();
     let iss = std::env::var("SERVER_ORIGIN")?;
@@ -39,7 +87,20 @@ pub fn create_jwt(user_id: uuid::Uuid, client_id: String) -> Result<jws::Jws<Cla
     let mut header = jsonwebtoken::Header::default();
     header.alg = jsonwebtoken::Algorithm::HS512;
 
-    let token = jsonwebtoken::jws::encode::<Claims>(&header, Some(&claims), &key)?;
+    let token = jsonwebtoken::encode::<Claims>(&header, &claims, &key)?;
 
     Ok(token)
+}
+
+pub fn validate_refresh_token(token: &str) -> Result<TokenData<RefreshClaims>, JwtError> {
+    let secret = std::env::var("JWT_SECRET_KEY")?;
+    let key = jsonwebtoken::DecodingKey::from_secret(secret.as_bytes());
+    let iss = std::env::var("SERVER_ORIGIN")?;
+    let mut validater = Validation::new(Algorithm::HS512);
+    validater.set_issuer(&vec![iss]);
+    validater.set_audience(&vec![OAUTH_CLIENT_ID]);
+
+    let jwt = jsonwebtoken::decode::<RefreshClaims>(token, &key, &validater)?;
+
+    Ok(jwt)
 }

@@ -24,7 +24,19 @@ CREATE TABLE IF NOT EXISTS grants (
     user_id BLOB NOT NULL,
     created_at DATETIME NOT NULL,
     expires_at DATETIME NOT NULL,
+    scopes TEXT,
     used BOOLEAN NOT NULL DEFAULT FALSE,
     code_challenge TEXT NOT NULL,
     code_challenge_method TEXT NOT NULL 
+);
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id BLOB NOT NULL PRIMARY KEY,
+    user_id BLOB NOT NULL,
+    created_at DATETIME NOT NULL,
+    expires_at DATETIME NOT NULL,
+
+    FOREIGN KEY(user_id) 
+        REFERENCES users(id)
+            ON DELETE CASCADE 
+            ON UPDATE NO ACTION
 );
