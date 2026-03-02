@@ -67,7 +67,7 @@ async fn main() -> std::io::Result<()> {
 
         //.route("/ws", web::get().to(routes::websocket::ws))
     })
-    .bind(("localhost", 7433))?
+    .bind(("0.0.0.0", 7433))?
     .run()
     .await
 }

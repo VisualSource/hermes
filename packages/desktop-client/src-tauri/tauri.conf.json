@@ -10,6 +10,13 @@
     "frontendDist": "../dist"
   },
   "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": [
+          "hermes"
+        ]
+      }
+    },
     "updater":{
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERCRjdBOTVGOUE5NTc0RkIKUldUN2RKV2FYNm4zMjZWbnJFaHdUemgvcElueVlXN1BxbWFSNWdLUlZjMUNLbGVrTGJBNjZHQ0MK",
       "endpoints": ["https://github.com/VisualSource/hermes/releases/latest/download/latest.json"]
@@ -18,9 +25,21 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "desktop-client",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "decorations": false,
+        "dragDropEnabled": false
+      },
+      {
+        "label": "account",
+        "title": "Account",
+        "center": true,
+        "resizable": false,
+        "create": false,
+        "height": 600,
+        "width": 484
       }
     ],
     "security": {

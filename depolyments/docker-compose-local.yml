@@ -1,0 +1,19 @@
+services:
+  caddy:
+    # https://hub.docker.com/_/caddy
+    # https://caddyserver.com/docs/running#local-https-with-docker
+    image: caddy:2.11-alpine
+    ports:
+      - "7435:80"
+      - "7436:443"
+      - "7436:433/udp"
+    volumes:
+      - ../configs/dev:/etc/caddy
+      - ../.caddy/site:/srv
+      - ../.caddy/data:/data
+      - caddy_config:/config
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+volumes:
+  caddy_data:
+  caddy_config:

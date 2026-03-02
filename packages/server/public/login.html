@@ -131,7 +131,7 @@
                         if(!returnTo) return;
                       const url = new URL(returnTo);
                       if(url.origin !== window.location.origin) return;
-                      window.location.href = url.toString();
+                       window.location.href = url.toString();
                    } catch (error) {
                      console.error(error);
                    }

@@ -9,6 +9,18 @@
     "core:default",
     "opener:default",
     "dialog:default",
-    "fs:default"
+    "notification:default",
+    "updater:default",
+    "autostart:default",
+    "clipboard-manager:default",
+    "deep-link:default",
+    "log:default",
+    "upload:default",
+    "fs:default",
+    "core:window:allow-maximize",
+    "core:window:allow-minimize",
+    "core:window:allow-is-maximized",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-start-dragging"
   ]
 }

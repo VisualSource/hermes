@@ -1,5 +1,5 @@
 services:
-  proxy:
+  caddy:
     # https://hub.docker.com/_/caddy
     # https://caddyserver.com/docs/running#local-https-with-docker
     image: caddy:2.11-nanoserver

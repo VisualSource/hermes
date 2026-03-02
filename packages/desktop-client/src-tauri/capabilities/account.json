@@ -1,0 +1,12 @@
+{
+    "identifier": "account-capability",
+    "platforms": [
+        "macOS",
+        "windows",
+        "linux"
+    ],
+    "windows": [
+        "account"
+    ],
+    "permissions": []
+}
