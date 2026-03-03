@@ -1,0 +1,68 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id as \"id: uuid::Uuid\",code,user_id as \"user_id: uuid::Uuid\",created_at,expires_at,used,code_challenge,code_challenge_method,scopes FROM grants WHERE code = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id: uuid::Uuid",
+        "ordinal": 0,
+        "type_info": "Blob"
+      },
+      {
+        "name": "code",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "user_id: uuid::Uuid",
+        "ordinal": 2,
+        "type_info": "Blob"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 3,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "expires_at",
+        "ordinal": 4,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "used",
+        "ordinal": 5,
+        "type_info": "Bool"
+      },
+      {
+        "name": "code_challenge",
+        "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "code_challenge_method",
+        "ordinal": 7,
+        "type_info": "Text"
+      },
+      {
+        "name": "scopes",
+        "ordinal": 8,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "5f38bc61a748ea6bc2265a46f27a2d7bf6e19bc5c4094b38f2a5bacf935a1a84"
+}

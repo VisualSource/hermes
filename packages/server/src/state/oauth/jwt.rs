@@ -1,6 +1,6 @@
 use std::ops::Add;
 
-use jsonwebtoken::{Algorithm, TokenData, Validation, jws};
+use jsonwebtoken::{Algorithm, TokenData, Validation};
 use thiserror::Error;
 
 use crate::state::oauth::OAUTH_CLIENT_ID;
@@ -103,4 +103,27 @@ pub fn validate_refresh_token(token: &str) -> Result<TokenData<RefreshClaims>, J
     let jwt = jsonwebtoken::decode::<RefreshClaims>(token, &key, &validater)?;
 
     Ok(jwt)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_create_jwt(){
+        unsafe {
+            std::env::set_var("JWT_SECRET_KEY", "TEST_KEY");
+            std::env::set_var("SERVER_ORIGIN", "http://localhost:5000");
+        }
+
+        let user_id = uuid::uuid!("00000000-0000-0000-1000-000000000000");
+
+        let jwt = super::create_jwt(user_id,super::OAUTH_CLIENT_ID).expect("Failed to create jwt");
+
+        println!("{}",jwt);
+    }
+    #[test]
+    fn test_create_refresh_jwt(){}
+    #[test]
+    fn test_validate_refresh_jwt(){}
+    #[test]
+    fn test_validate_jwt(){}
 }

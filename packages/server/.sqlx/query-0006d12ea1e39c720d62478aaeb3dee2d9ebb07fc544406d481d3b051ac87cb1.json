@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO grants VALUES (?,?,?,?,?,?,?,?,?);",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 9
+    },
+    "nullable": []
+  },
+  "hash": "0006d12ea1e39c720d62478aaeb3dee2d9ebb07fc544406d481d3b051ac87cb1"
+}

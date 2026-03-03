@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO refresh_tokens VALUES (?,?,?,?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "a14850c5083517196fcb833ae0cfe6ed007117739b39bbaf358c521363542e60"
+}

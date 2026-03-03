@@ -1,0 +1,56 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id as \"id: uuid::Uuid\", username, psd_hash,avatar,created_at,mfa,email FROM users WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id: uuid::Uuid",
+        "ordinal": 0,
+        "type_info": "Blob"
+      },
+      {
+        "name": "username",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "psd_hash",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "avatar",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 4,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "mfa",
+        "ordinal": 5,
+        "type_info": "Bool"
+      },
+      {
+        "name": "email",
+        "ordinal": 6,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "943c8d92eb514ffde845ad93b7cead5b658d5184705c4de9a78c5981718b2f72"
+}
