@@ -83,6 +83,9 @@ impl actix_web::ResponseError for OAuthError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum OAuthErrorType {
+    #[error("The provided refresh token was invalid")]
+    MissingRefreshToken,
+
     #[error("The provided refresh token was malformed")]
     MalformatedRefreshToken,
     #[error("The provided code was malformed")]
@@ -137,6 +140,7 @@ impl OAuthErrorType {
                 _ => "server_error",
             },
             Self::InvalidRedirect
+            | Self::MissingRefreshToken
             | Self::UnsupportedCodeChallengeMethod
             | Self::InvalidCodeChallenge
             | Self::MalformedCodeVerifier

@@ -226,16 +226,14 @@ pub async fn token(
                 .json(res))
         }
         OAuthTokenRequest::RefreshToken { refresh_token } => {
-            // validate refresh_token
-            // get jwt from db validate refresh_token has valid client_id and user_id check
             let info = validate_refresh_token(&refresh_token)?;
 
             let token = match RefreshToken::get_token(&info.claims.jti, &db).await? {
                 Some(t) => t,
-                None => return Err(OAuthError::error(OAuthErrorType::AccessDenied)),
+                None => return Err(OAuthError::error(OAuthErrorType::MissingRefreshToken)),
             };
             if token.user_id != info.claims.sub {
-                return Err(OAuthError::error(OAuthErrorType::AccessDenied));
+                return Err(OAuthError::error(OAuthErrorType::MalformatedRefreshToken));
             }
 
             let jwt = create_jwt(token.user_id, info.claims.aud)?;

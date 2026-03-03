@@ -2,10 +2,9 @@ use actix_csrf_middleware::{CsrfMiddleware, CsrfMiddlewareConfig};
 use actix_governor::{Governor, GovernorConfigBuilder};
 use actix_identity::IdentityMiddleware;
 use actix_session::SessionMiddleware;
+use actix_cors::Cors;
 use actix_web::{
-    App, HttpServer,
-    middleware::{Logger, NormalizePath, TrailingSlash},
-    web::{self},
+    App, HttpServer, http::header, middleware::{Logger, NormalizePath, TrailingSlash}, web::{self}
 };
 use std::io::ErrorKind;
 use utoipa::OpenApi;
@@ -45,8 +44,13 @@ async fn main() -> std::io::Result<()> {
     let session_key = actix_web::cookie::Key::generate(); //TODO replace with better key
 
     HttpServer::new(move || {
+        let cors = Cors::default().allowed_methods(
+            vec!["GET","POST","PATCH","DELTE"]
+        ).allowed_origin("http://localhost:1420");
+
         App::new()
             .app_data(pool.clone())
+            .wrap(cors)
             .wrap(NormalizePath::new(TrailingSlash::Trim))
             .wrap(Logger::default())
             .wrap(Governor::new(&governor_conf))

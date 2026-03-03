@@ -1,8 +1,6 @@
 import {
 	generateCodeVerifier,
-	
 	OAuth2Client,
-	OAuth2Fetch,
 	type OAuth2Token,
 } from "@badgateway/oauth2-client";
 import { millisecondsToSeconds, getUnixTime } from "date-fns";
@@ -12,10 +10,10 @@ import { nanoid } from "nanoid";
 import { platform } from "@tauri-apps/plugin-os"
 import { openUrl } from "@tauri-apps/plugin-opener";
 
-type AuthFlowEvent = { type: "Cancel" } | { type: "Done", path: string } | { type: "Error", reason: string };
+type AuthFlowEvent = { type: "Cancel" } | { type: "Done", url: string } | { type: "Error", reason: string };
 
 export class OAuth {
-	token: OAuth2Token | null = null;
+	_token: OAuth2Token | null = null;
 	private client = new OAuth2Client({
 		clientId: import.meta.env.VITE_CLIENT_ID,
 		server: import.meta.env.VITE_SERVER_URL,
@@ -23,25 +21,13 @@ export class OAuth {
 		authorizationEndpoint: "/auth/authorize",
 	});
 
-	private fetcher: OAuth2Fetch;
-
-	constructor(){
-		this.fetcher = new OAuth2Fetch({
-			client: this.client,
-			getNewToken: () => this.authorize(),
-			getStoredToken: () => {
-				return this.token
-			},
-			scheduleRefresh: true,
-			storeToken: (token) => {
-				this.token = token;
-			},
-		});
-	}
-
-
 	get isAuthed() {
 		return this.token !== null;
+	}
+
+	get token(){
+		if(!this._token) throw new Error("failed to get access token")
+		return this._token?.accessToken;
 	}
 
 	async init() {
@@ -51,35 +37,35 @@ export class OAuth {
 		const token = JSON.parse(tokenRaw) as OAuth2Token;
 		
 		if(token){
-			this.token = token;
+			this._token = token;
 		}
-		/*if (
-			tokens.expiresAt &&
-			getUnixTime(Date.now()) > millisecondsToSeconds(tokens.expiresAt)
+		if (
+			token.expiresAt &&
+			getUnixTime(Date.now()) > millisecondsToSeconds(token.expiresAt)
 		) {
 			try {
 				await this.refresh();
 			} catch (error) {
 				localStorage.removeItem("auth");
-				this.token = null;
+				this._token = null;
 				console.error(error);
 			}
-		}*/
+		}
 	}
 
 	async refresh() {
-		if (!this.token) return;
+		if (!this._token) return;
 
-		this.token = await this.client.refreshToken(this.token);
+		this._token = await this.client.refreshToken(this._token);
 
-		localStorage.setItem("auth", JSON.stringify(this.token));
+		localStorage.setItem("auth", JSON.stringify(this._token));
 	}
 
 	async authorize() {
 		const state = encodeURIComponent(nanoid());
 		const codeVerifier = await generateCodeVerifier();
 		const redirectUri = "hermes://oauth";
-		const url = await this.client.authorizationCode.getAuthorizeUri({
+	    const url = await this.client.authorizationCode.getAuthorizeUri({
 			codeVerifier,
 			scope: ["profile", "offline_access"],
 			redirectUri,
@@ -89,12 +75,13 @@ export class OAuth {
 		const { reject, resolve, promise } = Promise.withResolvers<string|null>();
 
 		const unlisten = await listen<AuthFlowEvent>("hermes://auth",(ev)=>{
+			console.log(ev);
 			switch(ev.payload.type){
 				case "Cancel":
 					resolve(null);
 					break;
 				case "Done":
-					resolve(ev.payload.path);
+					resolve(ev.payload.url);
 					break;
 				case "Error":
 					reject(new Error(ev.payload.reason));
@@ -116,17 +103,13 @@ export class OAuth {
 			}
 
 			const callback_uri = await promise;
-			await unlisten;
-
-			console.log(callback_uri);
-
+			console.log("callback",callback_uri)
 			if(!callback_uri) return null;
 
-			this.token = await this.client.authorizationCode.getTokenFromCodeRedirect(
+			this._token = await this.client.authorizationCode.getTokenFromCodeRedirect(
 				callback_uri,
 				{ redirectUri, codeVerifier, state },
 			);
-			console.log(this.token)
 
 			localStorage.setItem("auth",JSON.stringify(this.token));
 
@@ -137,9 +120,5 @@ export class OAuth {
 		} finally {
 			unlisten();
 		}
-	}
-
-	fetch(){
-		return this.fetcher.fetch;
 	}
 }
