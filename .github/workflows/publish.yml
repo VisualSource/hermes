@@ -6,7 +6,8 @@ on:
     tags:
       - "v*.*.*"
 
-jobs:
+jobs: 
+  # https://itnext.io/dont-zip-github-artifacts-in-ci-da7297f161ed
   build-overlay:
     permissions:
       contents: write
@@ -25,7 +26,15 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './packages/overlay-client -> target'
+      - name: build 
+        run: cargo build --release 
+      - name: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: overlay-client 
+          path: target/release/overlay-client.exe
   publish-tauri:
+    needs: build-overlay
     permissions:
       contents: write
     strategy:
@@ -57,6 +66,10 @@ jobs:
           workspaces: './src-tauri -> target'
       - name: install frontend dependencies
         run: pnpm install --frozen-lockfile
+      - name: Download artifact 
+        uses: actions.download-artifacts@v4
+        with:
+          name: overlay-client
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

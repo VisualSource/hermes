@@ -1,6 +1,7 @@
 setup:
     ☐ oauth
-        [] pcke
+        [] csrf
+        ✔ pcke @done(26-03-03 17:12)
         ☐ https://developers.google.com/recaptcha/docs/v3
             [] recaptcha finish
         ✔ login page @done(26-02-24 22:26)
@@ -14,14 +15,14 @@ setup:
             ✔ finish error handling on client @done(26-02-24 17:06)
             ✔ test @done(26-02-24 22:26)
         api routes:
-            [] token 
-            ☐ authorize
+            ✔ token @done(26-03-03 17:12)
+            ✔ authorize @done(26-03-03 17:12)
             [] refresh
     ☐ database
         ☐ schema
         ☐ models
     ☐ utopia
-    ☐ rate limiter
+    ✔ rate limiter @done(26-03-03 17:12)
     
 api:
    [] getMessages

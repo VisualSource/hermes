@@ -92,6 +92,20 @@ pub fn create_jwt(
     Ok(token)
 }
 
+pub fn validate_jwt(token: &str) -> Result<TokenData<Claims>,JwtError> {
+    let secret = std::env::var("JWT_SECRET_KEY")?;
+    let iss = std::env::var("SERVER_ORIGIN")?;
+
+    let key = jsonwebtoken::DecodingKey::from_secret(secret.as_bytes());
+    let mut validater = Validation::new(Algorithm::HS512);
+    validater.set_issuer(&vec![iss]);
+    validater.set_audience(&vec![OAUTH_CLIENT_ID]);
+
+   let jwt = jsonwebtoken::decode::<Claims>(token, &key, &validater)?;
+
+    Ok(jwt)
+}
+
 pub fn validate_refresh_token(token: &str) -> Result<TokenData<RefreshClaims>, JwtError> {
     let secret = std::env::var("JWT_SECRET_KEY")?;
     let key = jsonwebtoken::DecodingKey::from_secret(secret.as_bytes());
