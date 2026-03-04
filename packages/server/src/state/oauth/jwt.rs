@@ -38,7 +38,7 @@ pub struct RefreshClaims {
 pub fn create_refresh_jwt(
     client_id: uuid::Uuid,
     user_id: uuid::Uuid,
-) -> Result<String, JwtError> {
+) -> Result<(String,uuid::Uuid,time::UtcDateTime), JwtError> {
     let jti = uuid::Uuid::now_v7();
 
     let iss = std::env::var("SERVER_ORIGIN")?;
@@ -46,13 +46,13 @@ pub fn create_refresh_jwt(
     let key = jsonwebtoken::EncodingKey::from_secret(secret.as_bytes());
 
     let now = time::UtcDateTime::now();
-    let exp = now.add(time::Duration::days(10)).unix_timestamp();
+    let exp = now.add(time::Duration::days(10));
 
     let claims = RefreshClaims {
         iss,
         aud: client_id,
         sub: user_id,
-        exp,
+        exp: exp.unix_timestamp(),
         nbf: 0,
         iat: now.unix_timestamp(),
         jti,
@@ -63,7 +63,7 @@ pub fn create_refresh_jwt(
 
     let token = jsonwebtoken::encode::<RefreshClaims>(&header, &claims, &key)?;
 
-    Ok(token)
+    Ok((token, jti,exp))
 }
 
 pub fn create_jwt(
@@ -128,7 +128,7 @@ mod tests {
             std::env::set_var("SERVER_ORIGIN", "http://localhost:5000");
         }
         let user_id = uuid::uuid!("00000000-0000-0000-1000-000000000000");
-        let jwt = super::create_refresh_jwt(super::OAUTH_CLIENT_ID, user_id).expect("failed to make jwt");
+        let (jwt,_,_) = super::create_refresh_jwt(super::OAUTH_CLIENT_ID, user_id).expect("failed to make jwt");
         println!("{}",jwt);
     }
     #[test]
@@ -138,7 +138,7 @@ mod tests {
             std::env::set_var("SERVER_ORIGIN", "http://localhost:5000");
         }
         let user_id = uuid::uuid!("00000000-0000-0000-1000-000000000000");
-        let jwt = super::create_refresh_jwt(super::OAUTH_CLIENT_ID, user_id).expect("failed to make jwt");
+        let (jwt,_,_) = super::create_refresh_jwt(super::OAUTH_CLIENT_ID, user_id).expect("failed to make jwt");
      
 
         let data = super::validate_refresh_token(&jwt).expect("failed to validate token");

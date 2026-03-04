@@ -22,6 +22,7 @@ pub struct RefreshToken {
     pub user_id: uuid::Uuid,
     pub created_at: time::UtcDateTime,
     pub expires_at: time::UtcDateTime,
+    pub used: bool
 }
 
 impl RefreshToken {
@@ -34,20 +35,28 @@ impl RefreshToken {
             .await
     }
 
+    pub async fn mark_token_used(id: &uuid::Uuid, db: &SqlitePool) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
+        let result = query!("UPDATE refresh_tokens SET used = TRUE WHERE id = ?",id).execute(db).await;
+
+        result
+    }
+
     pub async fn insert_token(
         id: &uuid::Uuid,
         user_id: &uuid::Uuid,
-        expires_at: time::OffsetDateTime,
+        expires_at: time::UtcDateTime,
         db: &SqlitePool,
     ) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
         let created_at = time::OffsetDateTime::now_utc();
+        let expires = time::OffsetDateTime::from(expires_at);
 
         let result = query!(
-            "INSERT INTO refresh_tokens VALUES (?,?,?,?)",
+            "INSERT INTO refresh_tokens VALUES (?,?,?,?,?)",
             id,
             user_id,
             created_at,
-            expires_at
+            expires,
+            false
         )
         .execute(db)
         .await;
@@ -58,7 +67,7 @@ impl RefreshToken {
         jti: &uuid::Uuid,
         db: &SqlitePool,
     ) -> Result<Option<RefreshToken>, sqlx::Error> {
-        let result = sqlx::query_as!(RefreshToken,r#"SELECT id as "id: uuid::Uuid", user_id as "user_id: uuid::Uuid", created_at,expires_at FROM refresh_tokens WHERE id = ? LIMIT 1;"#,jti).fetch_optional(db).await;
+        let result = sqlx::query_as!(RefreshToken,r#"SELECT id as "id: uuid::Uuid", user_id as "user_id: uuid::Uuid", created_at, expires_at, used FROM refresh_tokens WHERE id = ? LIMIT 1;"#,jti).fetch_optional(db).await;
 
         result
     }

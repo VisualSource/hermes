@@ -209,9 +209,10 @@ pub async fn token(
             };
 
             let jwt = create_jwt(request.user_id, client_id)?;
-            let refresh = create_refresh_jwt(client_id, request.user_id)?;
+            let (refresh,refresh_jti,expires) = create_refresh_jwt(client_id, request.user_id)?;
 
             AuthorizationCode::mark_code_used(&request.code, &db).await?;
+            RefreshToken::insert_token(&refresh_jti, &request.user_id, expires, &db).await?;
 
             let res = OAuthTokenResponse {
                 access_token: jwt,
@@ -232,12 +233,18 @@ pub async fn token(
                 Some(t) => t,
                 None => return Err(OAuthError::error(OAuthErrorType::MissingRefreshToken)),
             };
+            if token.used {
+                return Err(OAuthError::error(OAuthErrorType::AccessDenied))
+            }
             if token.user_id != info.claims.sub {
                 return Err(OAuthError::error(OAuthErrorType::MalformatedRefreshToken));
             }
 
+            RefreshToken::mark_token_used(&token.id, &db).await?;
+
             let jwt = create_jwt(token.user_id, info.claims.aud)?;
-            let refresh = create_refresh_jwt(info.claims.aud, token.user_id)?;
+            let (refresh,jti,expires) = create_refresh_jwt(info.claims.aud, token.user_id)?;
+            RefreshToken::insert_token(&jti, &token.user_id, expires, &db).await?;
 
             let res = OAuthTokenResponse {
                 access_token: jwt,

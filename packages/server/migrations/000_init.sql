@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     user_id BLOB NOT NULL,
     created_at DATETIME NOT NULL,
     expires_at DATETIME NOT NULL,
+    used BOOLEAN NOT NULL DEFAULT FALSE,
 
     FOREIGN KEY(user_id) 
         REFERENCES users(id)
