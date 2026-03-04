@@ -99,7 +99,8 @@ pub fn validate_refresh_token(token: &str) -> Result<TokenData<RefreshClaims>, J
     let mut validater = Validation::new(Algorithm::HS512);
     validater.set_issuer(&vec![iss]);
     validater.set_audience(&vec![OAUTH_CLIENT_ID]);
-
+    validater.set_required_spec_claims(&["exp","iss","aud"]);
+    
     let jwt = jsonwebtoken::decode::<RefreshClaims>(token, &key, &validater)?;
 
     Ok(jwt)
@@ -110,7 +111,7 @@ mod tests {
     #[test]
     fn test_create_jwt(){
         unsafe {
-            std::env::set_var("JWT_SECRET_KEY", "TEST_KEY");
+            std::env::set_var("JWT_SECRET_KEY", "FaBLMQItyEDeDMm9SFMms10p3DH93eO31gp9su1IdpAmhnjwFA7ljyCM8dFdpoZUBhXweos97wRDwFeQKfjQZOvjy7bdHAcJjCpORa4FZy94pqRPJw1IUofY656BZSqc9WikB1qMNoVFOGXFkgk8J6K1Vn2YKRRRg8vdWQp02H0Mdg0SqFcpLe8nhtUv8TbSr2f4rLpn213RLN3hfnYygcyXeeKwKyWw2gJpqgVvcdzEfEVznwdJnHfak7MZCqO2");
             std::env::set_var("SERVER_ORIGIN", "http://localhost:5000");
         }
 
@@ -121,9 +122,27 @@ mod tests {
         println!("{}",jwt);
     }
     #[test]
-    fn test_create_refresh_jwt(){}
+    fn test_create_refresh_jwt(){
+        unsafe {
+            std::env::set_var("JWT_SECRET_KEY", "FaBLMQItyEDeDMm9SFMms10p3DH93eO31gp9su1IdpAmhnjwFA7ljyCM8dFdpoZUBhXweos97wRDwFeQKfjQZOvjy7bdHAcJjCpORa4FZy94pqRPJw1IUofY656BZSqc9WikB1qMNoVFOGXFkgk8J6K1Vn2YKRRRg8vdWQp02H0Mdg0SqFcpLe8nhtUv8TbSr2f4rLpn213RLN3hfnYygcyXeeKwKyWw2gJpqgVvcdzEfEVznwdJnHfak7MZCqO2");
+            std::env::set_var("SERVER_ORIGIN", "http://localhost:5000");
+        }
+        let user_id = uuid::uuid!("00000000-0000-0000-1000-000000000000");
+        let jwt = super::create_refresh_jwt(super::OAUTH_CLIENT_ID, user_id).expect("failed to make jwt");
+        println!("{}",jwt);
+    }
     #[test]
-    fn test_validate_refresh_jwt(){}
-    #[test]
-    fn test_validate_jwt(){}
+    fn test_validate_refresh_jwt(){
+        unsafe {
+            std::env::set_var("JWT_SECRET_KEY", "FaBLMQItyEDeDMm9SFMms10p3DH93eO31gp9su1IdpAmhnjwFA7ljyCM8dFdpoZUBhXweos97wRDwFeQKfjQZOvjy7bdHAcJjCpORa4FZy94pqRPJw1IUofY656BZSqc9WikB1qMNoVFOGXFkgk8J6K1Vn2YKRRRg8vdWQp02H0Mdg0SqFcpLe8nhtUv8TbSr2f4rLpn213RLN3hfnYygcyXeeKwKyWw2gJpqgVvcdzEfEVznwdJnHfak7MZCqO2");
+            std::env::set_var("SERVER_ORIGIN", "http://localhost:5000");
+        }
+        let user_id = uuid::uuid!("00000000-0000-0000-1000-000000000000");
+        let jwt = super::create_refresh_jwt(super::OAUTH_CLIENT_ID, user_id).expect("failed to make jwt");
+     
+
+        let data = super::validate_refresh_token(&jwt).expect("failed to validate token");
+
+        assert_eq!(data.claims.sub,user_id);
+    }
 }
