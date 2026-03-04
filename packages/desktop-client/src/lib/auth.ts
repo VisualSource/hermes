@@ -13,7 +13,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 type AuthFlowEvent = { type: "Cancel" } | { type: "Done", url: string } | { type: "Error", reason: string };
 
 export class OAuth {
-	_token: OAuth2Token | null = null;
+	private _token: OAuth2Token | null = null;
 	private client = new OAuth2Client({
 		clientId: import.meta.env.VITE_CLIENT_ID,
 		server: import.meta.env.VITE_SERVER_URL,

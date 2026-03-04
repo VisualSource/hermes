@@ -5,12 +5,16 @@ import { WindowHeader } from "@/components/window-header";
 import { auth } from "@/lib/clients";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
+import { SideBar } from "@/components/side-bar";
 
 const RootLayout: React.FC = () => {
 	return (
 		<div>
 			<WindowHeader/>
-			<Outlet />
+			<div className="flex">
+				<SideBar/>
+				<Outlet />
+			</div>
 			<TanStackRouterDevtools />
 			<ReactQueryDevtools />
 		</div>
