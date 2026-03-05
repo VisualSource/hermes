@@ -72,7 +72,21 @@ export const SideBar = () => {
 						</ul>
 					</div>
 				</li>
-
+				<li>
+					<div>
+						<Link
+							to="/voice/$roomId"
+							params={{ roomId: "VoiceRoomId2" }}
+							className="flex gap-2 text-sm items-center px-4 py-2 bg-sidebar-accent/10 hover:bg-sidebar-accent/60 w-full hover:underline"
+						>
+							<Network className="size-4" />{" "}
+							<span className="line-clamp-1">Voice Channel2</span>
+						</Link>
+						<ul className="pl-8">
+							
+						</ul>
+					</div>
+				</li>
 				<li className="py-2">
 					<Separator />
 				</li>

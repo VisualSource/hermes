@@ -10,7 +10,25 @@ import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
+import {
+  useBlocker,
+} from '@tanstack/react-router'
+
 const RootLayout: React.FC = () => {
+	useBlocker({
+		shouldBlockFn: ({ current, next }) => {
+			if(current.fullPath === "/voice/$roomId" && next.fullPath === "/voice/$roomId") {
+				if(current.params.roomId !== next.params.roomId){
+					return !confirm("This action with switch voice channel are you sure you want to do this?")
+				}
+				return false;
+			}
+			return false;
+		},
+		enableBeforeUnload: false,
+    	withResolver: true,
+	})
+
 	return (
 		<div className="h-full w-full overflow-hidden flex flex-col">
 			<WindowHeader />
@@ -47,9 +65,9 @@ export const Route = createRootRoute({
 		);
 	},
 	beforeLoad: async () => {
-		await auth.init();
-		if (!auth.isAuthed) {
-			await auth.authorize();
-		}
+		//await auth.init();
+		//if (!auth.isAuthed) {
+		//	await auth.authorize();
+		//}
 	},
 });

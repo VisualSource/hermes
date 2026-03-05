@@ -63,8 +63,10 @@ export const AppSettings = () => {
 						</div>
 					</div>
 					<div className="flex flex-col gap-2">
-						<Label>Dark Mode</Label>
-						<Switch />
+						<div className="flex gap-2">
+							<Label>Dark Mode</Label>
+							<Switch />
+						</div>
 					</div>
 					<div></div>
 				</CardContent>

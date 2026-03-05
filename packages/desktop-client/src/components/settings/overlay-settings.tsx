@@ -1,4 +1,4 @@
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Plus } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Label } from "../ui/label";
@@ -19,8 +19,8 @@ export const OverlaySettings = () => {
 					<CardTitle>Overlay Settings</CardTitle>
 					<Separator />
 				</CardHeader>
-				<CardContent>
-					<div>
+				<CardContent className="flex flex-col gap-2">
+					<div className="flex flex-col gap-2">
 						<Label>Overlay Position</Label>
 						<Select>
 							<SelectTrigger>
@@ -36,7 +36,7 @@ export const OverlaySettings = () => {
 						</Select>
 					</div>
 
-					<div>
+					<div className="flex flex-col gap-2">
 						<Label>Overlay Sizing</Label>
 						<Select>
 							<SelectTrigger>
@@ -51,8 +51,9 @@ export const OverlaySettings = () => {
 				</CardContent>
 			</Card>
 			<Card>
-				<CardHeader>
+				<CardHeader className="flex justify-between items-center">
 					<CardTitle>Inject</CardTitle>
+					<Button size="icon-lg" variant="secondary"><Plus/></Button>
 				</CardHeader>
 				<CardContent>
 					<ul className="divide-y divide-accent">

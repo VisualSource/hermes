@@ -2,7 +2,7 @@ import { Maximize2, Minus, X } from "lucide-react";
 import { Button } from "./ui/button"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 
-const win = getCurrentWindow();
+const win = window.__TAURI_INTERNALS__ ? getCurrentWindow() : { minimize(){}, toggleMaximize(){}, close(){} };
 
 export const WindowHeader = () => {
     return (
