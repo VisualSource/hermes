@@ -5,10 +5,5 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-	return (
-		<main>
-			
-
-		</main>
-	);
+	return <div className="bg-primary grow"></div>;
 }

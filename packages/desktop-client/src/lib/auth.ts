@@ -22,7 +22,7 @@ export class OAuth {
 	});
 
 	get isAuthed() {
-		return this.token !== null;
+		return this._token !== null;
 	}
 
 	get token(){
@@ -35,7 +35,7 @@ export class OAuth {
 		if (!tokenRaw) return false;
 
 		const token = JSON.parse(tokenRaw) as OAuth2Token;
-		
+
 		if(token){
 			this._token = token;
 		}
@@ -62,6 +62,7 @@ export class OAuth {
 	}
 
 	async authorize() {
+		console.log("Start auth");
 		const state = encodeURIComponent(nanoid());
 		const codeVerifier = await generateCodeVerifier();
 		const redirectUri = "hermes://oauth";
@@ -103,7 +104,6 @@ export class OAuth {
 			}
 
 			const callback_uri = await promise;
-			console.log("callback",callback_uri)
 			if(!callback_uri) return null;
 
 			this._token = await this.client.authorizationCode.getTokenFromCodeRedirect(

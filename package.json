@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "caddy-dev": "sudo docker compose --file ./depolyments/docker-compose-local.yml up"
+    "caddy-dev": "sudo docker compose --file ./depolyments/docker-compose-local.yml up",
+    "server-dev": "cd ./packages/server && cargo run"
   },
   "keywords": [],
   "author": "",

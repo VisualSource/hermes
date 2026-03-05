@@ -9,38 +9,96 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from "./routes/__root";
+import { Route as SettingsRouteImport } from "./routes/settings";
 import { Route as IndexRouteImport } from "./routes/index";
+import { Route as VoiceRoomIdRouteImport } from "./routes/voice.$roomId";
+import { Route as TextRoomIdRouteImport } from "./routes/text.$roomId";
+import { Route as RolesRoomIdRouteImport } from "./routes/roles.$roomId";
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: "/settings",
+  path: "/settings",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const IndexRoute = IndexRouteImport.update({
   id: "/",
   path: "/",
   getParentRoute: () => rootRouteImport,
 } as any);
+const VoiceRoomIdRoute = VoiceRoomIdRouteImport.update({
+  id: "/voice/$roomId",
+  path: "/voice/$roomId",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const TextRoomIdRoute = TextRoomIdRouteImport.update({
+  id: "/text/$roomId",
+  path: "/text/$roomId",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const RolesRoomIdRoute = RolesRoomIdRouteImport.update({
+  id: "/roles/$roomId",
+  path: "/roles/$roomId",
+  getParentRoute: () => rootRouteImport,
+} as any);
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
+  "/settings": typeof SettingsRoute;
+  "/roles/$roomId": typeof RolesRoomIdRoute;
+  "/text/$roomId": typeof TextRoomIdRoute;
+  "/voice/$roomId": typeof VoiceRoomIdRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
+  "/settings": typeof SettingsRoute;
+  "/roles/$roomId": typeof RolesRoomIdRoute;
+  "/text/$roomId": typeof TextRoomIdRoute;
+  "/voice/$roomId": typeof VoiceRoomIdRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
+  "/settings": typeof SettingsRoute;
+  "/roles/$roomId": typeof RolesRoomIdRoute;
+  "/text/$roomId": typeof TextRoomIdRoute;
+  "/voice/$roomId": typeof VoiceRoomIdRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/";
+  fullPaths:
+    | "/"
+    | "/settings"
+    | "/roles/$roomId"
+    | "/text/$roomId"
+    | "/voice/$roomId";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/";
-  id: "__root__" | "/";
+  to: "/" | "/settings" | "/roles/$roomId" | "/text/$roomId" | "/voice/$roomId";
+  id:
+    | "__root__"
+    | "/"
+    | "/settings"
+    | "/roles/$roomId"
+    | "/text/$roomId"
+    | "/voice/$roomId";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
+  SettingsRoute: typeof SettingsRoute;
+  RolesRoomIdRoute: typeof RolesRoomIdRoute;
+  TextRoomIdRoute: typeof TextRoomIdRoute;
+  VoiceRoomIdRoute: typeof VoiceRoomIdRoute;
 }
 
 declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
+    "/settings": {
+      id: "/settings";
+      path: "/settings";
+      fullPath: "/settings";
+      preLoaderRoute: typeof SettingsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/": {
       id: "/";
       path: "/";
@@ -48,11 +106,36 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof IndexRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/voice/$roomId": {
+      id: "/voice/$roomId";
+      path: "/voice/$roomId";
+      fullPath: "/voice/$roomId";
+      preLoaderRoute: typeof VoiceRoomIdRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/text/$roomId": {
+      id: "/text/$roomId";
+      path: "/text/$roomId";
+      fullPath: "/text/$roomId";
+      preLoaderRoute: typeof TextRoomIdRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/roles/$roomId": {
+      id: "/roles/$roomId";
+      path: "/roles/$roomId";
+      fullPath: "/roles/$roomId";
+      preLoaderRoute: typeof RolesRoomIdRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SettingsRoute: SettingsRoute,
+  RolesRoomIdRoute: RolesRoomIdRoute,
+  TextRoomIdRoute: TextRoomIdRoute,
+  VoiceRoomIdRoute: VoiceRoomIdRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
