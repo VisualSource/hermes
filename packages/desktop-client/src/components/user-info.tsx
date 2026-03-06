@@ -24,7 +24,7 @@ export const UserInfo = () => {
 	const [inCall, setInCall] = useState(true);
 
 	return (
-		<div className="absolute left-0 bottom-0 w-full p-2 shadow-2xl divide-y">
+		<div className="w-full shadow-2xl divide-y">
 			{inCall ? (
 				<div className="py-3 px-2 bg-background">
 					<div className="flex items-center gap-2 mb-2">

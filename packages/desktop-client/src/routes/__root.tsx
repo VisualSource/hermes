@@ -45,12 +45,11 @@ const RootLayout: React.FC = () => {
 		<div className="h-full w-full overflow-hidden flex flex-col">
 			<WindowHeader />
 			<TooltipProvider>
-				<div className="h-full w-full overflow-hidden relative @container grid grid-cols-12">
+				<div className="h-full w-full overflow-hidden relative flex @container-[size]">
 					<SideBar />
 					<div className="w-full h-full flex flex-col col-span-7">
 						<Outlet />
 					</div>
-					<UserSidebar />
 				</div>
 			</TooltipProvider>
 		</div>

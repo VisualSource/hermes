@@ -17,22 +17,22 @@ export const SideBar = () => {
 		<div className="w-80 bg-sidebar px-2 pb-2 relative flex flex-col overflow-hidden shrink-0 col-span-3">
 			<ChannelSwitcher />
 			<Separator />
-			<div className="overflow-hidden h-full">
-				<ul className="overflow-y-auto">
-					<TagsChannel name="Tags" id="someId" />
+
+			<ul className="overflow-y-auto">
+				<TagsChannel name="Tags" id="someId" />
+				<TextChannel name="Some Text Channel" id="aaaa" />
+
+				<DividerChannel />
+
+				<GroupChannel name="Some Group">
 					<TextChannel name="Some Text Channel" id="aaaa" />
+				</GroupChannel>
 
-					<DividerChannel />
+				<VoiceChannel name="SomeChannelName" id="SomeGammeID" />
 
-					<GroupChannel name="Some Group">
-						<TextChannel name="Some Text Channel" id="aaaa" />
-					</GroupChannel>
+				<VoiceChannel name="OtherChannelId" id="SomeGammeID2" />
+			</ul>
 
-					<VoiceChannel name="SomeChannelName" id="SomeGammeID" />
-
-					<VoiceChannel name="OtherChannelId" id="SomeGammeID2" />
-				</ul>
-			</div>
 			<UserInfo />
 		</div>
 	);
