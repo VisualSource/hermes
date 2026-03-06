@@ -1,3 +1,4 @@
+import { Textarea } from "@/components/ui/textarea";
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/text/$roomId")({
@@ -5,5 +6,10 @@ export const Route = createFileRoute("/text/$roomId")({
 });
 
 function RouteComponent() {
-  return <div>Hello "/text/$roomId"!</div>;
+  return (
+			<div className="container px-8 h-full flex flex-col pb-6">
+				<ul className="h-full"></ul>
+				<Textarea></Textarea>
+			</div>
+		);
 }

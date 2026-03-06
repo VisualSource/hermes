@@ -4,38 +4,53 @@ import { auth } from "@/lib/clients";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { SideBar } from "@/components/side-bar";
-import { TanStackDevtools } from "@tanstack/react-devtools";
-import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
-
+import { confirm } from "@tauri-apps/plugin-dialog";
 import {
   useBlocker,
 } from '@tanstack/react-router'
+import { NoiseSuppressor } from "@/lib/noise-suppressor";
+import { SocketManager } from "@/lib/socket";
+import { UserSidebar } from "@/components/user-sidebar";
 
 const RootLayout: React.FC = () => {
 	useBlocker({
-		shouldBlockFn: ({ current, next }) => {
-			if(current.fullPath === "/voice/$roomId" && next.fullPath === "/voice/$roomId") {
-				if(current.params.roomId !== next.params.roomId){
-					return !confirm("This action with switch voice channel are you sure you want to do this?")
+		shouldBlockFn: async ({ current, next }) => {
+			if (
+				current.fullPath === "/voice/$roomId" &&
+				next.fullPath === "/voice/$roomId"
+			) {
+				if (current.params.roomId !== next.params.roomId) {
+					const result = await confirm(
+						"Are you sure? You will leave the current voice channel!",
+						{
+							kind: "info",
+							title: "Switch Channel?",
+							okLabel: "Yes",
+							cancelLabel: "No",
+						},
+					);
+
+					return result;
 				}
 				return false;
 			}
 			return false;
 		},
 		enableBeforeUnload: false,
-    	withResolver: true,
-	})
+		withResolver: true,
+	});
 
 	return (
 		<div className="h-full w-full overflow-hidden flex flex-col">
 			<WindowHeader />
 			<TooltipProvider>
-				<div className="h-full w-full flex overflow-hidden relative">
+				<div className="h-full w-full overflow-hidden relative @container grid grid-cols-12">
 					<SideBar />
-					<Outlet />
+					<div className="w-full h-full flex flex-col col-span-7">
+						<Outlet />
+					</div>
+					<UserSidebar />
 				</div>
 			</TooltipProvider>
 		</div>
@@ -65,9 +80,12 @@ export const Route = createRootRoute({
 		);
 	},
 	beforeLoad: async () => {
-		//await auth.init();
-		//if (!auth.isAuthed) {
-		//	await auth.authorize();
-		//}
+		await auth.init();
+		if (!auth.isAuthed) {
+			await auth.authorize();
+			await SocketManager.create();
+
+			await NoiseSuppressor.create();
+		}
 	},
 });

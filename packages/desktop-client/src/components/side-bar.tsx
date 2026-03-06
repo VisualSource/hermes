@@ -1,109 +1,38 @@
-import {
-	Boxes,
-	Crown,
-	Hash,
-	Headset,
-	Mic,
-	Network,
-	Settings2,
-} from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+
 import { Separator } from "./ui/separator";
 import { ChannelSwitcher } from "./channel-switcher";
-import {
-	Accordion,
-	AccordionContent,
-	AccordionItem,
-	AccordionTrigger,
-} from "./ui/accordion";
-import { Button } from "./ui/button";
+
 import { UserInfo } from "./user-info";
-import { Link } from "@tanstack/react-router";
+
+import {
+	DividerChannel,
+	GroupChannel,
+	TagsChannel,
+	TextChannel,
+} from "./channel/channel-items";
+import { VoiceChannel } from "./channel/voice-channel-item";
 
 export const SideBar = () => {
 	return (
-		<div className="w-80 bg-sidebar px-2 pb-2 relative flex flex-col overflow-hidden">
+		<div className="w-80 bg-sidebar px-2 pb-2 relative flex flex-col overflow-hidden shrink-0 col-span-3">
 			<ChannelSwitcher />
 			<Separator />
-			<ul>
-				<li>
-					<Link
-						to="/roles/$roomId"
-						params={{ roomId: "RoleRoomId" }}
-						className="flex gap-2 text-sm items-center px-4 py-2 bg-sidebar-accent/10 hover:bg-sidebar-accent/60 w-full hover:underline"
-					>
-						<Crown className="size-4" />{" "}
-						<span className="line-clamp-1">Roles Channel</span>
-					</Link>
-				</li>
-				<li>
-					<Link
-						to="/text/$roomId"
-						params={{ roomId: "TextRoomID" }}
-						className="flex gap-2 text-sm items-center px-4 py-2 bg-sidebar-accent/10 hover:bg-sidebar-accent/60 w-full hover:underline"
-					>
-						<Hash className="size-4" />{" "}
-						<span className="line-clamp-1">Some Text Channel</span>
-					</Link>
-				</li>
+			<div className="overflow-hidden h-full">
+				<ul className="overflow-y-auto">
+					<TagsChannel name="Tags" id="someId" />
+					<TextChannel name="Some Text Channel" id="aaaa" />
 
-				<li>
-					<div>
-						<Link
-							to="/voice/$roomId"
-							params={{ roomId: "VoiceRoomId" }}
-							className="flex gap-2 text-sm items-center px-4 py-2 bg-sidebar-accent/10 hover:bg-sidebar-accent/60 w-full hover:underline"
-						>
-							<Network className="size-4" />{" "}
-							<span className="line-clamp-1">Voice Channel</span>
-						</Link>
-						<ul className="pl-8">
-							<li>
-								<div className="flex items-center gap-2">
-									<Avatar>
-										<AvatarImage />
-										<AvatarFallback>CN</AvatarFallback>
-									</Avatar>
-									<div className="flex flex-col gap-0.5 leading-none">
-										<span className="font-medium text-xs">Documentation</span>
-									</div>
-								</div>
-							</li>
-						</ul>
-					</div>
-				</li>
-				<li>
-					<div>
-						<Link
-							to="/voice/$roomId"
-							params={{ roomId: "VoiceRoomId2" }}
-							className="flex gap-2 text-sm items-center px-4 py-2 bg-sidebar-accent/10 hover:bg-sidebar-accent/60 w-full hover:underline"
-						>
-							<Network className="size-4" />{" "}
-							<span className="line-clamp-1">Voice Channel2</span>
-						</Link>
-						<ul className="pl-8">
-							
-						</ul>
-					</div>
-				</li>
-				<li className="py-2">
-					<Separator />
-				</li>
+					<DividerChannel />
 
-				<li>
-					<Accordion>
-						<AccordionItem>
-							<AccordionTrigger className="px-4 py-2 text-sm bg-sidebar-accent/10 hover:bg-sidebar-accent/60 gap-2">
-								<Boxes className="size-4" />
-								<span className="line-clamp-1">Group</span>
-							</AccordionTrigger>
-							<AccordionContent></AccordionContent>
-						</AccordionItem>
-					</Accordion>
-				</li>
-			</ul>
+					<GroupChannel name="Some Group">
+						<TextChannel name="Some Text Channel" id="aaaa" />
+					</GroupChannel>
 
+					<VoiceChannel name="SomeChannelName" id="SomeGammeID" />
+
+					<VoiceChannel name="OtherChannelId" id="SomeGammeID2" />
+				</ul>
+			</div>
 			<UserInfo />
 		</div>
 	);

@@ -14,6 +14,7 @@ import { Route as IndexRouteImport } from "./routes/index";
 import { Route as VoiceRoomIdRouteImport } from "./routes/voice.$roomId";
 import { Route as TextRoomIdRouteImport } from "./routes/text.$roomId";
 import { Route as RolesRoomIdRouteImport } from "./routes/roles.$roomId";
+import { Route as TextPeerUserIdRouteImport } from "./routes/text.peer.$userId";
 
 const SettingsRoute = SettingsRouteImport.update({
   id: "/settings",
@@ -40,6 +41,11 @@ const RolesRoomIdRoute = RolesRoomIdRouteImport.update({
   path: "/roles/$roomId",
   getParentRoute: () => rootRouteImport,
 } as any);
+const TextPeerUserIdRoute = TextPeerUserIdRouteImport.update({
+  id: "/text/peer/$userId",
+  path: "/text/peer/$userId",
+  getParentRoute: () => rootRouteImport,
+} as any);
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   "/roles/$roomId": typeof RolesRoomIdRoute;
   "/text/$roomId": typeof TextRoomIdRoute;
   "/voice/$roomId": typeof VoiceRoomIdRoute;
+  "/text/peer/$userId": typeof TextPeerUserIdRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   "/roles/$roomId": typeof RolesRoomIdRoute;
   "/text/$roomId": typeof TextRoomIdRoute;
   "/voice/$roomId": typeof VoiceRoomIdRoute;
+  "/text/peer/$userId": typeof TextPeerUserIdRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
@@ -62,6 +70,7 @@ export interface FileRoutesById {
   "/roles/$roomId": typeof RolesRoomIdRoute;
   "/text/$roomId": typeof TextRoomIdRoute;
   "/voice/$roomId": typeof VoiceRoomIdRoute;
+  "/text/peer/$userId": typeof TextPeerUserIdRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
@@ -70,16 +79,24 @@ export interface FileRouteTypes {
     | "/settings"
     | "/roles/$roomId"
     | "/text/$roomId"
-    | "/voice/$roomId";
+    | "/voice/$roomId"
+    | "/text/peer/$userId";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/settings" | "/roles/$roomId" | "/text/$roomId" | "/voice/$roomId";
+  to:
+    | "/"
+    | "/settings"
+    | "/roles/$roomId"
+    | "/text/$roomId"
+    | "/voice/$roomId"
+    | "/text/peer/$userId";
   id:
     | "__root__"
     | "/"
     | "/settings"
     | "/roles/$roomId"
     | "/text/$roomId"
-    | "/voice/$roomId";
+    | "/voice/$roomId"
+    | "/text/peer/$userId";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
@@ -88,6 +105,7 @@ export interface RootRouteChildren {
   RolesRoomIdRoute: typeof RolesRoomIdRoute;
   TextRoomIdRoute: typeof TextRoomIdRoute;
   VoiceRoomIdRoute: typeof VoiceRoomIdRoute;
+  TextPeerUserIdRoute: typeof TextPeerUserIdRoute;
 }
 
 declare module "@tanstack/react-router" {
@@ -127,6 +145,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof RolesRoomIdRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/text/peer/$userId": {
+      id: "/text/peer/$userId";
+      path: "/text/peer/$userId";
+      fullPath: "/text/peer/$userId";
+      preLoaderRoute: typeof TextPeerUserIdRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
   }
 }
 
@@ -136,6 +161,7 @@ const rootRouteChildren: RootRouteChildren = {
   RolesRoomIdRoute: RolesRoomIdRoute,
   TextRoomIdRoute: TextRoomIdRoute,
   VoiceRoomIdRoute: VoiceRoomIdRoute,
+  TextPeerUserIdRoute: TextPeerUserIdRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
