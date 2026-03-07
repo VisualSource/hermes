@@ -1,4 +1,4 @@
-use tauri::Emitter;
+use tauri::{Emitter};
 
 mod cmd;
 
@@ -57,65 +57,6 @@ pub fn run() {
             }
 
             Ok(())
-        })
-        .register_asynchronous_uri_scheme_protocol("stream", move |ctx,request,respond|{
-            // get device id from path/query
-
-            use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-            let host = cpal::default_host();
-
-            let device = match host.default_input_device() {
-                Ok(d) => d,
-                Err(err) => {
-                    log::error!("{}",err);
-
-                    respond.respond(tauri::http::Response::builder()
-                        .header("Access-Control-Allow-Origin", "*")
-                        .status(500)
-                        .body("{}")
-                    );
-
-                    return 
-                }
-            };
-
-            let config = match device.default_input_confg() {
-                Ok(c) => c,
-                Err(err) => {
-                    log::error!("{}",err);
-
-                    respond.respond(tauri::http::Response::builder()
-                        .header("Access-Control-Allow-Origin", "*")
-                        .status(500)
-                        .body("{}")
-                    );
-
-                    return 
-                }
-            };
-
-            let stream = match device.build_input_stream(&config, None,None,None) {
-                Ok(s) => s,
-                Err(err) => {
-                    log::error!("{}",err);
-
-                    respond.respond(tauri::http::Response::builder()
-                        .header("Access-Control-Allow-Origin", "*")
-                        .status(500)
-                        .body("{}")
-                    );
-
-                    return 
-                }
-            };
-            
-            respond.respond(tauri::http::Response::builder()
-                .header("Access-Control-Allow-Origin", "*")
-                .header("Connection", "keep-alive")
-                .header("Content-Type", "audio/aac")
-                .status(206)
-                .body(stream)
-            )
         })
         .invoke_handler(tauri::generate_handler![cmd::auth::start_auth_grant])
         .run(tauri::generate_context!())
