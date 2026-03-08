@@ -32,7 +32,7 @@ const items: CardType[] = [
 		preview: faker.image.urlPicsumPhotos({ blur: 2 }),
 		id: faker.string.ulid(),
 	},
-	...(Array.from({ length: 6 }).map(() => ({
+	...(Array.from({ length: 11 }).map(() => ({
 		type: "user",
 		id: faker.string.uuid(),
 		avatar: faker.image.avatarGitHub(),
@@ -41,14 +41,8 @@ const items: CardType[] = [
 	})) as CardType[]),
 ];
 
-function RouteComponent() {
-	const [watchingStream, setWatchingStream] = useState(false);
-
-	if (watchingStream) {
-		return (
-			<div className="h-full w-full flex justify-center">
-				<div className="flex flex-col h-full p-8 container gap-4">
-					<div className="relative aspect-video">
+/*
+<div className="relative aspect-video">
 						<video
 							id={items[0].id}
 							className="aspect-video bg-sidebar h-full w-full peer"
@@ -64,21 +58,46 @@ function RouteComponent() {
 							720p, 30fps
 						</div>
 						<div className="opacity-0 peer-hover:opacity-100 hover:opacity-100 flex transition-opacity duration-150 absolute bottom-2 w-full justify-center">
-							<Button
-								size="lg"
-								onClick={() => {
-									document.startViewTransition(() => {
-										setWatchingStream(false);
-									});
-								}}
-								variant="destructive"
-							>
-								<X /> Close
-							</Button>
+							<div className="bg-background">
+								<Button
+									size="lg"
+									className="border-none"
+									onClick={() => {
+										document.startViewTransition(() => {
+											setWatchingStream(false);
+										});
+									}}
+									variant="destructive"
+								>
+									<X /> Close
+								</Button>
+							</div>
 						</div>
 					</div>
+*/
 
-					<div className="bg-card h-full p-2 flex gap-2 overflow-x-auto overflow-y-hidden items-center @container">
+function RouteComponent() {
+	const [watchingStream, setWatchingStream] = useState(true);
+
+	if (watchingStream) {
+		return (
+			<div className="h-full w-full flex justify-center">
+				<div className="flex flex-col h-full p-8 container gap-4 place-content-center-safe">
+					<div className="h-full w-full bg-accent">
+						<video
+							id={items[0].id}
+							className="peer h-full w-full"
+							style={{
+								backgroundImage: `url(${items[0].type === "stream" ? items[0].preview : ""})`,
+								backgroundSize: "cover",
+								backgroundRepeat: "no-repeat",
+							}}
+						>
+							<track kind="captions"></track>
+						</video>
+					</div>
+
+					<div className="bg-card h-full p-2 flex gap-2 overflow-x-auto overflow-y-hidden items-center @container min-h-33.75 max-h-33.75">
 						{items.slice(1).map((item) =>
 							item.type === "user" ? (
 								<UserCard size="sm" key={item.id} {...item} />
@@ -103,7 +122,7 @@ function RouteComponent() {
 
 	return (
 		<div className="h-full w-full flex place-content-center">
-			<div className="h-full w-full flex flex-wrap place-content-center justify-center gap-2 p-8 container @container">
+			<div className="h-full w-full flex flex-wrap place-content-center-safe gap-2 p-8 container @container-[size]">
 				{items.map((item) =>
 					item.type === "stream" ? (
 						<StreamCard

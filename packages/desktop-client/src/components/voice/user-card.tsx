@@ -9,8 +9,10 @@ export const UserCard = (item: Props & { size?: "sm" }) => {
 		<Card
 			id={item.id}
 			className={cn(
-				"p-0.5 group shadow-2xl",
-				item.size === "sm" ? "w-52 h-30" : "w-120 h-80",
+				"p-0.5 group shadow-2xl flex @container",
+				item.size === "sm"
+					? "w-52 h-30 shrink-0"
+					: "w-[30cqw] h-[20cqw] min-h-23.25 min-w-33.75 max-h-40 max-w-65",
 			)}
 		>
 			<CardContent
@@ -27,7 +29,7 @@ export const UserCard = (item: Props & { size?: "sm" }) => {
 
 				<VoiceIndicator />
 
-				<Avatar className={item.size === "sm" ? "size-10" : "size-20"}>
+				<Avatar className="size-10 @md:size-20">
 					<AvatarImage src={item.avatar} alt={item.username} />
 					<AvatarFallback>UN</AvatarFallback>
 				</Avatar>

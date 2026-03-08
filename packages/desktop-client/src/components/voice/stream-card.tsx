@@ -9,8 +9,10 @@ export const StreamCard = (
 		<Card
 			id={item.id}
 			className={cn(
-				"p-0.5 col-span-1 row-span-1 group shadow-2xl",
-				item?.size === "sm" ? "w-52 h-30" : "w-120 h-80",
+				"p-0.5 group shadow-2xl",
+				item?.size === "sm"
+					? "w-52 h-30 shrink-0"
+					: "w-[30cqw] h-[20cqw] min-h-23.25 min-w-33.75 max-h-40 max-w-65",
 			)}
 		>
 			<CardContent
