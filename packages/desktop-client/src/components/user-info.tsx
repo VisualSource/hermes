@@ -14,18 +14,19 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useInVoice } from "@/hooks/use-in-voice";
 
 export const UserInfo = () => {
 	const [mute, setMute] = useState(false);
 	const [depth, setDepth] = useState(false);
 
-	const [video, setVideo] = useState(true);
+	const inVoice = useInVoice();
 
-	const [inCall, setInCall] = useState(true);
+	const [video, setVideo] = useState(true);
 
 	return (
 		<div className="w-full shadow-2xl divide-y">
-			{inCall ? (
+			{inVoice ? (
 				<div className="py-3 px-2 bg-background">
 					<div className="flex items-center gap-2 mb-2">
 						<Network className="text-primary" />
@@ -91,6 +92,7 @@ export const UserInfo = () => {
 						size="icon-lg"
 						type="button"
 						variant="ghost"
+						nativeButton={false}
 						render={(props) => <Link to="/settings" {...props} />}
 					>
 						<Settings2 />

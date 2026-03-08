@@ -6,6 +6,12 @@ export type UserCard = {
 	color: string;
 };
 
-export type StreamCard = { type: "stream"; preview: string; id: string };
+export type StreamCard = {
+	type: "stream";
+	preview: string;
+	id: string;
+	fps: number;
+	res: number;
+};
 
 export type CardType = UserCard | StreamCard;

@@ -12,6 +12,7 @@ import {
 import { NoiseSuppressor } from "@/lib/noise-suppressor";
 import { SocketManager } from "@/lib/socket";
 import { UserSidebar } from "@/components/user-sidebar";
+import { App } from "@/lib/app";
 
 const RootLayout: React.FC = () => {
 	useBlocker({
@@ -60,7 +61,7 @@ export const Route = createRootRoute({
 	component: RootLayout,
 	errorComponent: (err) => {
 		return (
-			<div className="flex flex-col">
+			<div className="flex flex-col w-full">
 				<WindowHeader />
 				{err.error.message}
 				{err.info?.componentStack}
@@ -82,9 +83,11 @@ export const Route = createRootRoute({
 		await auth.init();
 		if (!auth.isAuthed) {
 			await auth.authorize();
-			await SocketManager.create();
-
-			await NoiseSuppressor.create();
 		}
+
+		await NoiseSuppressor.create();
+		await SocketManager.create();
+
+		App.create();
 	},
 });

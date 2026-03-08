@@ -61,7 +61,7 @@ async fn main() -> std::io::Result<()> {
             ))
             .service(routes::oauth_server_details)
             .service(web::scope("/auth").service(routes::auth::get_oauth_routes()))
-            .service(web::scope("/api").service(routes::api::api_routes()))
+            .service(web::scope("/api").route("/ws",web::get().to(routes::websocket::ws)).service(routes::api::api_routes()))
             .service(
                 web::scope("")
                     //.wrap(CsrfMiddleware::new(csrf_config.clone()))

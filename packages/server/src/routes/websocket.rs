@@ -2,7 +2,33 @@ use actix_web::{Error, HttpRequest, HttpResponse, rt, web};
 use actix_ws::AggregatedMessage;
 use futures_util::StreamExt as _;
 
-pub async fn ws(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
+use crate::state::{api_errors::{ApplicationError, InnerError}, oauth::jwt::validate_jwt};
+
+#[derive(Debug,serde::Deserialize)]
+pub struct WsQuery {
+    pub token: String
+}
+
+pub async fn ws(req: HttpRequest, stream: web::Payload, query: web::Query<WsQuery>) -> Result<HttpResponse, Error> {
+    
+    let token = match validate_jwt(&query.token){
+        Ok(token)  => token,
+        Err(err) => match err {
+            crate::state::oauth::jwt::JwtError::Var(error) => {
+            log::error!("{}",error);
+            let resp = HttpResponse::InternalServerError().json(ApplicationError::new(401, "internal server error","server", Vec::default(), Some(InnerError::new(error.to_string()))));
+            return Ok(resp);
+        },
+            crate::state::oauth::jwt::JwtError::Jwt(error) => {
+            log::error!("{}",error);
+            let resp = HttpResponse::Unauthorized().json(ApplicationError::new(401, "unauthorized","query", Vec::default(), Some(InnerError::new(error.to_string()))));
+            return Ok(resp);
+        },
+        }
+    };
+    log::debug!("User inited socket connection: {}",token.claims.sub);
+    
+    
     let (res, mut session, stream) = actix_ws::handle(&req, stream)?;
 
     let mut stream = stream

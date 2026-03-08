@@ -111,7 +111,7 @@ export class OAuth {
 				{ redirectUri, codeVerifier, state },
 			);
 
-			localStorage.setItem("auth",JSON.stringify(this.token));
+			localStorage.setItem("auth", JSON.stringify(this._token));
 
 			return this.token;
 		} catch (error) {
