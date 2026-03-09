@@ -12,7 +12,7 @@ pub struct Claims {
     aud: uuid::Uuid,
     iat: i64,
     exp: i64,
-    sub: uuid::Uuid,
+    pub sub: uuid::Uuid,
 }
 
 #[derive(Debug, Error)]

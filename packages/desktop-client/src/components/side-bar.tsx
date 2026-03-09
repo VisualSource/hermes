@@ -18,7 +18,7 @@ export const SideBar = () => {
 			<ChannelSwitcher />
 			<Separator />
 
-			<ul className="overflow-y-auto">
+			<ul className="overflow-y-auto mb-auto">
 				<TagsChannel name="Tags" id="someId" />
 				<TextChannel name="Some Text Channel" id="aaaa" />
 
