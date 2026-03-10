@@ -14,12 +14,17 @@ import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
 import { useQuery } from "@tanstack/react-query";
 import { getTauriVersion, getVersion } from "@tauri-apps/api/app";
+import { getOpusVersion } from "@/lib/audio";
 
 export const AppSettings = () => {
 	const { data } = useQuery({
 		queryKey: ["app-details"],
 		queryFn: async () => {
-			const results = await Promise.all([getTauriVersion(), getVersion()]);
+			const results = await Promise.all([
+				getTauriVersion(),
+				getVersion(),
+				getOpusVersion(),
+			]);
 
 			return {
 				tauri: results[0],
@@ -27,6 +32,7 @@ export const AppSettings = () => {
 				overlay: "0.0.0",
 				channel: "stable",
 				build: "git-1111",
+				opus: results[2],
 			};
 		},
 	});
@@ -93,6 +99,9 @@ export const AppSettings = () => {
 					<div className="font-medium">
 						Overlay:{" "}
 						<span className="text-muted-foreground">v{data?.overlay}</span>
+					</div>
+					<div className="font-medium">
+						Opus: <span className="text-muted-foreground">v{data?.opus}</span>
 					</div>
 				</CardContent>
 			</Card>

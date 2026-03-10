@@ -1,3 +1,4 @@
+import { getOutputDevices } from "@/lib/audio";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Label } from "../ui/label";
 import {
@@ -14,25 +15,27 @@ const MicSelect = () => {
 	const { data } = useSuspenseQuery({
 		queryKey: ["mic-list"],
 		queryFn: async ()=>{
-			const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+			const outputs = await getOutputDevices();
 
-			stream.getTracks().forEach(track => track.stop());
-			
-			//const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-  			const devices = await navigator.mediaDevices.enumerateDevices();
-  			const microphones = devices.filter(device => device.kind === 'audioinput');
-			console.log(devices);
-			return microphones;
+			return outputs;
 		}
 	});
 
 
 	return (
-		<SelectContent>
-			{data.map((item,i)=>(
-				<SelectItem key={i} className="w-full">{item.label}</SelectItem>
-			))}
-		</SelectContent>
+		<Select defaultValue={data.default_device}>
+			<SelectTrigger className="w-72">
+				<SelectValue placeholder="Select Mic" />
+			</SelectTrigger>
+
+			<SelectContent>
+				{data.devices.map((item, i) => (
+					<SelectItem key={item[0]} className="w-full">
+						{item[1]}
+					</SelectItem>
+				))}
+			</SelectContent>
+		</Select>
 	);
 }
 
@@ -45,17 +48,11 @@ export const VoiceSettings = () => {
 					<Separator />
 				</CardHeader>
 				<CardContent>
-			
 					<div>
 						<Label>Mic</Label>
-						<Select>
-							<SelectTrigger>
-								<SelectValue placeholder="Select Mic" />
-							</SelectTrigger>
-							<Suspense>
-								<MicSelect/>
-							</Suspense>
-						</Select>
+						<Suspense>
+							<MicSelect />
+						</Suspense>
 					</div>
 					<div>
 						<Label>Camera</Label>

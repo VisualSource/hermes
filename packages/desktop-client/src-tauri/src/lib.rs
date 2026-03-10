@@ -5,6 +5,8 @@ mod cmd;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(cmd::audio::AudioState::new())
+       
         .plugin(
             tauri_plugin_log::Builder::new()
                 .target(tauri_plugin_log::Target::new(
@@ -58,7 +60,13 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![cmd::auth::start_auth_grant])
+        .invoke_handler(tauri::generate_handler![
+            cmd::auth::start_auth_grant,
+            cmd::audio::start_microphone,
+            cmd::audio::stop_microphone,
+            cmd::audio::get_audio_inputs,
+            cmd::audio::get_opus_version,
+            ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
