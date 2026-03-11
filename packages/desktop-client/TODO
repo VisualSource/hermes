@@ -10,31 +10,15 @@ https://medium.com/@ahsanmubariz/end-to-end-encryption-e2ee-a-deep-dive-with-sim
 https://github.com/suhaotian/broad-infinite-list
 
 
+Websocket API:
+    [] RTC
 
-Use https://crates.io/crates/cpal to list and provide audio input
-then use 
-```rust
-.register_uri_scheme_protocol("stream", move |app_handle, request| {
-            // Handle the request for the audio file path
-            let path = request.uri().replace("stream://localhost/", "");
-            let mut file = File::open(path).expect("Failed to open audio file");
-            let mut buffer = Vec::new();
-            file.read_to_end(&mut buffer).expect("Failed to read file");
+    [] server
+        name/color/roles change
+        add/remove channel
+   
+    [] user
+        [] display name/avatar change
+        [] server profile change
 
-            // You will need to handle content-range headers for true streaming in the browser
-            // (see official Tauri docs for full implementation details on range requests)
-            tauri::ipc::ResponseBuilder::new()
-                .status(200)
-                .header("Content-Type", "audio/wav") // Adjust content type as needed
-                .body(buffer)
-                .build()
-        })
-```
-to stream the audio data to the webview
-
-```js   
-    const streamUrl = `stream://localhost/${encodeURIComponent(filePath)}`;
-    const audioElement = new Audio(streamUrl);
-    audioElement.play();
-```
-
+    [] notification
