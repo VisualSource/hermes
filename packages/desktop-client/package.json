@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest",
-    "test-e2e": ""
+    "test-e2e": "",
+    "protoc": ""
   },
   "dependencies": {
     "@badgateway/oauth2-client": "^3.3.1",
@@ -49,6 +50,7 @@
     "vaul": "^1.1.2"
   },
   "devDependencies": {
+    "ts-proto": "2.11.5",
     "@biomejs/biome": "^2.4.6",
     "@faker-js/faker": "^10.3.0",
     "@hey-api/openapi-ts": "^0.93.1",
