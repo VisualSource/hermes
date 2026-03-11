@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package rtc;
+
+enum RtcMessageType {
+    Offer = 0;
+    Answer = 1;
+}
+
+message RtcEvent {
+    RtcMessageType type = 1;
+    string target = 2;
+    string sdp = 3;
+}
+
+message RtcNewCandidate {
+    string target = 1;
+    string candidate = 2;
+}
