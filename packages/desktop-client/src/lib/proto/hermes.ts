@@ -26,25 +26,27 @@ export interface Envelope {
   messageId: string;
   timestamp: number;
   version: number;
-  /** RTC */
+  /** RTC 1X */
   rtc?: RtcEvent | undefined;
   rtcIce?:
     | RtcNewCandidate
     | undefined;
-  /** Client -> Server */
+  /** Client -> Server 1XX */
   voiceChannelRequest?:
     | VoiceChannelRequest
     | undefined;
-  /** Server -> Client */
+  /** Server -> Client 2XX */
   voiceChannelEvent?: VoiceChannelUserEvent | undefined;
 }
 
+/** Client -> Server 1XX */
 export interface VoiceChannelUserEvent {
   channelId: string;
   type: VoiceChannelEventType;
   userId: string;
 }
 
+/** Server -> Client 2XX */
 export interface VoiceChannelRequest {
   channelId: string;
   type: VoiceChannelEventType;
@@ -85,16 +87,16 @@ export const Envelope: MessageFns<Envelope> = {
       writer.uint32(24).uint32(message.version);
     }
     if (message.rtc !== undefined) {
-      RtcEvent.encode(message.rtc, writer.uint32(50).fork()).join();
+      RtcEvent.encode(message.rtc, writer.uint32(82).fork()).join();
     }
     if (message.rtcIce !== undefined) {
-      RtcNewCandidate.encode(message.rtcIce, writer.uint32(58).fork()).join();
+      RtcNewCandidate.encode(message.rtcIce, writer.uint32(90).fork()).join();
     }
     if (message.voiceChannelRequest !== undefined) {
-      VoiceChannelRequest.encode(message.voiceChannelRequest, writer.uint32(122).fork()).join();
+      VoiceChannelRequest.encode(message.voiceChannelRequest, writer.uint32(802).fork()).join();
     }
     if (message.voiceChannelEvent !== undefined) {
-      VoiceChannelUserEvent.encode(message.voiceChannelEvent, writer.uint32(282).fork()).join();
+      VoiceChannelUserEvent.encode(message.voiceChannelEvent, writer.uint32(1602).fork()).join();
     }
     return writer;
   },
@@ -130,32 +132,32 @@ export const Envelope: MessageFns<Envelope> = {
           message.version = reader.uint32();
           continue;
         }
-        case 6: {
-          if (tag !== 50) {
+        case 10: {
+          if (tag !== 82) {
             break;
           }
 
           message.rtc = RtcEvent.decode(reader, reader.uint32());
           continue;
         }
-        case 7: {
-          if (tag !== 58) {
+        case 11: {
+          if (tag !== 90) {
             break;
           }
 
           message.rtcIce = RtcNewCandidate.decode(reader, reader.uint32());
           continue;
         }
-        case 15: {
-          if (tag !== 122) {
+        case 100: {
+          if (tag !== 802) {
             break;
           }
 
           message.voiceChannelRequest = VoiceChannelRequest.decode(reader, reader.uint32());
           continue;
         }
-        case 35: {
-          if (tag !== 282) {
+        case 200: {
+          if (tag !== 1602) {
             break;
           }
 

@@ -4,43 +4,41 @@ package hermes;
 
 
 message Envelope {
-    string message_id = 1;
+    string messageId = 1;
     int64 timestamp = 2;
     uint32 version = 3;
   
-    
     oneof payload {
-        // RTC
-        RtcEvent rtc = 6;
-        RtcNewCandidate rtc_ice = 7;
+        // RTC 1X
+        RtcEvent rtc = 10;
+        RtcNewCandidate rtcIce = 11;
 
-        // Client -> Server
-        VoiceChannelRequest voice_channel_request = 15;
+        // Client -> Server 1XX
+        VoiceChannelRequest voiceChannelRequest = 100;
       
 
-
-        // Server -> Client
-        VoiceChannelUserEvent voice_channel_event = 35;
+        // Server -> Client 2XX
+        VoiceChannelUserEvent voiceChannelEvent = 200;
     }
 }
-
 
 enum VoiceChannelEventType {
     Join = 0;
     Leave = 1;
 }
 
+// Client -> Server 1XX
 message VoiceChannelUserEvent {
     string channelId = 1;
     VoiceChannelEventType type = 2;
     string userId = 3;
 }
 
+// Server -> Client 2XX
 message VoiceChannelRequest {
     string channelId = 1;
     VoiceChannelEventType type = 2;
 }
-
 
 //#region RTC
 enum RtcMessageType {

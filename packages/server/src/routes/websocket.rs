@@ -1,6 +1,9 @@
 use actix_web::{Error, HttpRequest, HttpResponse, rt, web};
 use actix_ws::AggregatedMessage;
 use futures_util::StreamExt as _;
+use prost::Message;
+
+use crate::state::messages::{Envelope, envelope};
 
 use crate::state::{api_errors::{ApplicationError, InnerError}, oauth::jwt::validate_jwt};
 
@@ -43,7 +46,23 @@ pub async fn ws(req: HttpRequest, stream: web::Payload, query: web::Query<WsQuer
                     .await
                     .expect("failed to send text messge"),
                 Ok(AggregatedMessage::Binary(bin)) => {
-                    session.binary(bin).await.expect("failed to send bin")
+                    match Envelope::decode(bin) {
+                        Ok(envelope) => {
+                            if let Some(payload) = envelope.payload {
+                                match payload {
+                                    envelope::Payload::Rtc(rtc_event) => todo!(),
+                                    envelope::Payload::RtcIce(rtc_new_candidate) => todo!(),
+                                    envelope::Payload::VoiceChannelRequest(voice_channel_request) => todo!(),
+                                    _ => {
+                                        log::error!("got message that contained invalid message payload")
+                                    }
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            log::error!("{}",err);
+                        }
+                    }
                 }
                 Ok(AggregatedMessage::Ping(msg)) => {
                     session.pong(&msg).await.expect("failed to send pong")
