@@ -9,10 +9,27 @@ import { confirm } from "@tauri-apps/plugin-dialog";
 import {
   useBlocker,
 } from '@tanstack/react-router'
-import { NoiseSuppressor } from "@/lib/noise-suppressor";
-import { SocketManager } from "@/lib/socket";
-import { UserSidebar } from "@/components/user-sidebar";
 import { App } from "@/lib/app";
+import { Suspense, use } from "react";
+
+const onInit = (async () => {
+	await auth.init();
+	if (!auth.isAuthed) {
+		await auth.authorize();
+	}
+	await App.create();
+})();
+
+
+const AppState = ({ children }:React.PropsWithChildren) => {
+	use(onInit);
+
+	return (
+		<>
+			{children}
+		</>
+	)
+}
 
 const RootLayout: React.FC = () => {
 	useBlocker({
@@ -45,14 +62,22 @@ const RootLayout: React.FC = () => {
 	return (
 		<div className="h-full w-full overflow-hidden flex flex-col">
 			<WindowHeader />
-			<TooltipProvider>
-				<div className="h-full w-full overflow-hidden relative flex @container-[size]">
-					<SideBar />
-					<div className="w-full h-full flex flex-col col-span-7">
-						<Outlet />
-					</div>
+			<Suspense fallback={
+				<div className="h-full w-full flex place-items-center">
+					<Spinner className="size-9" />
 				</div>
-			</TooltipProvider>
+			}>
+				<AppState>
+					<TooltipProvider>
+						<div className="h-full w-full overflow-hidden relative flex @container-[size]">
+							<SideBar />
+							<div className="w-full h-full flex flex-col col-span-7">
+								<Outlet />
+							</div>
+						</div>
+					</TooltipProvider>
+				</AppState>
+			</Suspense>
 		</div>
 	);
 };
@@ -63,31 +88,14 @@ export const Route = createRootRoute({
 		return (
 			<div className="flex flex-col w-full">
 				<WindowHeader />
-				{err.error.message}
-				{err.info?.componentStack}
-				<Button onClick={err.reset}>Reset</Button>
+				<main className="h-full w-full flex flex-col place-items-center">
+					<div>
+						<h1>{err.error.message}</h1>
+						<p>	{err.info?.componentStack}</p>
+					</div>
+					<Button onClick={err.reset}>Reset</Button>
+				</main>
 			</div>
 		);
-	},
-	pendingComponent: () => {
-		return (
-			<div className="h-full w-full flex flex-col">
-				<WindowHeader />
-				<div className="h-full w-full flex items-center justify-center">
-					<Spinner className="size-9" />
-				</div>
-			</div>
-		);
-	},
-	beforeLoad: async () => {
-		await auth.init();
-		if (!auth.isAuthed) {
-			await auth.authorize();
-		}
-
-		await NoiseSuppressor.create();
-		await SocketManager.create();
-
-		App.create();
-	},
+	}
 });

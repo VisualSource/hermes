@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package hermes;
+
+
+message Envelope {
+    string message_id = 1;
+    int64 timestamp = 2;
+    uint32 version = 3;
+  
+    
+    oneof payload {
+        // RTC
+        RtcEvent rtc = 6;
+        RtcNewCandidate rtc_ice = 7;
+
+        // Client -> Server
+        VoiceChannelRequest voice_channel_request = 15;
+      
+
+
+        // Server -> Client
+        VoiceChannelUserEvent voice_channel_event = 35;
+    }
+}
+
+
+enum VoiceChannelEventType {
+    Join = 0;
+    Leave = 1;
+}
+
+message VoiceChannelUserEvent {
+    string channelId = 1;
+    VoiceChannelEventType type = 2;
+    string userId = 3;
+}
+
+message VoiceChannelRequest {
+    string channelId = 1;
+    VoiceChannelEventType type = 2;
+}
+
+
+//#region RTC
+enum RtcMessageType {
+    Offer = 0;
+    Answer = 1;
+}
+
+message RtcEvent {
+    RtcMessageType type = 1;
+    string target = 2;
+    string sdp = 3;
+}
+
+message RtcNewCandidate {
+    string target = 1;
+    string candidate = 2;
+}
+//#endregion

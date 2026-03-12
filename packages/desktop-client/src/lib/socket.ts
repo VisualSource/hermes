@@ -1,5 +1,9 @@
+import { BinaryReader } from "@bufbuild/protobuf/wire";
+
 import { auth } from "./clients";
 
+import { Envelope } from "./proto/hermes";
+import { nanoid } from "nanoid";
 export class SocketManager extends EventTarget {
 		private static INSTANCE: SocketManager | null = null;
 
@@ -7,6 +11,8 @@ export class SocketManager extends EventTarget {
 			if (!SocketManager.INSTANCE) throw new Error();
 			return SocketManager.INSTANCE;
 		}
+
+		private socket: WebSocket | null = null;
 
 		static async create() {
 			const man = new SocketManager();
@@ -26,6 +32,7 @@ export class SocketManager extends EventTarget {
 			url.protocol = "wss";
 
 			const socket = new WebSocket(url);
+			socket.binaryType = "arraybuffer";
 
 			const { resolve, reject, promise } = Promise.withResolvers<void>();
 
@@ -38,8 +45,40 @@ export class SocketManager extends EventTarget {
 			socket.addEventListener("open", () => resolve());
 
 			await promise;
+
+			this.socket = socket;
 		}
 
-		private onMessage = () => {};
-		private onClose = () => {};
+		public send(msg: Omit<Envelope,"messageId"|"timestamp"|"version"|"type">){
+			const envelope = Envelope.create({
+				messageId: nanoid(),
+				timestamp: Date.now(),
+				version: 1,
+				...msg			
+			});
+
+			const data = Envelope.encode(envelope).finish();
+
+			this.socket?.send(data);
+		}
+
+		private onMessage = (ev: MessageEvent<ArrayBuffer>) => { 
+			if(!(ev.data instanceof ArrayBuffer)){
+				console.log("Unable to handle text frame");
+				return;
+			} 
+
+			const reader = new BinaryReader(new Uint8Array(ev.data));
+			
+			const envelope = Envelope.decode(reader);
+
+			if(envelope.rtc){
+				// emit to RTC handler
+			} else if(envelope.rtcIce){
+
+			}
+
+		
+		};
+		private onClose = (ev: CloseEvent) => { console.log("Socket Closed!",ev) };
 	}

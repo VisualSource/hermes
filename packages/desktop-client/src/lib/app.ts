@@ -1,3 +1,6 @@
+import { NoiseSuppressor } from "./noise-suppressor";
+import { SocketManager } from "./socket";
+import { VoiceChannelRequest, VoiceChannelEventType } from "./proto/hermes";
 export class App extends EventTarget {
 	private static INSTANCE: App | null = null;
 	public static get(): App {
@@ -6,22 +9,45 @@ export class App extends EventTarget {
 		return App.INSTANCE;
 	}
 
-	static create() {
+	static async create() {
+		await NoiseSuppressor.create();
+		await SocketManager.create();
+
 		App.INSTANCE = new App();
 	}
 
-	inVoice: boolean = false;
+	private socket = SocketManager.get();
+	private inVoice: boolean = false;
 
-	joinVoice = (id: string) => {
-		console.log("Init WEB RTC", id);
+	public joinVoice = (channelId: string) => {
+		console.log("Join Voice channel", channelId);
 
+		this.socket.send({
+			voiceChannelRequest: VoiceChannelRequest.create({ 
+				channelId, type: VoiceChannelEventType.Join 
+			})
+		})
+	
 		this.inVoice = true;
 
 		this.dispatchEvent(new Event("voice-state-change"));
 	};
-	leaveVoice = (id: string) => {};
 
-	getProp = (prop: string) => {
+	public leaveVoice = (channelId: string) => {
+		console.log("Leaving voice channel",channelId);
+		
+		this.socket.send({
+			voiceChannelRequest: VoiceChannelRequest.create({
+				channelId, 
+				type: VoiceChannelEventType.Leave
+			})
+		})
+
+		this.inVoice = false;
+		this.dispatchEvent(new Event("voice-state-change"));
+	};
+
+	public getProp = (prop: string) => {
 		switch (prop) {
 			case "inVoice":
 				return this.inVoice;
