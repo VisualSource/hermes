@@ -1,3 +1,17 @@
+import { TypedEmitter } from "./types";
+
+interface RTCEventMap {
+    "rtc-close": Event,
+    "rtc-new-ice-candidate": RTCNewIceCandidate,
+    "rtc-connection-closed": RTCEvent,
+    "rtc-connection-failed": RTCEvent,
+    "rtc-negotation": RTCNegotationEvent,
+    "rtc-negotation-start-failed": Event,
+    "rtc-track": RTCTrackEvent,
+    "rtc-connection-state-change": RTCConnectionStateChangeEvent
+}
+
+
 //https://medium.com/swlh/manage-dynamic-multi-peer-connections-in-webrtc-3ff4e10f75b7
 const DefaultRTCIceServer: RTCIceServer[]= 
     [
@@ -5,8 +19,7 @@ const DefaultRTCIceServer: RTCIceServer[]=
         { urls: ["stun:stun1.l.google.com:19302"] },
         { urls: ["stun:stun2.l.google.com:19302"] },
     ]
-    
-export class RTC extends EventTarget {
+export class RTC extends (EventTarget as TypedEmitter<RTCEventMap>)  {
     private conns: Map<string,RTCPeerConnection> = new Map();
 
 
@@ -25,7 +38,7 @@ export class RTC extends EventTarget {
             iceServers: DefaultRTCIceServer,
         });
         this.initSharedEventHandler(peerId,peer);
-
+        
         const description = await peer.createOffer({
             offerToReceiveAudio: true,
             offerToReceiveVideo: true,

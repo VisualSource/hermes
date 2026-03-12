@@ -2,7 +2,6 @@ syntax = "proto3";
 
 package hermes;
 
-
 message Envelope {
     string messageId = 1;
     int64 timestamp = 2;
@@ -22,13 +21,13 @@ message Envelope {
     }
 }
 
-enum VoiceChannelEventType {
-    Join = 0;
-    Leave = 1;
-}
-
 // Client -> Server 1XX
 message VoiceChannelUserEvent {
+    enum VoiceChannelEventType {
+        Join = 0;
+        Leave = 1;
+    }
+
     string channelId = 1;
     VoiceChannelEventType type = 2;
     string userId = 3;
@@ -40,20 +39,28 @@ message VoiceChannelRequest {
     VoiceChannelEventType type = 2;
 }
 
-//#region RTC
-enum RtcMessageType {
-    Offer = 0;
-    Answer = 1;
-}
-
+// RTC 1X
 message RtcEvent {
+    enum RtcMessageType {
+        Null = 0;
+        Offer = 1;
+        Answer = 2;
+        PrAnswer = 3;
+    }
+
     RtcMessageType type = 1;
     string target = 2;
     string sdp = 3;
 }
 
 message RtcNewCandidate {
+    message IceCandidate {
+        optional string candidate = 1;
+        optional string sdpMid = 2;
+        optional int64 sdpMLineIndex = 3;
+        optional string usernameFragment = 4;
+    }
+
     string target = 1;
-    string candidate = 2;
+    IceCandidate candidate = 2;
 }
-//#endregion

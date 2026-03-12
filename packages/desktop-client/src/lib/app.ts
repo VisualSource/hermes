@@ -1,6 +1,7 @@
 import { NoiseSuppressor } from "./noise-suppressor";
 import { SocketManager } from "./socket";
-import { VoiceChannelRequest, VoiceChannelEventType } from "./proto/hermes";
+import { VoiceChannelRequest, VoiceChannelEventType, RtcNewCandidate } from "./proto/hermes";
+import { RTC } from "./rtc";
 export class App extends EventTarget {
 	private static INSTANCE: App | null = null;
 	public static get(): App {
@@ -18,6 +19,22 @@ export class App extends EventTarget {
 
 	private socket = SocketManager.get();
 	private inVoice: boolean = false;
+	private rtc = new RTC();
+
+	constructor(){
+		super();
+
+	
+		this.rtc.addEventListener("rtc-new-ice-candidate",(ev)=>{
+			this.socket.send({ 
+				rtcIce: RtcNewCandidate.create({
+					target: ev.peerId,
+					candidate: ev.candidate.toJSON().
+				})
+			});
+		});
+
+	}
 
 	public joinVoice = (channelId: string) => {
 		console.log("Join Voice channel", channelId);
