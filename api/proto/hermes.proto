@@ -22,12 +22,13 @@ message Envelope {
 }
 
 // Client -> Server 1XX
-message VoiceChannelUserEvent {
-    enum VoiceChannelEventType {
-        Join = 0;
-        Leave = 1;
-    }
+enum VoiceChannelEventType {
+    Join = 0;
+    Leave = 1;
+}
 
+message VoiceChannelUserEvent {
+ 
     string channelId = 1;
     VoiceChannelEventType type = 2;
     string userId = 3;
@@ -42,10 +43,10 @@ message VoiceChannelRequest {
 // RTC 1X
 message RtcEvent {
     enum RtcMessageType {
-        Null = 0;
-        Offer = 1;
-        Answer = 2;
-        PrAnswer = 3;
+        Offer = 0;
+        Answer = 1;
+        PrAnswer = 2;
+        Rollback = 3;
     }
 
     RtcMessageType type = 1;

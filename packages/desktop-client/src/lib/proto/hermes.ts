@@ -9,16 +9,10 @@ import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
 
 export const protobufPackage = "hermes";
 
+/** Client -> Server 1XX */
 export enum VoiceChannelEventType {
   Join = 0,
   Leave = 1,
-  UNRECOGNIZED = -1,
-}
-
-/** #region RTC */
-export enum RtcMessageType {
-  Offer = 0,
-  Answer = 1,
   UNRECOGNIZED = -1,
 }
 
@@ -39,7 +33,6 @@ export interface Envelope {
   voiceChannelEvent?: VoiceChannelUserEvent | undefined;
 }
 
-/** Client -> Server 1XX */
 export interface VoiceChannelUserEvent {
   channelId: string;
   type: VoiceChannelEventType;
@@ -52,15 +45,31 @@ export interface VoiceChannelRequest {
   type: VoiceChannelEventType;
 }
 
+/** RTC 1X */
 export interface RtcEvent {
-  type: RtcMessageType;
+  type: RtcEvent_RtcMessageType;
   target: string;
   sdp: string;
 }
 
+export enum RtcEvent_RtcMessageType {
+  Offer = 0,
+  Answer = 1,
+  PrAnswer = 2,
+  Rollback = 3,
+  UNRECOGNIZED = -1,
+}
+
 export interface RtcNewCandidate {
   target: string;
-  candidate: string;
+  candidate: RtcNewCandidate_IceCandidate | undefined;
+}
+
+export interface RtcNewCandidate_IceCandidate {
+  candidate?: string | undefined;
+  sdpMid?: string | undefined;
+  sdpMLineIndex?: number | undefined;
+  usernameFragment?: string | undefined;
 }
 
 function createBaseEnvelope(): Envelope {
@@ -394,7 +403,7 @@ export const RtcEvent: MessageFns<RtcEvent> = {
 };
 
 function createBaseRtcNewCandidate(): RtcNewCandidate {
-  return { target: "", candidate: "" };
+  return { target: "", candidate: undefined };
 }
 
 export const RtcNewCandidate: MessageFns<RtcNewCandidate> = {
@@ -402,8 +411,8 @@ export const RtcNewCandidate: MessageFns<RtcNewCandidate> = {
     if (message.target !== "") {
       writer.uint32(10).string(message.target);
     }
-    if (message.candidate !== "") {
-      writer.uint32(18).string(message.candidate);
+    if (message.candidate !== undefined) {
+      RtcNewCandidate_IceCandidate.encode(message.candidate, writer.uint32(18).fork()).join();
     }
     return writer;
   },
@@ -428,7 +437,7 @@ export const RtcNewCandidate: MessageFns<RtcNewCandidate> = {
             break;
           }
 
-          message.candidate = reader.string();
+          message.candidate = RtcNewCandidate_IceCandidate.decode(reader, reader.uint32());
           continue;
         }
       }
@@ -446,7 +455,91 @@ export const RtcNewCandidate: MessageFns<RtcNewCandidate> = {
   fromPartial<I extends Exact<DeepPartial<RtcNewCandidate>, I>>(object: I): RtcNewCandidate {
     const message = createBaseRtcNewCandidate();
     message.target = object.target ?? "";
-    message.candidate = object.candidate ?? "";
+    message.candidate = (object.candidate !== undefined && object.candidate !== null)
+      ? RtcNewCandidate_IceCandidate.fromPartial(object.candidate)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseRtcNewCandidate_IceCandidate(): RtcNewCandidate_IceCandidate {
+  return { candidate: undefined, sdpMid: undefined, sdpMLineIndex: undefined, usernameFragment: undefined };
+}
+
+export const RtcNewCandidate_IceCandidate: MessageFns<RtcNewCandidate_IceCandidate> = {
+  encode(message: RtcNewCandidate_IceCandidate, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.candidate !== undefined) {
+      writer.uint32(10).string(message.candidate);
+    }
+    if (message.sdpMid !== undefined) {
+      writer.uint32(18).string(message.sdpMid);
+    }
+    if (message.sdpMLineIndex !== undefined) {
+      writer.uint32(24).int64(message.sdpMLineIndex);
+    }
+    if (message.usernameFragment !== undefined) {
+      writer.uint32(34).string(message.usernameFragment);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RtcNewCandidate_IceCandidate {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRtcNewCandidate_IceCandidate();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.candidate = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.sdpMid = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.sdpMLineIndex = longToNumber(reader.int64());
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.usernameFragment = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  create<I extends Exact<DeepPartial<RtcNewCandidate_IceCandidate>, I>>(base?: I): RtcNewCandidate_IceCandidate {
+    return RtcNewCandidate_IceCandidate.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RtcNewCandidate_IceCandidate>, I>>(object: I): RtcNewCandidate_IceCandidate {
+    const message = createBaseRtcNewCandidate_IceCandidate();
+    message.candidate = object.candidate ?? undefined;
+    message.sdpMid = object.sdpMid ?? undefined;
+    message.sdpMLineIndex = object.sdpMLineIndex ?? undefined;
+    message.usernameFragment = object.usernameFragment ?? undefined;
     return message;
   },
 };
