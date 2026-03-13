@@ -1,4 +1,4 @@
-import { makeSubscription } from "@/lib/app";
+import { makeSubscription } from "@/lib/clients/app";
 import { useSyncExternalStore } from "react";
 
 const { subscription, snapshot } = makeSubscription<boolean>(

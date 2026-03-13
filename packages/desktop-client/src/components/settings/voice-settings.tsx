@@ -1,4 +1,4 @@
-import { getOutputDevices } from "@/lib/audio";
+import { getOutputDevices } from "@/lib/audio/audio";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Label } from "../ui/label";
 import {

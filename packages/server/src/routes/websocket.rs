@@ -50,9 +50,15 @@ pub async fn ws(req: HttpRequest, stream: web::Payload, query: web::Query<WsQuer
                         Ok(envelope) => {
                             if let Some(payload) = envelope.payload {
                                 match payload {
-                                    envelope::Payload::Rtc(rtc_event) => todo!(),
-                                    envelope::Payload::RtcIce(rtc_new_candidate) => todo!(),
-                                    envelope::Payload::VoiceChannelRequest(voice_channel_request) => todo!(),
+                                    envelope::Payload::Rtc(rtc_event) => {
+                                        log::debug!("{:#?}",rtc_event);
+                                    },
+                                    envelope::Payload::RtcIce(rtc_new_candidate) => {
+                                        log::debug!("{:#?}",rtc_new_candidate);
+                                    },
+                                    envelope::Payload::VoiceChannelRequest(voice_channel_request) => {
+                                        log::debug!("{:#?}",voice_channel_request);
+                                    },
                                     _ => {
                                         log::error!("got message that contained invalid message payload")
                                     }

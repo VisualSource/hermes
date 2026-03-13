@@ -14,7 +14,7 @@ import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
 import { useQuery } from "@tanstack/react-query";
 import { getTauriVersion, getVersion } from "@tauri-apps/api/app";
-import { getOpusVersion } from "@/lib/audio";
+import { getOpusVersion } from "@/lib/audio/audio";
 
 export const AppSettings = () => {
 	const { data } = useQuery({

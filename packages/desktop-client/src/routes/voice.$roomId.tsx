@@ -1,29 +1,91 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useBlocker } from "@tanstack/react-router";
 import { StreamCard } from "@/components/voice/stream-card";
 import { UserCard } from "@/components/voice/user-card";
 import { useVoice } from "@/hooks/use-voice.";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
-import { App } from "@/lib/app";
-
+import { App } from "@/lib/core/app";
+import { Card, CardContent } from "@/components/ui/card";
+import { app } from "@/lib/clients/app";
+import { confirm } from "@tauri-apps/plugin-dialog";
 export const Route = createFileRoute("/voice/$roomId")({
-  component: RouteComponent,
-  onEnter(match){
-	App.get().joinVoice(match.params.roomId);
-  },
-  pendingComponent: ()=>(<div></div>),
-  errorComponent: ()=>(<div></div>),
-  remountDeps: ({ params }) => params.roomId
-
+	component: RouteComponent,
+	pendingComponent: () => <div></div>,
+	errorComponent: () => <div></div>,
 });
 
+const Background = (props: React.PropsWithChildren) => {
+	return (
+		<div className="h-full w-full bg-background relative flex place-items-center place-content-center">
+			{/* Dark Sphere Grid Background */}
+
+			<div
+				className="absolute inset-0 z-2"
+				style={{
+					backgroundImage: `
+        linear-gradient(to right, rgba(71,85,105,0.3) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(71,85,105,0.3) 1px, transparent 1px),
+        radial-gradient(circle at 50% 50%, rgba(139,92,246,0.15) 0%, transparent 70%)
+      `,
+					backgroundSize: "32px 32px, 32px 32px, 100% 100%",
+				}}
+			/>
+
+			{props.children}
+		</div>
+	);
+};
+
 function RouteComponent() {
-	const { watchingStream, items, watch } = useVoice();
+	const { roomId } = Route.useParams();
+	const { watchingStream, items, watch, inVoice } = useVoice();
+
+	useBlocker({
+		shouldBlockFn: async ({ current, next }) => {
+			if (
+				inVoice &&
+				current.fullPath === "/voice/$roomId" &&
+				next.fullPath === "/voice/$roomId"
+			) {
+				if (current.params.roomId !== next.params.roomId) {
+					const result = await confirm(
+						"Are you sure? You will leave the current voice channel!",
+						{
+							kind: "info",
+							title: "Switch Channel?",
+							okLabel: "Yes",
+							cancelLabel: "No",
+						},
+					);
+
+					return result;
+				}
+				return false;
+			}
+			return false;
+		},
+		enableBeforeUnload: false,
+		withResolver: true,
+	});
+
+	if (!inVoice) {
+		return (
+			<Background>
+				<Card className="z-3">
+					<CardContent>
+						<Button variant="secondary" onClick={() => app.joinVoice(roomId)}>
+							Join
+						</Button>
+					</CardContent>
+				</Card>
+			</Background>
+		);
+	}
 
 	if (watchingStream) {
 		return (
-			<div className="h-full w-full flex justify-center">
-				<div className="flex flex-col h-full p-8 container gap-4 place-content-center-safe">
+			<Background>
+				<div className="flex flex-col h-full p-8 container gap-4 place-content-center-safe z-3">
 					<div className="h-full w-full bg-accent relative">
 						<video
 							id={watchingStream.id}
@@ -68,13 +130,13 @@ function RouteComponent() {
 							)}
 					</div>
 				</div>
-			</div>
+			</Background>
 		);
 	}
 
 	return (
-		<div className="h-full w-full flex place-content-center">
-			<div className="h-full w-full flex flex-wrap place-content-center-safe gap-2 p-8 container @container-[size]">
+		<Background>
+			<div className="h-full w-full flex flex-wrap place-content-center-safe gap-2 p-8 container @container-[size] z-10">
 				{items.map((item) =>
 					item.type === "stream" ? (
 						<StreamCard
@@ -87,6 +149,6 @@ function RouteComponent() {
 					),
 				)}
 			</div>
-		</div>
+		</Background>
 	);
 }

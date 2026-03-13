@@ -1,4 +1,4 @@
-import { NoiseSuppressor } from "./noise-suppressor";
+import { NoiseSuppressor } from "../audio/noise-suppressor";
 import {
 	VoiceChannelRequest,
 	VoiceChannelEventType,
@@ -8,27 +8,13 @@ import {
 	type VoiceChannelUserEvent,
 	RtcEvent,
 	RtcEvent_RtcMessageType,
-} from "./proto/hermes";
+} from "../proto/hermes";
 import { RTC, RtcSdpTypeMap } from "./rtc";
-import { auth } from "./clients";
+import { auth } from "../clients/auth";
 import { nanoid } from "nanoid";
 import { BinaryReader } from "@bufbuild/protobuf/wire";
 export class App extends EventTarget {
 	private static INSTANCE: App | null = null;
-	public static get(): App {
-		if (!App.INSTANCE) throw new Error("failed to get app instance");
-
-		return App.INSTANCE;
-	}
-
-	static async create() {
-		await NoiseSuppressor.create();
-		console.log("[Websocket] Starting websocket");
-
-		App.INSTANCE = new App();
-
-		await App.INSTANCE.initSocket();
-	}
 
 	private _socket: WebSocket | null = null;
 	private inVoice: boolean = false;
@@ -41,6 +27,10 @@ export class App extends EventTarget {
 
 	constructor() {
 		super();
+		if (App.INSTANCE !== null)
+			throw new Error("a app instance already exists!");
+
+		App.INSTANCE = this;
 
 		this.rtc.addEventListener("rtc-new-ice-candidate", (ev) => {
 			const sdp = ev.candidate.toJSON();
@@ -58,9 +48,15 @@ export class App extends EventTarget {
 		});
 	}
 
+	public async init() {
+		await NoiseSuppressor.create();
+		console.log("[Websocket] Starting websocket");
+		await this.initSocket();
+	}
+
 	//#region PublicApi
 	public joinVoice = (channelId: string) => {
-		console.log("Join Voice channel", channelId);
+		console.debug("Join Voice channel", channelId);
 
 		this.send({
 			voiceChannelRequest: VoiceChannelRequest.create({
@@ -75,7 +71,7 @@ export class App extends EventTarget {
 	};
 
 	public leaveVoice = (channelId: string) => {
-		console.log("Leaving voice channel", channelId);
+		console.debug("Leaving voice channel", channelId);
 
 		this.send({
 			voiceChannelRequest: VoiceChannelRequest.create({
@@ -122,7 +118,7 @@ export class App extends EventTarget {
 
 	private onMessage = async (ev: MessageEvent<ArrayBuffer>) => {
 		if (!(ev.data instanceof ArrayBuffer)) {
-			console.log("Unable to handle text frame");
+			console.error("Unable to handle text frame");
 			return;
 		}
 
@@ -231,16 +227,3 @@ export class App extends EventTarget {
 	}
 	//#endregion
 }
-
-export const makeSubscription = <T = null>(event: string, prop: string) => {
-	return {
-		subscription: (callback: () => void) => {
-			const inst = App.get();
-			inst.addEventListener(event, callback);
-			return () => {
-				inst.removeEventListener(event, callback);
-			};
-		},
-		snapshot: () => App.get().getProp(prop) as T,
-	};
-};

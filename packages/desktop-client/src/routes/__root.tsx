@@ -1,23 +1,19 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { WindowHeader } from "@/components/window-header";
-import { auth } from "@/lib/clients";
+import { auth } from "@/lib/clients/auth";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { SideBar } from "@/components/side-bar";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { confirm } from "@tauri-apps/plugin-dialog";
-import {
-  useBlocker,
-} from '@tanstack/react-router'
-import { App } from "@/lib/app";
 import { Suspense, use } from "react";
+import { app } from "@/lib/clients/app";
 
 const onInit = (async () => {
 	await auth.init();
 	if (!auth.isAuthed) {
 		await auth.authorize();
 	}
-	await App.create();
+	await app.init();
 })();
 
 
@@ -32,41 +28,16 @@ const AppState = ({ children }:React.PropsWithChildren) => {
 }
 
 const RootLayout: React.FC = () => {
-	useBlocker({
-		shouldBlockFn: async ({ current, next }) => {
-			if (
-				current.fullPath === "/voice/$roomId" &&
-				next.fullPath === "/voice/$roomId"
-			) {
-				if (current.params.roomId !== next.params.roomId) {
-					const result = await confirm(
-						"Are you sure? You will leave the current voice channel!",
-						{
-							kind: "info",
-							title: "Switch Channel?",
-							okLabel: "Yes",
-							cancelLabel: "No",
-						},
-					);
-
-					return result;
-				}
-				return false;
-			}
-			return false;
-		},
-		enableBeforeUnload: false,
-		withResolver: true,
-	});
-
 	return (
 		<div className="h-full w-full overflow-hidden flex flex-col">
 			<WindowHeader />
-			<Suspense fallback={
-				<div className="h-full w-full flex place-items-center">
-					<Spinner className="size-9" />
-				</div>
-			}>
+			<Suspense
+				fallback={
+					<div className="h-full w-full flex place-items-center">
+						<Spinner className="size-9" />
+					</div>
+				}
+			>
 				<AppState>
 					<TooltipProvider>
 						<div className="h-full w-full overflow-hidden relative flex @container-[size]">

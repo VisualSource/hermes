@@ -13,10 +13,14 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useMatchRoute } from "@tanstack/react-router";
 import { useInVoice } from "@/hooks/use-in-voice";
+import { app } from "@/lib/clients/app";
 
 export const UserInfo = () => {
+	const matchRoute = useMatchRoute();
+	const params = matchRoute({ to: "/voice/$roomId" });
+
 	const [mute, setMute] = useState(false);
 	const [depth, setDepth] = useState(false);
 
@@ -37,7 +41,12 @@ export const UserInfo = () => {
 							</span>
 						</div>
 
-						<Button size="icon-lg" variant="ghost" className="ml-auto">
+						<Button
+							size="icon-lg"
+							variant="ghost"
+							className="ml-auto"
+							onClick={() => params && app.leaveVoice(params.roomId)}
+						>
 							<PhoneOff />
 						</Button>
 					</div>
