@@ -5,6 +5,7 @@ import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 import "./index.css";
 import { queryClient } from "./lib/clients/queryClient";
+import { TooltipProvider } from "./components/ui/tooltip";
 
 const router = createRouter({ 
 	routeTree,
@@ -22,7 +23,9 @@ declare module "@tanstack/react-router" {
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 	<StrictMode>
 		<QueryClientProvider client={queryClient}>
-			<RouterProvider router={router} />
+			<TooltipProvider>
+				<RouterProvider router={router} />
+			</TooltipProvider>
 		</QueryClientProvider>
 	</StrictMode>,
 );

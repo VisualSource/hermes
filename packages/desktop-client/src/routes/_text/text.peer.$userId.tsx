@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/text/peer/$userId")({
+export const Route = createFileRoute("/_text/text/peer/$userId")({
   component: RouteComponent,
 });
 

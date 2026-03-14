@@ -1,6 +1,7 @@
 import { Bug, Maximize2, Minus, X } from "lucide-react";
 import { Button } from "./ui/button"
 import { getCurrentWindow } from "@tauri-apps/api/window"
+import { TooltipButton } from "./ui/tooltip-button";
 
 const win = getCurrentWindow();
 
@@ -11,9 +12,13 @@ export const WindowHeader = () => {
 						className="shadow-2xl flex bg-card justify-between cursor-pointer border-b"
 					>
 						<div>
-							<Button size="icon-lg" variant="ghost">
+							<TooltipButton
+								size="icon-lg"
+								variant="ghost"
+								tooltip="Bug Report"
+							>
 								<Bug />
-							</Button>
+							</TooltipButton>
 						</div>
 						<div className="flex gap-2">
 							<Button

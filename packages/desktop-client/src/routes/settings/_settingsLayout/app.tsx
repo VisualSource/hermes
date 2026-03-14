@@ -1,22 +1,31 @@
+import { createFileRoute } from "@tanstack/react-router";
 import { ExternalLink } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { Label } from "../ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "../ui/select";
-import { Separator } from "../ui/separator";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { Button } from "../ui/button";
-import { Switch } from "../ui/switch";
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useQuery } from "@tanstack/react-query";
 import { getTauriVersion, getVersion } from "@tauri-apps/api/app";
 import { getOpusVersion } from "@/lib/audio/audio";
 
-export const AppSettings = () => {
+export const Route = createFileRoute("/settings/_settingsLayout/app")({
+	component: RouteComponent,
+});
+
+function RouteComponent() {
 	const { data } = useQuery({
 		queryKey: ["app-details"],
 		queryFn: async () => {
@@ -83,6 +92,10 @@ export const AppSettings = () => {
 					<Separator />
 				</CardHeader>
 				<CardContent>
+					<Button variant="secondary">Check for updates</Button>
+
+					<Separator />
+
 					<div className="font-medium">
 						App: <span className="text-muted-foreground">v{data?.app}</span>
 					</div>
@@ -107,4 +120,4 @@ export const AppSettings = () => {
 			</Card>
 		</div>
 	);
-};
+}

@@ -41,7 +41,8 @@ export const TagsChannel = ({ name, id }: { id: string; name: string }) => {
 export const GroupChannel = ({
 	name,
 	children,
-}: React.PropsWithChildren<{ name: string }>) => {
+	id,
+}: React.PropsWithChildren<{ name: string; id: string }>) => {
 	return (
 		<li>
 			<Accordion>

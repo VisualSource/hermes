@@ -1,26 +1,31 @@
+import { createFileRoute } from "@tanstack/react-router";
 import { getOutputDevices } from "@/lib/audio/audio";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { Label } from "../ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "../ui/select";
-import { Separator } from "../ui/separator";
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense } from "react";
+
+export const Route = createFileRoute("/settings/_settingsLayout/voice")({
+	component: RouteComponent,
+});
+
 const MicSelect = () => {
 	const { data } = useSuspenseQuery({
 		queryKey: ["mic-list"],
-		queryFn: async ()=>{
+		queryFn: async () => {
 			const outputs = await getOutputDevices();
 
 			return outputs;
-		}
+		},
 	});
-
 
 	return (
 		<Select defaultValue={data.default_device}>
@@ -37,9 +42,9 @@ const MicSelect = () => {
 			</SelectContent>
 		</Select>
 	);
-}
+};
 
-export const VoiceSettings = () => {
+function RouteComponent() {
 	return (
 		<div className="flex flex-col p-2 gap-2">
 			<Card>
@@ -69,4 +74,4 @@ export const VoiceSettings = () => {
 			</Card>
 		</div>
 	);
-};
+}

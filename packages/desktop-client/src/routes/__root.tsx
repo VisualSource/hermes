@@ -3,8 +3,8 @@ import { WindowHeader } from "@/components/window-header";
 import { auth } from "@/lib/clients/auth";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
-import { SideBar } from "@/components/side-bar";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { SideBar } from "@/components/sidebar/side-bar";
+
 import { Suspense, use } from "react";
 import { app } from "@/lib/clients/app";
 
@@ -39,14 +39,12 @@ const RootLayout: React.FC = () => {
 				}
 			>
 				<AppState>
-					<TooltipProvider>
-						<div className="h-full w-full overflow-hidden relative flex @container-[size]">
-							<SideBar />
-							<div className="w-full h-full flex flex-col col-span-7">
-								<Outlet />
-							</div>
+					<div className="h-full w-full overflow-hidden relative flex @container-[size]">
+						<SideBar />
+						<div className="w-full h-full flex flex-col col-span-7">
+							<Outlet />
 						</div>
-					</TooltipProvider>
+					</div>
 				</AppState>
 			</Suspense>
 		</div>

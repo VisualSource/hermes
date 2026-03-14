@@ -10,12 +10,14 @@ import {
 	Video,
 	VideoOff,
 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { Button } from "./ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Button } from "../ui/button";
 import { useState } from "react";
 import { Link, useMatchRoute } from "@tanstack/react-router";
 import { useInVoice } from "@/hooks/use-in-voice";
 import { app } from "@/lib/clients/app";
+
+import { TooltipButton } from "../ui/tooltip-button";
 
 export const UserInfo = () => {
 	const matchRoute = useMatchRoute();
@@ -81,23 +83,27 @@ export const UserInfo = () => {
 					<span className="text-xs text-muted-foreground">Status</span>
 				</div>
 				<div className="flex ml-auto">
-					<Button
+					<TooltipButton
+						tooltip={mute ? "Mute" : "Unmute"}
 						size="icon-lg"
 						type="button"
 						variant="ghost"
 						onClick={() => setMute((e) => !e)}
 					>
 						{mute ? <Mic /> : <MicOff />}
-					</Button>
-					<Button
+					</TooltipButton>
+					<TooltipButton
 						size="icon-lg"
 						type="button"
 						variant="ghost"
 						onClick={() => setDepth((e) => !e)}
+						tooltip={depth ? "Depthen" : "Undepthen"}
 					>
 						{depth ? <Headphones /> : <HeadphoneOff />}
-					</Button>
-					<Button
+					</TooltipButton>
+
+					<TooltipButton
+						tooltip="Settings"
 						size="icon-lg"
 						type="button"
 						variant="ghost"
@@ -105,7 +111,7 @@ export const UserInfo = () => {
 						render={(props) => <Link to="/settings" {...props} />}
 					>
 						<Settings2 />
-					</Button>
+					</TooltipButton>
 				</div>
 			</div>
 		</div>

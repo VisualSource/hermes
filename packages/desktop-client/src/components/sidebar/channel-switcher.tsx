@@ -1,17 +1,18 @@
-import { ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown } from "lucide-react";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery } from "@tanstack/react-query";
 
 import { faker } from "@faker-js/faker";
+import { useState } from "react";
 export const ChannelSwitcher = () => {
 	const { data } = useQuery({
-		queryKey: ["user-servers"],
+		queryKey: ["servers"],
 		queryFn: async () => {
 			return Array.from({ length: faker.number.int({ min: 2, max: 10 }) }).map(
 				() => ({
@@ -21,8 +22,11 @@ export const ChannelSwitcher = () => {
 				}),
 			);
 		},
-	})
+	});
 
+	const [selected, setSelected] = useState<string | undefined>();
+
+	const selectedItem = data?.find((e) => e.id === selected);
 
 	return (
 		<DropdownMenu>
@@ -34,14 +38,17 @@ export const ChannelSwitcher = () => {
 					>
 						<div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
 							<Avatar className="rounded-none">
-								<AvatarImage src={data?.[0].icon} alt={data?.[0].name} />
+								<AvatarImage
+									src={selectedItem?.icon}
+									alt={selectedItem?.name}
+								/>
 								<AvatarFallback className="rounded-none bg-sidebar-primary text-sidebar-primary-foreground">
 									CN
 								</AvatarFallback>
 							</Avatar>
 						</div>
 						<div className="flex flex-col gap-0.5 leading-none">
-							<span className="font-medium">{data?.[0]?.name}</span>
+							<span className="font-medium">{selectedItem?.name}</span>
 						</div>
 						<ChevronsUpDown className="ml-auto" />
 					</button>
@@ -49,12 +56,17 @@ export const ChannelSwitcher = () => {
 			/>
 			<DropdownMenuContent align="start">
 				{data?.map((server) => (
-					<DropdownMenuItem key={server.id}>
+					<DropdownMenuItem
+						key={server.id}
+						onClick={() => setSelected(server.id)}
+						className="cursor-pointer"
+					>
 						<Avatar>
 							<AvatarImage src={server.icon} alt={server.name} />
 							<AvatarFallback>SN</AvatarFallback>
 						</Avatar>
 						<div>{server.name}</div>
+						{selected === server.id && <Check className="ml-auto" />}
 					</DropdownMenuItem>
 				))}
 			</DropdownMenuContent>

@@ -9,16 +9,25 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from "./routes/__root";
-import { Route as SettingsRouteImport } from "./routes/settings";
+import { Route as TextRouteImport } from "./routes/_text";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as VoiceRoomIdRouteImport } from "./routes/voice.$roomId";
-import { Route as TextRoomIdRouteImport } from "./routes/text.$roomId";
-import { Route as RolesRoomIdRouteImport } from "./routes/roles.$roomId";
-import { Route as TextPeerUserIdRouteImport } from "./routes/text.peer.$userId";
+import { Route as SettingsSettingsLayoutRouteImport } from "./routes/settings/_settingsLayout";
+import { Route as SettingsSettingsLayoutVoiceRouteImport } from "./routes/settings/_settingsLayout/voice";
+import { Route as SettingsSettingsLayoutUserRouteImport } from "./routes/settings/_settingsLayout/user";
+import { Route as SettingsSettingsLayoutStartupRouteImport } from "./routes/settings/_settingsLayout/startup";
+import { Route as SettingsSettingsLayoutOverlayGamesRouteImport } from "./routes/settings/_settingsLayout/overlay-games";
+import { Route as SettingsSettingsLayoutOverlayRouteImport } from "./routes/settings/_settingsLayout/overlay";
+import { Route as SettingsSettingsLayoutNotificationsRouteImport } from "./routes/settings/_settingsLayout/notifications";
+import { Route as SettingsSettingsLayoutDevicesRouteImport } from "./routes/settings/_settingsLayout/devices";
+import { Route as SettingsSettingsLayoutAppRouteImport } from "./routes/settings/_settingsLayout/app";
+import { Route as SettingsSettingsLayoutAccountRouteImport } from "./routes/settings/_settingsLayout/account";
+import { Route as TextTextRoomIdRouteImport } from "./routes/_text/text.$roomId";
+import { Route as TextRolesRoomIdRouteImport } from "./routes/_text/roles.$roomId";
+import { Route as TextTextPeerUserIdRouteImport } from "./routes/_text/text.peer.$userId";
 
-const SettingsRoute = SettingsRouteImport.update({
-  id: "/settings",
-  path: "/settings",
+const TextRoute = TextRouteImport.update({
+  id: "/_text",
   getParentRoute: () => rootRouteImport,
 } as any);
 const IndexRoute = IndexRouteImport.update({
@@ -31,90 +40,203 @@ const VoiceRoomIdRoute = VoiceRoomIdRouteImport.update({
   path: "/voice/$roomId",
   getParentRoute: () => rootRouteImport,
 } as any);
-const TextRoomIdRoute = TextRoomIdRouteImport.update({
+const SettingsSettingsLayoutRoute = SettingsSettingsLayoutRouteImport.update({
+  id: "/settings/_settingsLayout",
+  path: "/settings",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const SettingsSettingsLayoutVoiceRoute =
+  SettingsSettingsLayoutVoiceRouteImport.update({
+    id: "/voice",
+    path: "/voice",
+    getParentRoute: () => SettingsSettingsLayoutRoute,
+  } as any);
+const SettingsSettingsLayoutUserRoute =
+  SettingsSettingsLayoutUserRouteImport.update({
+    id: "/user",
+    path: "/user",
+    getParentRoute: () => SettingsSettingsLayoutRoute,
+  } as any);
+const SettingsSettingsLayoutStartupRoute =
+  SettingsSettingsLayoutStartupRouteImport.update({
+    id: "/startup",
+    path: "/startup",
+    getParentRoute: () => SettingsSettingsLayoutRoute,
+  } as any);
+const SettingsSettingsLayoutOverlayGamesRoute =
+  SettingsSettingsLayoutOverlayGamesRouteImport.update({
+    id: "/overlay-games",
+    path: "/overlay-games",
+    getParentRoute: () => SettingsSettingsLayoutRoute,
+  } as any);
+const SettingsSettingsLayoutOverlayRoute =
+  SettingsSettingsLayoutOverlayRouteImport.update({
+    id: "/overlay",
+    path: "/overlay",
+    getParentRoute: () => SettingsSettingsLayoutRoute,
+  } as any);
+const SettingsSettingsLayoutNotificationsRoute =
+  SettingsSettingsLayoutNotificationsRouteImport.update({
+    id: "/notifications",
+    path: "/notifications",
+    getParentRoute: () => SettingsSettingsLayoutRoute,
+  } as any);
+const SettingsSettingsLayoutDevicesRoute =
+  SettingsSettingsLayoutDevicesRouteImport.update({
+    id: "/devices",
+    path: "/devices",
+    getParentRoute: () => SettingsSettingsLayoutRoute,
+  } as any);
+const SettingsSettingsLayoutAppRoute =
+  SettingsSettingsLayoutAppRouteImport.update({
+    id: "/app",
+    path: "/app",
+    getParentRoute: () => SettingsSettingsLayoutRoute,
+  } as any);
+const SettingsSettingsLayoutAccountRoute =
+  SettingsSettingsLayoutAccountRouteImport.update({
+    id: "/account",
+    path: "/account",
+    getParentRoute: () => SettingsSettingsLayoutRoute,
+  } as any);
+const TextTextRoomIdRoute = TextTextRoomIdRouteImport.update({
   id: "/text/$roomId",
   path: "/text/$roomId",
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => TextRoute,
 } as any);
-const RolesRoomIdRoute = RolesRoomIdRouteImport.update({
+const TextRolesRoomIdRoute = TextRolesRoomIdRouteImport.update({
   id: "/roles/$roomId",
   path: "/roles/$roomId",
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => TextRoute,
 } as any);
-const TextPeerUserIdRoute = TextPeerUserIdRouteImport.update({
+const TextTextPeerUserIdRoute = TextTextPeerUserIdRouteImport.update({
   id: "/text/peer/$userId",
   path: "/text/peer/$userId",
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => TextRoute,
 } as any);
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
-  "/settings": typeof SettingsRoute;
-  "/roles/$roomId": typeof RolesRoomIdRoute;
-  "/text/$roomId": typeof TextRoomIdRoute;
+  "/settings": typeof SettingsSettingsLayoutRouteWithChildren;
   "/voice/$roomId": typeof VoiceRoomIdRoute;
-  "/text/peer/$userId": typeof TextPeerUserIdRoute;
+  "/roles/$roomId": typeof TextRolesRoomIdRoute;
+  "/text/$roomId": typeof TextTextRoomIdRoute;
+  "/settings/account": typeof SettingsSettingsLayoutAccountRoute;
+  "/settings/app": typeof SettingsSettingsLayoutAppRoute;
+  "/settings/devices": typeof SettingsSettingsLayoutDevicesRoute;
+  "/settings/notifications": typeof SettingsSettingsLayoutNotificationsRoute;
+  "/settings/overlay": typeof SettingsSettingsLayoutOverlayRoute;
+  "/settings/overlay-games": typeof SettingsSettingsLayoutOverlayGamesRoute;
+  "/settings/startup": typeof SettingsSettingsLayoutStartupRoute;
+  "/settings/user": typeof SettingsSettingsLayoutUserRoute;
+  "/settings/voice": typeof SettingsSettingsLayoutVoiceRoute;
+  "/text/peer/$userId": typeof TextTextPeerUserIdRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
-  "/settings": typeof SettingsRoute;
-  "/roles/$roomId": typeof RolesRoomIdRoute;
-  "/text/$roomId": typeof TextRoomIdRoute;
+  "/settings": typeof SettingsSettingsLayoutRouteWithChildren;
   "/voice/$roomId": typeof VoiceRoomIdRoute;
-  "/text/peer/$userId": typeof TextPeerUserIdRoute;
+  "/roles/$roomId": typeof TextRolesRoomIdRoute;
+  "/text/$roomId": typeof TextTextRoomIdRoute;
+  "/settings/account": typeof SettingsSettingsLayoutAccountRoute;
+  "/settings/app": typeof SettingsSettingsLayoutAppRoute;
+  "/settings/devices": typeof SettingsSettingsLayoutDevicesRoute;
+  "/settings/notifications": typeof SettingsSettingsLayoutNotificationsRoute;
+  "/settings/overlay": typeof SettingsSettingsLayoutOverlayRoute;
+  "/settings/overlay-games": typeof SettingsSettingsLayoutOverlayGamesRoute;
+  "/settings/startup": typeof SettingsSettingsLayoutStartupRoute;
+  "/settings/user": typeof SettingsSettingsLayoutUserRoute;
+  "/settings/voice": typeof SettingsSettingsLayoutVoiceRoute;
+  "/text/peer/$userId": typeof TextTextPeerUserIdRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
-  "/settings": typeof SettingsRoute;
-  "/roles/$roomId": typeof RolesRoomIdRoute;
-  "/text/$roomId": typeof TextRoomIdRoute;
+  "/_text": typeof TextRouteWithChildren;
+  "/settings/_settingsLayout": typeof SettingsSettingsLayoutRouteWithChildren;
   "/voice/$roomId": typeof VoiceRoomIdRoute;
-  "/text/peer/$userId": typeof TextPeerUserIdRoute;
+  "/_text/roles/$roomId": typeof TextRolesRoomIdRoute;
+  "/_text/text/$roomId": typeof TextTextRoomIdRoute;
+  "/settings/_settingsLayout/account": typeof SettingsSettingsLayoutAccountRoute;
+  "/settings/_settingsLayout/app": typeof SettingsSettingsLayoutAppRoute;
+  "/settings/_settingsLayout/devices": typeof SettingsSettingsLayoutDevicesRoute;
+  "/settings/_settingsLayout/notifications": typeof SettingsSettingsLayoutNotificationsRoute;
+  "/settings/_settingsLayout/overlay": typeof SettingsSettingsLayoutOverlayRoute;
+  "/settings/_settingsLayout/overlay-games": typeof SettingsSettingsLayoutOverlayGamesRoute;
+  "/settings/_settingsLayout/startup": typeof SettingsSettingsLayoutStartupRoute;
+  "/settings/_settingsLayout/user": typeof SettingsSettingsLayoutUserRoute;
+  "/settings/_settingsLayout/voice": typeof SettingsSettingsLayoutVoiceRoute;
+  "/_text/text/peer/$userId": typeof TextTextPeerUserIdRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
     | "/"
     | "/settings"
+    | "/voice/$roomId"
     | "/roles/$roomId"
     | "/text/$roomId"
-    | "/voice/$roomId"
+    | "/settings/account"
+    | "/settings/app"
+    | "/settings/devices"
+    | "/settings/notifications"
+    | "/settings/overlay"
+    | "/settings/overlay-games"
+    | "/settings/startup"
+    | "/settings/user"
+    | "/settings/voice"
     | "/text/peer/$userId";
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/"
     | "/settings"
+    | "/voice/$roomId"
     | "/roles/$roomId"
     | "/text/$roomId"
-    | "/voice/$roomId"
+    | "/settings/account"
+    | "/settings/app"
+    | "/settings/devices"
+    | "/settings/notifications"
+    | "/settings/overlay"
+    | "/settings/overlay-games"
+    | "/settings/startup"
+    | "/settings/user"
+    | "/settings/voice"
     | "/text/peer/$userId";
   id:
     | "__root__"
     | "/"
-    | "/settings"
-    | "/roles/$roomId"
-    | "/text/$roomId"
+    | "/_text"
+    | "/settings/_settingsLayout"
     | "/voice/$roomId"
-    | "/text/peer/$userId";
+    | "/_text/roles/$roomId"
+    | "/_text/text/$roomId"
+    | "/settings/_settingsLayout/account"
+    | "/settings/_settingsLayout/app"
+    | "/settings/_settingsLayout/devices"
+    | "/settings/_settingsLayout/notifications"
+    | "/settings/_settingsLayout/overlay"
+    | "/settings/_settingsLayout/overlay-games"
+    | "/settings/_settingsLayout/startup"
+    | "/settings/_settingsLayout/user"
+    | "/settings/_settingsLayout/voice"
+    | "/_text/text/peer/$userId";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
-  SettingsRoute: typeof SettingsRoute;
-  RolesRoomIdRoute: typeof RolesRoomIdRoute;
-  TextRoomIdRoute: typeof TextRoomIdRoute;
+  TextRoute: typeof TextRouteWithChildren;
+  SettingsSettingsLayoutRoute: typeof SettingsSettingsLayoutRouteWithChildren;
   VoiceRoomIdRoute: typeof VoiceRoomIdRoute;
-  TextPeerUserIdRoute: typeof TextPeerUserIdRoute;
 }
 
 declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
-    "/settings": {
-      id: "/settings";
-      path: "/settings";
-      fullPath: "/settings";
-      preLoaderRoute: typeof SettingsRouteImport;
+    "/_text": {
+      id: "/_text";
+      path: "";
+      fullPath: "/";
+      preLoaderRoute: typeof TextRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/": {
@@ -131,37 +253,151 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof VoiceRoomIdRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/text/$roomId": {
-      id: "/text/$roomId";
+    "/settings/_settingsLayout": {
+      id: "/settings/_settingsLayout";
+      path: "/settings";
+      fullPath: "/settings";
+      preLoaderRoute: typeof SettingsSettingsLayoutRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/settings/_settingsLayout/voice": {
+      id: "/settings/_settingsLayout/voice";
+      path: "/voice";
+      fullPath: "/settings/voice";
+      preLoaderRoute: typeof SettingsSettingsLayoutVoiceRouteImport;
+      parentRoute: typeof SettingsSettingsLayoutRoute;
+    };
+    "/settings/_settingsLayout/user": {
+      id: "/settings/_settingsLayout/user";
+      path: "/user";
+      fullPath: "/settings/user";
+      preLoaderRoute: typeof SettingsSettingsLayoutUserRouteImport;
+      parentRoute: typeof SettingsSettingsLayoutRoute;
+    };
+    "/settings/_settingsLayout/startup": {
+      id: "/settings/_settingsLayout/startup";
+      path: "/startup";
+      fullPath: "/settings/startup";
+      preLoaderRoute: typeof SettingsSettingsLayoutStartupRouteImport;
+      parentRoute: typeof SettingsSettingsLayoutRoute;
+    };
+    "/settings/_settingsLayout/overlay-games": {
+      id: "/settings/_settingsLayout/overlay-games";
+      path: "/overlay-games";
+      fullPath: "/settings/overlay-games";
+      preLoaderRoute: typeof SettingsSettingsLayoutOverlayGamesRouteImport;
+      parentRoute: typeof SettingsSettingsLayoutRoute;
+    };
+    "/settings/_settingsLayout/overlay": {
+      id: "/settings/_settingsLayout/overlay";
+      path: "/overlay";
+      fullPath: "/settings/overlay";
+      preLoaderRoute: typeof SettingsSettingsLayoutOverlayRouteImport;
+      parentRoute: typeof SettingsSettingsLayoutRoute;
+    };
+    "/settings/_settingsLayout/notifications": {
+      id: "/settings/_settingsLayout/notifications";
+      path: "/notifications";
+      fullPath: "/settings/notifications";
+      preLoaderRoute: typeof SettingsSettingsLayoutNotificationsRouteImport;
+      parentRoute: typeof SettingsSettingsLayoutRoute;
+    };
+    "/settings/_settingsLayout/devices": {
+      id: "/settings/_settingsLayout/devices";
+      path: "/devices";
+      fullPath: "/settings/devices";
+      preLoaderRoute: typeof SettingsSettingsLayoutDevicesRouteImport;
+      parentRoute: typeof SettingsSettingsLayoutRoute;
+    };
+    "/settings/_settingsLayout/app": {
+      id: "/settings/_settingsLayout/app";
+      path: "/app";
+      fullPath: "/settings/app";
+      preLoaderRoute: typeof SettingsSettingsLayoutAppRouteImport;
+      parentRoute: typeof SettingsSettingsLayoutRoute;
+    };
+    "/settings/_settingsLayout/account": {
+      id: "/settings/_settingsLayout/account";
+      path: "/account";
+      fullPath: "/settings/account";
+      preLoaderRoute: typeof SettingsSettingsLayoutAccountRouteImport;
+      parentRoute: typeof SettingsSettingsLayoutRoute;
+    };
+    "/_text/text/$roomId": {
+      id: "/_text/text/$roomId";
       path: "/text/$roomId";
       fullPath: "/text/$roomId";
-      preLoaderRoute: typeof TextRoomIdRouteImport;
-      parentRoute: typeof rootRouteImport;
+      preLoaderRoute: typeof TextTextRoomIdRouteImport;
+      parentRoute: typeof TextRoute;
     };
-    "/roles/$roomId": {
-      id: "/roles/$roomId";
+    "/_text/roles/$roomId": {
+      id: "/_text/roles/$roomId";
       path: "/roles/$roomId";
       fullPath: "/roles/$roomId";
-      preLoaderRoute: typeof RolesRoomIdRouteImport;
-      parentRoute: typeof rootRouteImport;
+      preLoaderRoute: typeof TextRolesRoomIdRouteImport;
+      parentRoute: typeof TextRoute;
     };
-    "/text/peer/$userId": {
-      id: "/text/peer/$userId";
+    "/_text/text/peer/$userId": {
+      id: "/_text/text/peer/$userId";
       path: "/text/peer/$userId";
       fullPath: "/text/peer/$userId";
-      preLoaderRoute: typeof TextPeerUserIdRouteImport;
-      parentRoute: typeof rootRouteImport;
+      preLoaderRoute: typeof TextTextPeerUserIdRouteImport;
+      parentRoute: typeof TextRoute;
     };
   }
 }
 
+interface TextRouteChildren {
+  TextRolesRoomIdRoute: typeof TextRolesRoomIdRoute;
+  TextTextRoomIdRoute: typeof TextTextRoomIdRoute;
+  TextTextPeerUserIdRoute: typeof TextTextPeerUserIdRoute;
+}
+
+const TextRouteChildren: TextRouteChildren = {
+  TextRolesRoomIdRoute: TextRolesRoomIdRoute,
+  TextTextRoomIdRoute: TextTextRoomIdRoute,
+  TextTextPeerUserIdRoute: TextTextPeerUserIdRoute,
+};
+
+const TextRouteWithChildren = TextRoute._addFileChildren(TextRouteChildren);
+
+interface SettingsSettingsLayoutRouteChildren {
+  SettingsSettingsLayoutAccountRoute: typeof SettingsSettingsLayoutAccountRoute;
+  SettingsSettingsLayoutAppRoute: typeof SettingsSettingsLayoutAppRoute;
+  SettingsSettingsLayoutDevicesRoute: typeof SettingsSettingsLayoutDevicesRoute;
+  SettingsSettingsLayoutNotificationsRoute: typeof SettingsSettingsLayoutNotificationsRoute;
+  SettingsSettingsLayoutOverlayRoute: typeof SettingsSettingsLayoutOverlayRoute;
+  SettingsSettingsLayoutOverlayGamesRoute: typeof SettingsSettingsLayoutOverlayGamesRoute;
+  SettingsSettingsLayoutStartupRoute: typeof SettingsSettingsLayoutStartupRoute;
+  SettingsSettingsLayoutUserRoute: typeof SettingsSettingsLayoutUserRoute;
+  SettingsSettingsLayoutVoiceRoute: typeof SettingsSettingsLayoutVoiceRoute;
+}
+
+const SettingsSettingsLayoutRouteChildren: SettingsSettingsLayoutRouteChildren =
+  {
+    SettingsSettingsLayoutAccountRoute: SettingsSettingsLayoutAccountRoute,
+    SettingsSettingsLayoutAppRoute: SettingsSettingsLayoutAppRoute,
+    SettingsSettingsLayoutDevicesRoute: SettingsSettingsLayoutDevicesRoute,
+    SettingsSettingsLayoutNotificationsRoute:
+      SettingsSettingsLayoutNotificationsRoute,
+    SettingsSettingsLayoutOverlayRoute: SettingsSettingsLayoutOverlayRoute,
+    SettingsSettingsLayoutOverlayGamesRoute:
+      SettingsSettingsLayoutOverlayGamesRoute,
+    SettingsSettingsLayoutStartupRoute: SettingsSettingsLayoutStartupRoute,
+    SettingsSettingsLayoutUserRoute: SettingsSettingsLayoutUserRoute,
+    SettingsSettingsLayoutVoiceRoute: SettingsSettingsLayoutVoiceRoute,
+  };
+
+const SettingsSettingsLayoutRouteWithChildren =
+  SettingsSettingsLayoutRoute._addFileChildren(
+    SettingsSettingsLayoutRouteChildren,
+  );
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  SettingsRoute: SettingsRoute,
-  RolesRoomIdRoute: RolesRoomIdRoute,
-  TextRoomIdRoute: TextRoomIdRoute,
+  TextRoute: TextRouteWithChildren,
+  SettingsSettingsLayoutRoute: SettingsSettingsLayoutRouteWithChildren,
   VoiceRoomIdRoute: VoiceRoomIdRoute,
-  TextPeerUserIdRoute: TextPeerUserIdRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
