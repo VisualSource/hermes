@@ -1,3 +1,4 @@
+import "./lib/logger";
 import ReactDOM from "react-dom/client";
 import { StrictMode } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";

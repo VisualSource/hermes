@@ -13,6 +13,9 @@ import { RTC, RtcSdpTypeMap } from "./rtc";
 import { auth } from "../clients/auth";
 import { nanoid } from "nanoid";
 import { BinaryReader } from "@bufbuild/protobuf/wire";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
+
 export class App extends EventTarget {
 	private static INSTANCE: App | null = null;
 
@@ -49,8 +52,34 @@ export class App extends EventTarget {
 	}
 
 	public async init() {
+		if(import.meta.env.PROD){
+			const update = await check();
+			if(update) {
+				console.info(`found update ${update?.version} from ${update?.date}`);
+
+				await update.downloadAndInstall((progress)=>{
+					switch(progress.event){
+						case "Started": {
+							//TODO: notify loading screen we are downloading update
+							break;
+						}
+						case "Progress": {
+							//TODO: notify loading screen about progress
+							break;
+						}
+						case "Finished": {
+							//TODO: notify loading screen we are done updating
+							break;
+						}
+					}
+				});
+
+				await relaunch();
+				return;
+			}
+		}
+
 		await NoiseSuppressor.create();
-		console.log("[Websocket] Starting websocket");
 		await this.initSocket();
 	}
 
