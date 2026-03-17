@@ -4,37 +4,17 @@ import { UserCard } from "@/components/voice/user-card";
 import { useVoice } from "@/hooks/use-voice.";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
-import { App } from "@/lib/core/app";
 import { Card, CardContent } from "@/components/ui/card";
 import { app } from "@/lib/clients/app";
 import { confirm } from "@tauri-apps/plugin-dialog";
+import { Background } from "@/components/background-grid";
 export const Route = createFileRoute("/voice/$roomId")({
 	component: RouteComponent,
 	pendingComponent: () => <div></div>,
 	errorComponent: () => <div></div>,
 });
 
-const Background = (props: React.PropsWithChildren) => {
-	return (
-		<div className="h-full w-full bg-background relative flex place-items-center place-content-center">
-			{/* Dark Sphere Grid Background */}
 
-			<div
-				className="absolute inset-0 z-2"
-				style={{
-					backgroundImage: `
-        linear-gradient(to right, rgba(71,85,105,0.3) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(71,85,105,0.3) 1px, transparent 1px),
-        radial-gradient(circle at 50% 50%, rgba(139,92,246,0.15) 0%, transparent 70%)
-      `,
-					backgroundSize: "32px 32px, 32px 32px, 100% 100%",
-				}}
-			/>
-
-			{props.children}
-		</div>
-	);
-};
 
 function RouteComponent() {
 	const { roomId } = Route.useParams();

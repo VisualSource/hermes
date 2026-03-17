@@ -10,7 +10,8 @@
 
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as TextRouteImport } from "./routes/_text";
-import { Route as IndexRouteImport } from "./routes/index";
+import { Route as HomeRouteImport } from "./routes/_home";
+import { Route as HomeIndexRouteImport } from "./routes/_home/index";
 import { Route as VoiceRoomIdRouteImport } from "./routes/voice.$roomId";
 import { Route as SettingsSettingsLayoutRouteImport } from "./routes/settings/_settingsLayout";
 import { Route as SettingsSettingsLayoutVoiceRouteImport } from "./routes/settings/_settingsLayout/voice";
@@ -24,16 +25,20 @@ import { Route as SettingsSettingsLayoutAppRouteImport } from "./routes/settings
 import { Route as SettingsSettingsLayoutAccountRouteImport } from "./routes/settings/_settingsLayout/account";
 import { Route as TextTextRoomIdRouteImport } from "./routes/_text/text.$roomId";
 import { Route as TextRolesRoomIdRouteImport } from "./routes/_text/roles.$roomId";
-import { Route as TextTextPeerUserIdRouteImport } from "./routes/_text/text.peer.$userId";
+import { Route as HomeTextPeerUserIdRouteImport } from "./routes/_home/text.peer.$userId";
 
 const TextRoute = TextRouteImport.update({
   id: "/_text",
   getParentRoute: () => rootRouteImport,
 } as any);
-const IndexRoute = IndexRouteImport.update({
+const HomeRoute = HomeRouteImport.update({
+  id: "/_home",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const HomeIndexRoute = HomeIndexRouteImport.update({
   id: "/",
   path: "/",
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => HomeRoute,
 } as any);
 const VoiceRoomIdRoute = VoiceRoomIdRouteImport.update({
   id: "/voice/$roomId",
@@ -109,14 +114,14 @@ const TextRolesRoomIdRoute = TextRolesRoomIdRouteImport.update({
   path: "/roles/$roomId",
   getParentRoute: () => TextRoute,
 } as any);
-const TextTextPeerUserIdRoute = TextTextPeerUserIdRouteImport.update({
+const HomeTextPeerUserIdRoute = HomeTextPeerUserIdRouteImport.update({
   id: "/text/peer/$userId",
   path: "/text/peer/$userId",
-  getParentRoute: () => TextRoute,
+  getParentRoute: () => HomeRoute,
 } as any);
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute;
+  "/": typeof HomeIndexRoute;
   "/settings": typeof SettingsSettingsLayoutRouteWithChildren;
   "/voice/$roomId": typeof VoiceRoomIdRoute;
   "/roles/$roomId": typeof TextRolesRoomIdRoute;
@@ -130,10 +135,10 @@ export interface FileRoutesByFullPath {
   "/settings/startup": typeof SettingsSettingsLayoutStartupRoute;
   "/settings/user": typeof SettingsSettingsLayoutUserRoute;
   "/settings/voice": typeof SettingsSettingsLayoutVoiceRoute;
-  "/text/peer/$userId": typeof TextTextPeerUserIdRoute;
+  "/text/peer/$userId": typeof HomeTextPeerUserIdRoute;
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute;
+  "/": typeof HomeIndexRoute;
   "/settings": typeof SettingsSettingsLayoutRouteWithChildren;
   "/voice/$roomId": typeof VoiceRoomIdRoute;
   "/roles/$roomId": typeof TextRolesRoomIdRoute;
@@ -147,14 +152,15 @@ export interface FileRoutesByTo {
   "/settings/startup": typeof SettingsSettingsLayoutStartupRoute;
   "/settings/user": typeof SettingsSettingsLayoutUserRoute;
   "/settings/voice": typeof SettingsSettingsLayoutVoiceRoute;
-  "/text/peer/$userId": typeof TextTextPeerUserIdRoute;
+  "/text/peer/$userId": typeof HomeTextPeerUserIdRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
-  "/": typeof IndexRoute;
+  "/_home": typeof HomeRouteWithChildren;
   "/_text": typeof TextRouteWithChildren;
   "/settings/_settingsLayout": typeof SettingsSettingsLayoutRouteWithChildren;
   "/voice/$roomId": typeof VoiceRoomIdRoute;
+  "/_home/": typeof HomeIndexRoute;
   "/_text/roles/$roomId": typeof TextRolesRoomIdRoute;
   "/_text/text/$roomId": typeof TextTextRoomIdRoute;
   "/settings/_settingsLayout/account": typeof SettingsSettingsLayoutAccountRoute;
@@ -166,7 +172,7 @@ export interface FileRoutesById {
   "/settings/_settingsLayout/startup": typeof SettingsSettingsLayoutStartupRoute;
   "/settings/_settingsLayout/user": typeof SettingsSettingsLayoutUserRoute;
   "/settings/_settingsLayout/voice": typeof SettingsSettingsLayoutVoiceRoute;
-  "/_text/text/peer/$userId": typeof TextTextPeerUserIdRoute;
+  "/_home/text/peer/$userId": typeof HomeTextPeerUserIdRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
@@ -205,10 +211,11 @@ export interface FileRouteTypes {
     | "/text/peer/$userId";
   id:
     | "__root__"
-    | "/"
+    | "/_home"
     | "/_text"
     | "/settings/_settingsLayout"
     | "/voice/$roomId"
+    | "/_home/"
     | "/_text/roles/$roomId"
     | "/_text/text/$roomId"
     | "/settings/_settingsLayout/account"
@@ -220,11 +227,11 @@ export interface FileRouteTypes {
     | "/settings/_settingsLayout/startup"
     | "/settings/_settingsLayout/user"
     | "/settings/_settingsLayout/voice"
-    | "/_text/text/peer/$userId";
+    | "/_home/text/peer/$userId";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
+  HomeRoute: typeof HomeRouteWithChildren;
   TextRoute: typeof TextRouteWithChildren;
   SettingsSettingsLayoutRoute: typeof SettingsSettingsLayoutRouteWithChildren;
   VoiceRoomIdRoute: typeof VoiceRoomIdRoute;
@@ -239,12 +246,19 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof TextRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/": {
-      id: "/";
+    "/_home": {
+      id: "/_home";
+      path: "";
+      fullPath: "/";
+      preLoaderRoute: typeof HomeRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/_home/": {
+      id: "/_home/";
       path: "/";
       fullPath: "/";
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
+      preLoaderRoute: typeof HomeIndexRouteImport;
+      parentRoute: typeof HomeRoute;
     };
     "/voice/$roomId": {
       id: "/voice/$roomId";
@@ -337,26 +351,36 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof TextRolesRoomIdRouteImport;
       parentRoute: typeof TextRoute;
     };
-    "/_text/text/peer/$userId": {
-      id: "/_text/text/peer/$userId";
+    "/_home/text/peer/$userId": {
+      id: "/_home/text/peer/$userId";
       path: "/text/peer/$userId";
       fullPath: "/text/peer/$userId";
-      preLoaderRoute: typeof TextTextPeerUserIdRouteImport;
-      parentRoute: typeof TextRoute;
+      preLoaderRoute: typeof HomeTextPeerUserIdRouteImport;
+      parentRoute: typeof HomeRoute;
     };
   }
 }
 
+interface HomeRouteChildren {
+  HomeIndexRoute: typeof HomeIndexRoute;
+  HomeTextPeerUserIdRoute: typeof HomeTextPeerUserIdRoute;
+}
+
+const HomeRouteChildren: HomeRouteChildren = {
+  HomeIndexRoute: HomeIndexRoute,
+  HomeTextPeerUserIdRoute: HomeTextPeerUserIdRoute,
+};
+
+const HomeRouteWithChildren = HomeRoute._addFileChildren(HomeRouteChildren);
+
 interface TextRouteChildren {
   TextRolesRoomIdRoute: typeof TextRolesRoomIdRoute;
   TextTextRoomIdRoute: typeof TextTextRoomIdRoute;
-  TextTextPeerUserIdRoute: typeof TextTextPeerUserIdRoute;
 }
 
 const TextRouteChildren: TextRouteChildren = {
   TextRolesRoomIdRoute: TextRolesRoomIdRoute,
   TextTextRoomIdRoute: TextTextRoomIdRoute,
-  TextTextPeerUserIdRoute: TextTextPeerUserIdRoute,
 };
 
 const TextRouteWithChildren = TextRoute._addFileChildren(TextRouteChildren);
@@ -394,7 +418,7 @@ const SettingsSettingsLayoutRouteWithChildren =
   );
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  HomeRoute: HomeRouteWithChildren,
   TextRoute: TextRouteWithChildren,
   SettingsSettingsLayoutRoute: SettingsSettingsLayoutRouteWithChildren,
   VoiceRoomIdRoute: VoiceRoomIdRoute,

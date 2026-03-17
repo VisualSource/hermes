@@ -12,6 +12,9 @@ import {
 import { VoiceChannel } from "../channel/voice-channel-item";
 import { useQuery } from "@tanstack/react-query";
 import { faker } from "@faker-js/faker";
+import { Button } from "../ui/button";
+import { Home } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
 type Group<T> = { type: T; name: string; id: string };
 type GroupGroup = Group<"group"> & {
@@ -63,7 +66,17 @@ export const SideBar = () => {
 
 	return (
 		<div className="w-80 bg-sidebar px-2 pb-2 relative flex flex-col overflow-hidden shrink-0 col-span-3">
-			<ChannelSwitcher />
+			<div className="flex gap-2 items-center">
+				<Button
+					size="icon-lg"
+					variant="outline"
+					nativeButton={false}
+					render={(props) => <Link to="/" {...props} />}
+				>
+					<Home />
+				</Button>
+				<ChannelSwitcher />
+			</div>
 			<Separator />
 
 			<ul className="overflow-y-auto mb-auto">
