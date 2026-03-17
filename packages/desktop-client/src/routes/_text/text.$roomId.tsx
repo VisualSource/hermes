@@ -19,6 +19,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import {
+	ContextMenu,
+	ContextMenuContent,
+	ContextMenuItem,
+	ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 export const Route = createFileRoute("/_text/text/$roomId")({
 	component: RouteComponent,
@@ -30,6 +36,53 @@ type Msg = {
 	message: string;
 	reacts: string[];
 };
+
+const Message = ({
+	item,
+	ref,
+	index,
+	start,
+}: {
+	item: Msg;
+	start: number;
+	index: number;
+	ref: React.Ref<HTMLButtonElement>;
+}) => {
+	return (
+		<ContextMenu>
+			<ContextMenuTrigger
+				render={
+					<button
+						type="button"
+						ref={ref}
+						data-index={index}
+						className="absolute flex w-full hover:bg-accent/60 gap-2 px-2 py-1 cursor-pointer"
+						style={{ transform: `translateY(${start}px)` }}
+					>
+						<Avatar>
+							<AvatarFallback>CN</AvatarFallback>
+							<AvatarImage />
+						</Avatar>
+						<div className="flex flex-col">
+							<div className="flex gap-2 items-center align-middle">
+								<h1 className="hover:underline">Username</h1>
+								<div className="text-muted-foreground text-xs">
+									{item.timestamp}
+								</div>
+							</div>
+							<article className="text-sm text-left">
+								<Markdown>{item.message}</Markdown>
+							</article>
+						</div>
+					</button>
+				}
+			/>
+			<ContextMenuContent>
+				<ContextMenuItem>Edit</ContextMenuItem>
+			</ContextMenuContent>
+		</ContextMenu>
+	);
+}
 
 const VirtualList = ({
 	hasNextPage,
@@ -94,30 +147,13 @@ const VirtualList = ({
 				{virtualizer.getVirtualItems().map((virtualRow) => {
 					const item = items[virtualRow.index];
 					return (
-						<div
-							onContextMenu={(ev) => ev.preventDefault()}
+						<Message
 							key={virtualRow.key}
-							data-index={virtualRow.index}
 							ref={virtualizer.measureElement}
-							className="absolute flex w-full hover:bg-accent/60 gap-2 px-2 py-1 cursor-pointer"
-							style={{ transform: `translateY(${virtualRow.start}px)` }}
-						>
-							<Avatar>
-								<AvatarFallback>CN</AvatarFallback>
-								<AvatarImage />
-							</Avatar>
-							<div className="flex flex-col">
-								<div className="flex gap-2 items-center align-middle">
-									<h1 className="hover:underline">Username</h1>
-									<div className="text-muted-foreground text-xs">
-										{item.timestamp}
-									</div>
-								</div>
-								<article className="text-sm">
-									<Markdown>{item.message}</Markdown>
-								</article>
-							</div>
-						</div>
+							index={virtualRow.index}
+							start={virtualRow.start}
+							item={item}
+						/>
 					);
 				})}
 			</div>
