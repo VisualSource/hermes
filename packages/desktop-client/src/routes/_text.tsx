@@ -4,6 +4,13 @@ import {
 	AvatarFallback,
 	AvatarImage,
 } from "@/components/ui/avatar";
+import {
+	Popover,
+	PopoverContent,
+	PopoverHeader,
+	PopoverTitle,
+	PopoverTrigger,
+} from "@/components/ui/popover";
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import { faker } from "@faker-js/faker";
 import { useQuery } from "@tanstack/react-query";
@@ -72,9 +79,20 @@ function RouteComponent() {
 						<Hash className="h-4 w-4" /> Channel Name
 					</div>
 					<div>
-						<TooltipButton tooltip="Pins" variant="ghost" size="icon-lg">
-							<Pin />
-						</TooltipButton>
+						<Popover>
+							<PopoverTrigger
+								render={
+									<TooltipButton tooltip="Pins" variant="ghost" size="icon-lg">
+										<Pin />
+									</TooltipButton>
+								}
+							/>
+							<PopoverContent align="end">
+								<ul>
+									<li>Some pinned message</li>
+								</ul>
+							</PopoverContent>
+						</Popover>
 					</div>
 				</div>
 				<div className="h-full w-full flex">

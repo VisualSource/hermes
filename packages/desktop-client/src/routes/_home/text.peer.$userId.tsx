@@ -1,27 +1,24 @@
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Msg, VirtualList } from "@/components/virtual-list";
+import { faker } from "@faker-js/faker";
 import {
 	keepPreviousData,
 	useInfiniteQuery,
 	useMutation,
 } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-
-import { faker } from "@faker-js/faker";
-
-import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
-import { Input } from "@/components/ui/input";
 
-import { type Msg, VirtualList } from "@/components/virtual-list";
-
-export const Route = createFileRoute("/_text/text/$roomId")({
+export const Route = createFileRoute("/_home/text/peer/$userId")({
 	component: RouteComponent,
 });
 
 function RouteComponent() {
-	const { roomId } = Route.useParams();
+	const { userId } = Route.useParams();
 
 	const { data, isLoading, hasNextPage } = useInfiniteQuery({
-		queryKey: ["text-channel", roomId],
+		queryKey: ["peer-channel", userId],
 		queryFn: ({ pageParam }) => {
 			return Array.from({ length: 200 }).map(() => ({
 				userId: faker.string.uuid(),
@@ -39,7 +36,7 @@ function RouteComponent() {
 	});
 
 	const mutation = useMutation({
-		mutationKey: ["text-channel", "msg-mut", roomId],
+		mutationKey: ["peer-channel", "msg-mut", userId],
 		mutationFn: async () => {
 			await new Promise((ok) => setTimeout(ok, 5000));
 
@@ -50,7 +47,7 @@ function RouteComponent() {
 	const items = data?.pages.flat() ?? [];
 
 	return (
-		<main className="container px-8 h-full flex flex-col pb-6 col-span-10">
+		<div className="container px-8 h-full flex flex-col pb-6 col-span-10">
 			<div className="h-full overflow-hidden @container-[size] mb-2">
 				<VirtualList hasNextPage={hasNextPage} items={items} />
 			</div>
@@ -65,6 +62,6 @@ function RouteComponent() {
 					<Send />
 				</Button>
 			</form>
-		</main>
+		</div>
 	);
 }
