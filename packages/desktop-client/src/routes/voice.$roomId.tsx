@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { app } from "@/lib/clients/app";
-import { confirm } from "@tauri-apps/plugin-dialog";
 import { Background } from "@/components/background-grid";
+import { requestChannelSwitch } from "@/components/voice/change-channel-alert-dialog";
 export const Route = createFileRoute("/voice/$roomId")({
 	component: RouteComponent,
 	pendingComponent: () => <div></div>,
@@ -28,17 +28,8 @@ function RouteComponent() {
 				next.fullPath === "/voice/$roomId"
 			) {
 				if (current.params.roomId !== next.params.roomId) {
-					const result = await confirm(
-						"Are you sure? You will leave the current voice channel!",
-						{
-							kind: "info",
-							title: "Switch Channel?",
-							okLabel: "Yes",
-							cancelLabel: "No",
-						},
-					);
-
-					return result;
+					const result = await requestChannelSwitch();
+					return !result;
 				}
 				return false;
 			}
@@ -52,7 +43,10 @@ function RouteComponent() {
 		return (
 			<Background>
 				<Card className="z-3">
-					<CardContent>
+					<CardContent className="flex flex-col gap-2">
+						<h1 className="text-4xl">Room Name</h1>
+						<p>Theres no one in the room</p>
+
 						<Button variant="secondary" onClick={() => app.joinVoice(roomId)}>
 							Join
 						</Button>

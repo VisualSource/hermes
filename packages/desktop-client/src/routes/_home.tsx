@@ -5,6 +5,14 @@ import {
 	AvatarImage,
 } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { faker } from "@faker-js/faker";
 import { useQuery } from "@tanstack/react-query";
@@ -43,7 +51,18 @@ function RouteComponent() {
 
 					<div className="flex gap-1">
 						<Button variant="secondary">Pending</Button>
-						<Button>Add Friend</Button>
+						<Dialog>
+							<DialogTrigger render={<Button>Add Friend</Button>} />
+							<DialogContent>
+								<DialogHeader>
+									<DialogTitle>Add Friend</DialogTitle>
+								</DialogHeader>
+								<div className="flex flex-col gap-2">
+									<Input placeholder="search..." />
+									<ul></ul>
+								</div>
+							</DialogContent>
+						</Dialog>
 					</div>
 				</div>
 				<ul className="space-y-1 px-2 py-2 overflow-y-auto">

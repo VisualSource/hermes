@@ -49,6 +49,11 @@ export const SideBar = () => {
 					id: faker.string.uuid(),
 				},
 				{
+					type: "voice",
+					name: "Other Voice",
+					id: faker.string.uuid(),
+				},
+				{
 					type: "group",
 					id: faker.string.uuid(),
 					name: "Some Group name",

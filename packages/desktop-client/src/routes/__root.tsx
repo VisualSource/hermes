@@ -7,6 +7,7 @@ import { SideBar } from "@/components/sidebar/side-bar";
 
 import { Suspense, use } from "react";
 import { app } from "@/lib/clients/app";
+import { ChangeChannelAlertDialog } from "@/components/voice/change-channel-alert-dialog";
 
 const onInit = (async () => {
 	await auth.init();
@@ -31,6 +32,7 @@ const RootLayout: React.FC = () => {
 	return (
 		<div className="h-full w-full overflow-hidden flex flex-col">
 			<WindowHeader />
+			<ChangeChannelAlertDialog />
 			<Suspense
 				fallback={
 					<div className="h-full w-full flex place-items-center">
