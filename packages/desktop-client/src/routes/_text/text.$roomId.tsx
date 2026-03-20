@@ -23,12 +23,21 @@ function RouteComponent() {
 	const { data, isLoading, hasNextPage } = useInfiniteQuery({
 		queryKey: ["text-channel", roomId],
 		queryFn: ({ pageParam }) => {
-			return Array.from({ length: 200 }).map(() => ({
-				userId: faker.string.uuid(),
-				message: faker.lorem.text(),
-				reacts: [],
-				timestamp: faker.date.recent().toUTCString(),
-			})) as Msg[];
+			return (
+				Array.from({ length: 200 }).map(() => ({
+					userId: faker.string.uuid(),
+					message: faker.lorem.text(),
+					reacts: [],
+					timestamp: faker.date.recent().toUTCString(),
+				})) as Msg[]
+			).concat([
+				{
+					userId: faker.string.uuid(),
+					message: "https://youtube.com/shorts/FiMXgmhSlo0",
+					reacts: [],
+					timestamp: faker.date.recent().toISOString(),
+				},
+			]);
 		},
 		maxPages: 3,
 		getNextPageParam: () => undefined,

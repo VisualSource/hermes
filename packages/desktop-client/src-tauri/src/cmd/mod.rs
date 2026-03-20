@@ -1,2 +1,2 @@
-pub mod auth;
 pub mod audio;
+pub mod auth;

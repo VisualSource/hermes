@@ -1,4 +1,4 @@
-use tauri::{Emitter};
+use tauri::Emitter;
 
 mod cmd;
 
@@ -6,11 +6,10 @@ mod cmd;
 pub fn run() {
     tauri::Builder::default()
         .manage(cmd::audio::AudioState::new())
-       
         .plugin(
             tauri_plugin_log::Builder::new()
                 .target(tauri_plugin_log::Target::new(
-                    tauri_plugin_log::TargetKind::Stdout
+                    tauri_plugin_log::TargetKind::Stdout,
                 ))
                 .level(tauri_plugin_log::log::LevelFilter::Debug)
                 .build(),
@@ -26,23 +25,27 @@ pub fn run() {
                         let target = url.domain().unwrap_or_default();
                         match target {
                             "oauth" => {
-                                if let Err(err) = app.emit("hermes://auth", cmd::auth::AuthFlowEvent::Done { url: url.to_string() }) {
-                                    log::error!("{}",err);
+                                if let Err(err) = app.emit(
+                                    "hermes://auth",
+                                    cmd::auth::AuthFlowEvent::Done {
+                                        url: url.to_string(),
+                                    },
+                                ) {
+                                    log::error!("{}", err);
                                 }
                             }
                             _ => {
-                                log::debug!("{:#?}",url)
-
-
+                                log::debug!("{:#?}", url)
                             }
                         }
                     }
                     Err(err) => {
-                        log::error!("{}",err);
+                        log::error!("{}", err);
                     }
                 }
             }
         }))
+        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_upload::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -51,7 +54,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .setup(|app|{
+        .setup(|app| {
             #[cfg(any(windows, target_os = "linux"))]
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
@@ -66,7 +69,7 @@ pub fn run() {
             cmd::audio::stop_microphone,
             cmd::audio::get_audio_inputs,
             cmd::audio::get_opus_version,
-            ])
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
