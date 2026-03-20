@@ -26,7 +26,7 @@ const isSupportedType = (value: string): value is DOMParserSupportedType => {
 
 const LinkDisplay = (props: React.ComponentProps<"a"> & ExtraProps) => {
 	const { data } = useQuery({
-		queryKey: ["external-url", props.href],
+		queryKey: ["preview-url", props.href],
 		queryFn: async ({ signal }) => {
 			try {
 				if (!props.href?.length || !URL.canParse(props.href)) {
@@ -176,6 +176,24 @@ const LinkDisplay = (props: React.ComponentProps<"a"> & ExtraProps) => {
 	);
 };
 
+/*
+const CustomParagraph = ({ children }) => {
+  // Check if the paragraph contains a single child that is an anchor (a) tag
+  if (
+    children &&
+    children.length === 1 &&
+    children[0].type === 'a'
+  ) {
+    const url = children[0].props.href;
+    // Render the custom preview component if it's a URL-only paragraph
+    return <LinkPreview url={url} />;
+  }
+
+  // Otherwise, render a normal paragraph
+  return <p>{children}</p>;
+};
+*/
+
 export type Msg = {
 	timestamp: string;
 	userId: string;
@@ -192,14 +210,13 @@ const Message = ({
 	item: Msg;
 	start: number;
 	index: number;
-	ref: React.Ref<HTMLButtonElement>;
+	ref: React.Ref<HTMLDivElement>;
 }) => {
 	return (
 		<ContextMenu>
 			<ContextMenuTrigger
 				render={
-					<button
-						type="button"
+					<div
 						ref={ref}
 						data-index={index}
 						className="absolute flex w-full hover:bg-accent/60 gap-2 px-2 py-1 cursor-pointer"
@@ -245,7 +262,7 @@ const Message = ({
 								</Markdown>
 							</article>
 						</div>
-					</button>
+					</div>
 				}
 			/>
 			<ContextMenuContent>
