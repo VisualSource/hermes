@@ -37,6 +37,13 @@ function RouteComponent() {
 					reacts: [],
 					timestamp: faker.date.recent().toISOString(),
 				},
+				{
+					userId: faker.string.uuid(),
+					message:
+						"Check this out https://youtube.com/shorts/FiMXgmhSlo0 some text ",
+					reacts: [],
+					timestamp: faker.date.recent().toISOString(),
+				},
 			]);
 		},
 		maxPages: 3,
