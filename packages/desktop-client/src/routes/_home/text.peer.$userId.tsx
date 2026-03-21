@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Msg, VirtualList } from "@/components/virtual-list";
+import { Msg, VirtualList } from "@/components/chat/virtual-list";
 import { faker } from "@faker-js/faker";
 import {
 	keepPreviousData,

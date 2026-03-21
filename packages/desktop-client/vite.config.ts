@@ -4,6 +4,12 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import tailwindcss from "@tailwindcss/vite";
 import { resolve } from "node:path";
 
+/*
+    <script
+      crossOrigin="anonymous"
+      src="https://unpkg.com/react-scan/dist/auto.global.js"
+    ></script>
+*/
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -17,7 +23,6 @@ export default defineConfig({
 			semicolons: true,
 		}),
 		react(),
-		//@ts-expect-error
 		tailwindcss(),
 	],
 	resolve: {

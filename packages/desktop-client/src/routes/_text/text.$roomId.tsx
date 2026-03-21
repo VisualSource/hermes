@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
-import { type Msg, VirtualList } from "@/components/virtual-list";
+import { VirtualList } from "@/components/chat/virtual-list";
+import { Msg } from "@/components/chat/message";
 
 export const Route = createFileRoute("/_text/text/$roomId")({
 	component: RouteComponent,
@@ -25,6 +26,7 @@ function RouteComponent() {
 		queryFn: ({ pageParam }) => {
 			return (
 				Array.from({ length: 200 }).map(() => ({
+					id: faker.string.ulid(),
 					userId: faker.string.uuid(),
 					message: faker.lorem.text(),
 					reacts: [],
@@ -32,12 +34,14 @@ function RouteComponent() {
 				})) as Msg[]
 			).concat([
 				{
+					id: faker.string.ulid(),
 					userId: faker.string.uuid(),
 					message: "https://youtube.com/shorts/FiMXgmhSlo0",
 					reacts: [],
 					timestamp: faker.date.recent().toISOString(),
 				},
 				{
+					id: faker.string.ulid(),
 					userId: faker.string.uuid(),
 					message:
 						"Check this out https://youtube.com/shorts/FiMXgmhSlo0 some text ",
