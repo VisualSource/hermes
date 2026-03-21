@@ -21,7 +21,14 @@ import {
 
 const markdownComponents: Components = {
 	a: (props) => {
-		return <a {...props} className="text-primary hover:underline" />;
+		return (
+			<a
+				{...props}
+				rel="noopener noreferrer"
+				target="_blank"
+				className="text-primary hover:underline"
+			/>
+		);
 	},
 	object: (props) => {
 		if (props.type === "link-preview" && props.data?.length) {
