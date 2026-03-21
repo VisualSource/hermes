@@ -1,4 +1,4 @@
-import Markdown, { type ExtraProps } from "react-markdown";
+import Markdown, { type Components } from "react-markdown";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import {
 	ContextMenu,
@@ -10,189 +10,25 @@ import { useCallback, useEffect, useEffectEvent, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "./ui/hover-card";
 import remarkGfm from "remark-gfm";
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { fetch } from "@tauri-apps/plugin-http";
+
 import { sanitizeUrl } from "@braintree/sanitize-url";
+import {
+	LinkPreview,
+	rehypeLinkPreview,
+	remarkLinkPreview,
+} from "./markdown/link-preview";
 
-const isSupportedType = (value: string): value is DOMParserSupportedType => {
-	return [
-		"application/xhtml+xml",
-		"application/xml",
-		"text/html",
-		"text/xml",
-	].includes(value);
+
+const markdownComponents: Components = {
+	object: (props) => {
+		if (props.type === "link-preview" && props.data?.length) {
+			return <LinkPreview link={props.data} />;
+		}
+
+		return null;
+	},
 };
 
-const LinkDisplay = (props: React.ComponentProps<"a"> & ExtraProps) => {
-	const { data } = useQuery({
-		queryKey: ["preview-url", props.href],
-		queryFn: async ({ signal }) => {
-			try {
-				if (!props.href?.length || !URL.canParse(props.href)) {
-					console.debug(`Missing href or can not parse ${props.href}`);
-					return null;
-				}
-
-				const url = new URL(props.href);
-				if (url.protocol !== "https:") {
-					console.debug("url protocol is not https", url);
-					return null;
-				}
-
-				const response = await fetch(url, {
-					signal,
-					method: "GET",
-					headers: {
-						Accept: "text/xml,text/html,application/xml,application/xhtml+xml",
-					},
-				});
-				if (!response.ok) throw response;
-				const contentType =
-					response.headers.get("content-type") ??
-					response.headers.get("Content-Type") ??
-					"";
-
-				const [type] = contentType.split(";");
-
-				console.debug("ContentType", type, contentType);
-				if (!isSupportedType(type)) return null;
-
-				const content = await response.text();
-
-				const parser = new DOMParser();
-
-				const doc = parser.parseFromString(content, type);
-
-				const head = doc.querySelector("head");
-				if (!head) return null;
-
-				const metatags = head.querySelectorAll("meta");
-
-				const cardInfo: {
-					siteName: string;
-					title: string;
-					img?: string;
-					description?: string;
-					imgAlt?: string;
-					shareUrl?: string;
-				} = {
-					siteName: url.hostname,
-					title: "",
-				};
-
-				for (const metatag of metatags) {
-					const property = metatag.getAttribute("property");
-					switch (property) {
-						case "og:title": {
-							const value = metatag.getAttribute("content");
-							if (value) cardInfo.title = value;
-							break;
-						}
-						case "og:description": {
-							const value = metatag.getAttribute("content");
-							if (value) cardInfo.description = value;
-							break;
-						}
-						case "og:site_name": {
-							const value = metatag.getAttribute("content");
-							if (value) cardInfo.siteName = value;
-							break;
-						}
-						case "og:image": {
-							const value = metatag.getAttribute("content");
-							if (value) cardInfo.img = sanitizeUrl(value);
-							break;
-						}
-						case "og:image:alt": {
-							const value = metatag.getAttribute("content");
-							if (value) cardInfo.imgAlt = value;
-							break;
-						}
-						case "og:url": {
-							const value = metatag.getAttribute("content");
-							if (value) cardInfo.shareUrl = sanitizeUrl(value);
-							break;
-						}
-					}
-				}
-
-				if (cardInfo.title === "") {
-					cardInfo.title =
-						head.querySelector("title")?.textContent ?? props.href;
-				}
-
-				return cardInfo;
-			} catch (error) {
-				console.error(Error.isError(error) ? error.message : error);
-				return null;
-			}
-		},
-		enabled: props.href !== undefined,
-	});
-
-	return (
-		<>
-			<a
-				className="hover:underline text-primary"
-				target="_blank"
-				rel="noopener noreferrer"
-				href={sanitizeUrl(props.href)}
-			>
-				{props.children}
-			</a>
-			{data ? (
-				<Card className="mt-4">
-					<CardHeader>
-						<CardTitle>
-							<span className="text-xs text-muted-foreground">
-								{data.siteName}
-							</span>
-							<h1 className="text-lg">
-								<a
-									className="hover:underline text-primary"
-									href={data.shareUrl ?? sanitizeUrl(props.href)}
-									target="_blank"
-									rel="noopener noreferrer"
-								>
-									{data?.title}
-								</a>
-							</h1>
-							<p className="text-sm font-light">{data.description}</p>
-						</CardTitle>
-						<CardContent>
-							<div className="aspect-square max-h-96">
-								<img
-									className="h-full w-full"
-									src={data.img}
-									alt={data.imgAlt ?? data.title}
-								/>
-							</div>
-						</CardContent>
-					</CardHeader>
-				</Card>
-			) : null}
-		</>
-	);
-};
-
-/*
-const CustomParagraph = ({ children }) => {
-  // Check if the paragraph contains a single child that is an anchor (a) tag
-  if (
-    children &&
-    children.length === 1 &&
-    children[0].type === 'a'
-  ) {
-    const url = children[0].props.href;
-    // Render the custom preview component if it's a URL-only paragraph
-    return <LinkPreview url={url} />;
-  }
-
-  // Otherwise, render a normal paragraph
-  return <p>{children}</p>;
-};
-*/
 
 export type Msg = {
 	timestamp: string;
@@ -200,7 +36,8 @@ export type Msg = {
 	message: string;
 	reacts: string[];
 };
-const markdownRemarkPlugins = [remarkGfm];
+const rehypePlugins = [rehypeLinkPreview];
+const markdownRemarkPlugins = [remarkGfm, remarkLinkPreview];
 const Message = ({
 	item,
 	ref,
@@ -253,10 +90,11 @@ const Message = ({
 							</div>
 							<article className="text-sm text-left">
 								<Markdown
-									components={{
-										a: LinkDisplay,
-									}}
+									skipHtml
+									urlTransform={sanitizeUrl}
+									components={markdownComponents}
 									remarkPlugins={markdownRemarkPlugins}
+									rehypePlugins={rehypePlugins}
 								>
 									{item.message}
 								</Markdown>
