@@ -8,6 +8,7 @@ import { SideBar } from "@/components/sidebar/side-bar";
 import { Suspense, use } from "react";
 import { app } from "@/lib/clients/app";
 import { ChangeChannelAlertDialog } from "@/components/voice/change-channel-alert-dialog";
+import { isTauri } from "@tauri-apps/api/core";
 
 const onInit = (async () => {
 	await auth.init();
@@ -28,14 +29,16 @@ const AppState = ({ children }:React.PropsWithChildren) => {
 	)
 }
 
+const isTauriContext = isTauri();
+
 const RootLayout: React.FC = () => {
 	return (
 		<div className="h-full w-full overflow-hidden flex flex-col">
-			<WindowHeader />
+			{isTauriContext ? <WindowHeader /> : null}
 			<ChangeChannelAlertDialog />
 			<Suspense
 				fallback={
-					<div className="h-full w-full flex place-items-center">
+					<div className="h-full w-full flex place-content-center place-items-center">
 						<Spinner className="size-9" />
 					</div>
 				}
@@ -52,7 +55,7 @@ const RootLayout: React.FC = () => {
 		</div>
 	);
 };
-//<TanStackDevtools plugins={[{ name: "Query", render: <ReactQueryDevtoolsPanel/> },{ name: "Router", render: <TanStackRouterDevtoolsPanel/> }]}/>
+
 export const Route = createRootRoute({
 	component: RootLayout,
 	errorComponent: (err) => {

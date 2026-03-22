@@ -57,7 +57,7 @@ export const VirtualList = ({
 
 	return (
 		<ScrollArea className="h-[100cqh]" viewportRef={scrollRef}>
-			<div ref={contentRef} className="flex flex-1 flex-col h-full">
+			<div ref={contentRef} className="flex flex-1 flex-col h-full px-8">
 				{items.map((item, i) => (
 					<Message key={item.id} item={item} index={i} start={0} />
 				))}

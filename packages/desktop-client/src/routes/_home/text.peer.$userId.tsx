@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Msg, VirtualList } from "@/components/chat/virtual-list";
+import { VirtualList } from "@/components/chat/virtual-list";
 import { faker } from "@faker-js/faker";
 import {
 	keepPreviousData,
@@ -8,7 +8,8 @@ import {
 	useMutation,
 } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Send } from "lucide-react";
+import { Hash, Send } from "lucide-react";
+import { Msg } from "@/components/chat/message";
 
 export const Route = createFileRoute("/_home/text/peer/$userId")({
 	component: RouteComponent,
@@ -24,6 +25,7 @@ function RouteComponent() {
 				userId: faker.string.uuid(),
 				message: faker.lorem.text(),
 				reacts: [],
+				id: faker.string.ulid(),
 				timestamp: faker.date.recent().toUTCString(),
 			})) as Msg[];
 		},
@@ -47,17 +49,30 @@ function RouteComponent() {
 	const items = data?.pages.flat() ?? [];
 
 	return (
-		<div className="container px-8 h-full flex flex-col pb-6 col-span-10">
-			<div className="h-full overflow-hidden @container-[size] mb-2">
+		<div className=" h-full flex flex-col pb-6 col-span-10">
+			<div className="h-10 bg-accent flex items-center px-2 justify-between border-b shadow">
+				<div className="flex gap-1 items-center">
+					<Hash className="h-4 w-4" /> Username
+				</div>
+			</div>
+			<div className="h-full overflow-hidden @container-[size] mb-2 container">
 				<VirtualList hasNextPage={hasNextPage} items={items} />
 			</div>
 			<form
-				className="flex gap-1"
-				action={(data) => {
-					mutation.mutateAsync();
+				className="flex gap-1 px-8"
+				action={async (data) => {
+					const msg = data.get("msg");
+
+					console.log(msg);
+
+					await mutation.mutateAsync();
 				}}
 			>
-				<Input type="text" name="msg" />
+				<Input
+					placeholder="Send message to 'username'"
+					type="text"
+					name="msg"
+				/>
 				<Button type="submit" disabled={mutation.isPending}>
 					<Send />
 				</Button>

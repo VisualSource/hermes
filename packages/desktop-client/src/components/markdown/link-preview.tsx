@@ -4,6 +4,7 @@ import { fetch } from "@tauri-apps/plugin-http";
 import { sanitizeUrl } from "@braintree/sanitize-url";
 import { type Node, select } from "unist-util-select";
 import { visit } from "unist-util-visit";
+import { isTauri } from "@tauri-apps/api/core";
 
 // https://www.ryanfiller.com/blog/remark-and-rehype-plugins
 
@@ -72,6 +73,8 @@ export const LinkPreview = ({ link }: { link: string }) => {
 					console.debug("url protocol is not https", url);
 					return null;
 				}
+
+				if (!isTauri()) return null;
 
 				const response = await fetch(url, {
 					signal,

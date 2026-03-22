@@ -2,8 +2,21 @@ import { Bug, Maximize2, Minus, X } from "lucide-react";
 import { Button } from "./ui/button"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import { TooltipButton } from "./ui/tooltip-button";
+import { isTauri } from "@tauri-apps/api/core";
 
-const win = getCurrentWindow();
+const win = isTauri()
+	? getCurrentWindow()
+	: {
+			minimize() {
+				throw new Error("Unable to run in non tauri context");
+			},
+			toggleMaximize() {
+				throw new Error("Unable to run in non tauri context");
+			},
+			close() {
+				throw new Error("Unable to run in non tauri context");
+			},
+		};
 
 export const WindowHeader = () => {
     return (

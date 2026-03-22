@@ -5,7 +5,6 @@ import {
 	loadRnnoise,
 	RnnoiseWorkletNode,
 } from "@sapphi-red/web-noise-suppressor";
-import { info } from "@tauri-apps/plugin-log";
 
 export class NoiseSuppressor {
 	static INSTANCE: NoiseSuppressor | null = null;
@@ -27,7 +26,7 @@ export class NoiseSuppressor {
 	}
 
 	private constructor(private wasm: ArrayBuffer) {
-		info("[Noise Suppressor] Ready");
+		console.info("[Noise Suppressor] Ready");
 	}
 
 	public async createProcesser(stream: MediaStream) {
