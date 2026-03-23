@@ -5,11 +5,57 @@ https://tweakcn.com/editor/theme
 https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API/Signaling_and_video_calling
 https://medium.com/@ahsanmubariz/end-to-end-encryption-e2ee-a-deep-dive-with-simple-example-in-javascript-d97b1b880d4d
 
-
-
 https://github.com/suhaotian/broad-infinite-list
 
-
+Todo:
+    pages:
+        [] audio
+        [] text channel
+        [] roles channel 
+        settings:
+            [] notifications
+            [] theme/app info
+            [] account
+            [] devices
+            [] notifications
+            [] overlay
+            [] user profiles
+            [] voice
+        [] peer text
+        [] home
+    sidbar:
+        channelText:
+            [] server user list
+        peerText:
+            [] link to peer text channel
+            [] add peer
+            [] pending peer requests
+        channelAudio:
+            [] none
+    text chat components:
+        [] pins
+        [] jump to pin
+        List:
+            [] scrollbar
+            [] virtual (https://github.com/suhaotian/broad-infinite-list)?
+            [] infi list loaded
+            [] scroll to bottom on load
+            [] scroll to bottom on new message when at bottom
+            [] handle user send message
+            [] handle incomming messages
+        Input:
+            [] markdown preview
+            [] handle sending message
+            [] handle adding attchmenets
+            [] @ mentions (seperate when submitting)
+            [] adding emoji
+            [] adding custom emojis
+        Message:
+            [] handle rending link previews
+            [] handle rending emojis
+            [] handle rending @ mention
+            [] handle rendering cards
+      
 Websocket API:
     [] RTC
 
