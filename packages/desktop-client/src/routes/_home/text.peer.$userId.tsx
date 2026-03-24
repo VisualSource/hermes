@@ -18,7 +18,14 @@ export const Route = createFileRoute("/_home/text/peer/$userId")({
 function RouteComponent() {
 	const { userId } = Route.useParams();
 
-	const { data, isLoading, hasNextPage } = useInfiniteQuery({
+	const {
+		data,
+		isLoading,
+		hasNextPage,
+		hasPreviousPage,
+		fetchNextPage,
+		fetchPreviousPage,
+	} = useInfiniteQuery({
 		queryKey: ["peer-channel", userId],
 		queryFn: ({ pageParam }) => {
 			return Array.from({ length: 200 }).map(() => ({
@@ -36,6 +43,14 @@ function RouteComponent() {
 		placeholderData: keepPreviousData,
 		refetchOnWindowFocus: false,
 	});
+
+	const fetchNext = async (direction: "up" | "down") => {
+		if (direction === "up") {
+			await fetchPreviousPage();
+		} else {
+			await fetchNextPage();
+		}
+	};
 
 	const mutation = useMutation({
 		mutationKey: ["peer-channel", "msg-mut", userId],
@@ -56,7 +71,12 @@ function RouteComponent() {
 				</div>
 			</div>
 			<div className="h-full overflow-hidden @container-[size] mb-2 container">
-				<VirtualList hasNextPage={hasNextPage} items={items} />
+				<VirtualList
+					hasNextPage={hasNextPage}
+					hasPreviousPage={hasPreviousPage}
+					fetchMore={fetchNext}
+					items={items}
+				/>
 			</div>
 			<form
 				className="flex gap-1 px-8"

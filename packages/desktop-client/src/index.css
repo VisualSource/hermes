@@ -141,6 +141,10 @@
 	}
 }
 
+@utility overflow-anchor-none {
+	overflow-anchor: none;
+}
+
 @supports selector(::-webkit-scrollbar) {
 	div::-webkit-scrollbar {
 		background: aquamarine;
