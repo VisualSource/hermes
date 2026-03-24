@@ -14,6 +14,11 @@
     "protoc": "protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=./src/lib/proto/ ../../api/proto/hermes.proto -I ../../api/proto --ts_proto_opt=env=browser,outputJsonMethods=false"
   },
   "dependencies": {
+    "lexical":"^0.42.0",
+    "@lexical/react":"^0.42.0",
+    "@lexical/markdown":"^0.42.0",
+    "@lexical/tailwind":"^0.42.0",
+    "@lexical/rich-text":"^0.42.0",
     "@badgateway/oauth2-client": "^3.3.1",
     "@base-ui/react": "^1.3.0",
     "@braintree/sanitize-url": "^7.1.2",
