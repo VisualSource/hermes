@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { faker } from "@faker-js/faker";
+import { friendListOptions } from "@/lib/api/queries";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { Users2 } from "lucide-react";
@@ -25,18 +25,7 @@ export const Route = createFileRoute("/_home")({
 
 function RouteComponent() {
 	const navigate = useNavigate();
-	const { data } = useQuery({
-		queryKey: ["firend-list"],
-		queryFn: async () => {
-			return Array.from({ length: 6 }).map(() => ({
-				id: faker.string.uuid(),
-				avatar: faker.image.avatarGitHub(),
-				status: faker.number.int(2),
-				username: faker.person.firstName(),
-				statusText: faker.lorem.words({ min: 0, max: 3 }),
-			}));
-		},
-	});
+	const { data } = useQuery(friendListOptions());
 
 	return (
 		<div className="grow grid grid-cols-12">
@@ -91,7 +80,7 @@ function RouteComponent() {
 								</Avatar>
 								<div>
 									<h1>{user.username}</h1>
-									{user.statusText.length ? (
+									{user.statusText?.length ? (
 										<p className="text-xs text-muted-foreground">
 											{user.statusText}
 										</p>

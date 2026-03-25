@@ -1,15 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { VirtualList } from "@/components/chat/virtual-list";
-import { faker } from "@faker-js/faker";
-import {
-	keepPreviousData,
-	useInfiniteQuery,
-	useMutation,
-} from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Hash, Send } from "lucide-react";
-import { Msg } from "@/components/chat/message";
+import { peerChannelOptions } from "@/lib/api/queries";
 
 export const Route = createFileRoute("/_home/text/peer/$userId")({
 	component: RouteComponent,
@@ -20,37 +15,11 @@ function RouteComponent() {
 
 	const {
 		data,
-		isLoading,
 		hasNextPage,
 		hasPreviousPage,
 		fetchNextPage,
 		fetchPreviousPage,
-	} = useInfiniteQuery({
-		queryKey: ["peer-channel", userId],
-		queryFn: ({ pageParam }) => {
-			return Array.from({ length: 200 }).map(() => ({
-				userId: faker.string.uuid(),
-				message: faker.lorem.text(),
-				reacts: [],
-				id: faker.string.ulid(),
-				timestamp: faker.date.recent().toUTCString(),
-			})) as Msg[];
-		},
-		maxPages: 3,
-		getNextPageParam: () => undefined,
-		getPreviousPageParam: () => undefined,
-		initialPageParam: undefined,
-		placeholderData: keepPreviousData,
-		refetchOnWindowFocus: false,
-	});
-
-	const fetchNext = async (direction: "up" | "down") => {
-		if (direction === "up") {
-			await fetchPreviousPage();
-		} else {
-			await fetchNextPage();
-		}
-	};
+	} = useInfiniteQuery(peerChannelOptions(userId, new Date().toUTCString()));
 
 	const mutation = useMutation({
 		mutationKey: ["peer-channel", "msg-mut", userId],
@@ -74,7 +43,8 @@ function RouteComponent() {
 				<VirtualList
 					hasNextPage={hasNextPage}
 					hasPreviousPage={hasPreviousPage}
-					fetchMore={fetchNext}
+					fetchNextPage={fetchNextPage}
+					fetchPreviousPage={fetchPreviousPage}
 					items={items}
 				/>
 			</div>

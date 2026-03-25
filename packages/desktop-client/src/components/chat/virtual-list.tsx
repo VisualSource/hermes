@@ -1,8 +1,13 @@
-import { useCallback, useEffect, useEffectEvent, useRef } from "react";
+import { useCallback, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Message, type Msg } from "./message";
-import { ScrollArea } from "../ui/scroll-area";
+import { Message } from "./message";
+
 import { useStickToBottom } from "use-stick-to-bottom";
+import type { Message as tMessage } from "@/lib/api/types";
+import type {
+	InfiniteData,
+	InfiniteQueryObserverResult,
+} from "@tanstack/react-query";
 
 export const VirtualList = ({
 	hasNextPage,
@@ -13,11 +18,14 @@ export const VirtualList = ({
 }: {
 	hasNextPage: boolean;
 	hasPreviousPage: boolean;
-	items: Msg[];
-	fetchPreviousPage: () => Promise<void>;
-	fetchNextPage: () => Promise<void>;
+	items: tMessage[];
+	fetchPreviousPage: () => Promise<
+		InfiniteQueryObserverResult<InfiniteData<tMessage[], unknown>, Error>
+	>;
+	fetchNextPage: () => Promise<
+		InfiniteQueryObserverResult<InfiniteData<tMessage[], unknown>, Error>
+	>;
 }) => {
-	const { scrollRef, contentRef } = useStickToBottom();
 	const containerRef = useRef<HTMLDivElement>(null);
 
 	const count = items.length;
@@ -46,7 +54,14 @@ export const VirtualList = ({
 		if (lastVisiable >= count - 5) {
 			if (hasNextPage) fetchNextPage();
 		}
-	}, []);
+	}, [
+		count,
+		fetchNextPage,
+		fetchPreviousPage,
+		hasNextPage,
+		hasPreviousPage,
+		virtualizer.getVirtualIndexes,
+	]);
 
 	/*const count = items.length;
 
@@ -93,59 +108,23 @@ export const VirtualList = ({
 		<div
 			ref={containerRef}
 			className="h-[100cqh] w-[100-cqw] overflow-y-auto contain-strict overflow-anchor-none"
+			//onScroll={handleScroll}
 		>
 			<div className="relative" style={{ height: virtualizer.getTotalSize() }}>
 				{virtualizer.getVirtualItems().map((virtualRow) => {
 					const item = items[virtualRow.index];
 
-					return (
-						<div
-							className="absolute left-0 top-0 w-full"
-							ref={virtualizer.measureElement}
-							style={{ transform: `translateY(${virtualRow.start}px)` }}
-							data-index={virtualRow.index}
-							key={virtualRow.key}
-						>
-							{item.timestamp}
-							{item.message}
-						</div>
-					);
-				})}
-			</div>
-		</div>
-	);
-
-	/*return (
-		<ScrollArea className="h-[100cqh]" viewportRef={scrollRef}>
-			<div ref={contentRef} className="flex flex-1 flex-col h-full px-8">
-				{items.map((item, i) => (
-					<Message key={item.id} item={item} index={i} start={0} />
-				))}
-			</div>
-		</ScrollArea>
-	);*/
-
-	/*return (
-		<div
-			ref={listRef}
-			className="h-[100cqh] w-[100-cqw] overflow-y-auto contain-strict"
-			style={{ overflowAnchor: "none" }}
-			onScroll={handleScroll}
-		>
-			<div className="relative" style={{ height: virtualizer.getTotalSize() }}>
-				{virtualizer.getVirtualItems().map((virtualRow) => {
-					const item = items[virtualRow.index];
 					return (
 						<Message
-							key={virtualRow.key}
 							ref={virtualizer.measureElement}
+							item={item}
+							key={virtualRow.key}
 							index={virtualRow.index}
 							start={virtualRow.start}
-							item={item}
 						/>
 					);
 				})}
 			</div>
 		</div>
-	);*/
+	);
 };

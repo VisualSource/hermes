@@ -1,17 +1,23 @@
-export const UserAvatar = ({ userId: string }:{ userId: string; }) => {
-  const { data, isLoading, error, isError } = useQuery({
-    select: (data) => data.find(user=>user.id === userId),
-    queryKey: ["user-server","SERVER_ID"],
-    queryFn: async () => {
-      //TODO: query server users profile for server
-      return [];
-    }
-  });
+import { useQuery } from "@tanstack/react-query";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { serverUsersOptions } from "@/lib/api/queries";
+import { useServerId } from "@/hooks/use-server-id";
+import type { UUID } from "node:crypto";
 
-  return (
-    <Avatar>
-      <AvatarImage href={data.avatar}/>
-      <AvatarFallback>UN</AvatarFallback>
-    </Avatar>
-  );
-}
+export const UserAvatar = ({
+	userId,
+	...props
+}: { userId: UUID } & React.ComponentProps<typeof Avatar>) => {
+	const serverId = useServerId();
+	const { data } = useQuery({
+		...serverUsersOptions(serverId),
+		select: (data) => data.find((user) => user.id === userId),
+	});
+
+	return (
+		<Avatar {...props}>
+			<AvatarImage src={data?.avatar} />
+			<AvatarFallback>UN</AvatarFallback>
+		</Avatar>
+	);
+};

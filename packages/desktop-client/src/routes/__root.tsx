@@ -62,10 +62,10 @@ export const Route = createRootRoute({
 		return (
 			<div className="flex flex-col w-full">
 				<WindowHeader />
-				<main className="h-full w-full flex flex-col place-items-center">
+				<main className="h-full w-full flex flex-col place-content-center place-items-center">
 					<div>
 						<h1>{err.error.message}</h1>
-						<p>	{err.info?.componentStack}</p>
+						<p> {err.info?.componentStack}</p>
 					</div>
 					<Button onClick={err.reset}>Reset</Button>
 				</main>

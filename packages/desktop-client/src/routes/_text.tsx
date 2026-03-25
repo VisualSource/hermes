@@ -7,12 +7,12 @@ import {
 import {
 	Popover,
 	PopoverContent,
-	PopoverHeader,
-	PopoverTitle,
 	PopoverTrigger,
 } from "@/components/ui/popover";
 import { TooltipButton } from "@/components/ui/tooltip-button";
-import { faker } from "@faker-js/faker";
+import { useServerId } from "@/hooks/use-server-id";
+import { serverUsersOptions } from "@/lib/api/queries";
+import { getStatusColor } from "@/lib/api/types";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { Hash, Pin } from "lucide-react";
@@ -23,22 +23,9 @@ export const Route = createFileRoute("/_text")({
 
 
 const TextSidebar = () => {
-	const { data } = useQuery({
-		queryKey: ["server-user-list"],
-		queryFn: async () => {
-			return Array.from({
-				length: 10,
-			}).map(() => ({
-				avatar: faker.image.avatarGitHub(),
-				id: faker.string.uuid(),
-				username: faker.person.firstName(),
-				statusText: faker.lorem.words({ min: 0, max: 3 }),
-				status: ["bg-green-500", "bg-red-500", "bg-gray-500", "bg-yellow-500"][
-					faker.number.int(4)
-				],
-			}));
-		},
-	});
+	const serverId = useServerId();
+
+	const { data } = useQuery(serverUsersOptions(serverId));
 
 	return (
 		<aside className="col-span-2 bg-sidebar p-2 overflow-hidden">
@@ -50,7 +37,7 @@ const TextSidebar = () => {
 							<Avatar>
 								<AvatarFallback>UN</AvatarFallback>
 								<AvatarImage src={user.avatar} />
-								<AvatarBadge className={user.status} />
+								<AvatarBadge className={getStatusColor(user.status)} />
 							</Avatar>
 
 							<div>

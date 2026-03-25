@@ -8,21 +8,10 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery } from "@tanstack/react-query";
 
-import { faker } from "@faker-js/faker";
 import { useState } from "react";
+import { serverListOptions } from "@/lib/api/queries";
 export const ChannelSwitcher = () => {
-	const { data } = useQuery({
-		queryKey: ["servers"],
-		queryFn: async () => {
-			return Array.from({ length: faker.number.int({ min: 2, max: 10 }) }).map(
-				() => ({
-					id: faker.string.uuid(),
-					icon: faker.image.url(),
-					name: faker.company.buzzNoun(),
-				}),
-			);
-		},
-	});
+	const { data } = useQuery(serverListOptions());
 
 	const [selected, setSelected] = useState<string | undefined>();
 

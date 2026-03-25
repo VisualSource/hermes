@@ -11,63 +11,16 @@ import {
 } from "../channel/channel-items";
 import { VoiceChannel } from "../channel/voice-channel-item";
 import { useQuery } from "@tanstack/react-query";
-import { faker } from "@faker-js/faker";
 import { Button } from "../ui/button";
 import { Home } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { serverChannelsOptions } from "@/lib/api/queries";
+import { useServerId } from "@/hooks/use-server-id";
 
-type Group<T> = { type: T; name: string; id: string };
-type GroupGroup = Group<"group"> & {
-	items: (GroupDivider | Group<"text" | "voice">)[];
-};
-type GroupDivider = { type: "divider"; id: string };
-
-type ServerGroup = Group<"tags" | "text" | "voice"> | GroupDivider | GroupGroup;
 
 export const SideBar = () => {
-	const { data } = useQuery({
-		queryKey: ["channel-list", "CHANNELID"],
-		queryFn: async () => {
-			return [
-				{
-					type: "tags",
-					name: "Tags",
-					id: faker.string.uuid(),
-				},
-				{
-					type: "text",
-					name: "Some Text Channel",
-					id: faker.string.uuid(),
-				},
-				{
-					type: "divider",
-					id: faker.string.uuid(),
-				},
-				{
-					type: "voice",
-					name: "Some Channel Name",
-					id: faker.string.uuid(),
-				},
-				{
-					type: "voice",
-					name: "Other Voice",
-					id: faker.string.uuid(),
-				},
-				{
-					type: "group",
-					id: faker.string.uuid(),
-					name: "Some Group name",
-					items: [
-						{
-							type: "text",
-							name: "Sub Group Channel",
-							id: faker.string.uuid(),
-						},
-					],
-				},
-			] as ServerGroup[];
-		},
-	});
+	const serverId = useServerId();
+	const { data } = useQuery(serverChannelsOptions(serverId));
 
 	return (
 		<div className="w-80 bg-sidebar px-2 pb-2 relative flex flex-col overflow-hidden shrink-0 col-span-3">

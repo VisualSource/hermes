@@ -31,7 +31,7 @@ Todo:
             [] add peer
             [] pending peer requests
         channelAudio:
-            [] none
+            ✔ none @done(26-03-23 19:42)
     text chat components:
         [] pins
         [] jump to pin
