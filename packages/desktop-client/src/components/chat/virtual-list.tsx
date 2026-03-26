@@ -3,7 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { Message } from "./message";
 
 import { useStickToBottom } from "use-stick-to-bottom";
-import type { Message as tMessage } from "@/lib/api/types";
+import type { MessagesQuery, Message as tMessage } from "@/lib/api/types";
 import type {
 	InfiniteData,
 	InfiniteQueryObserverResult,
@@ -20,10 +20,10 @@ export const VirtualList = ({
 	hasPreviousPage: boolean;
 	items: tMessage[];
 	fetchPreviousPage: () => Promise<
-		InfiniteQueryObserverResult<InfiniteData<tMessage[], unknown>, Error>
+		InfiniteQueryObserverResult<InfiniteData<MessagesQuery, unknown>, Error>
 	>;
 	fetchNextPage: () => Promise<
-		InfiniteQueryObserverResult<InfiniteData<tMessage[], unknown>, Error>
+		InfiniteQueryObserverResult<InfiniteData<MessagesQuery, unknown>, Error>
 	>;
 }) => {
 	const containerRef = useRef<HTMLDivElement>(null);

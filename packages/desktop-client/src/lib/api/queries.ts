@@ -5,7 +5,7 @@ import {
 	queryOptions,
 } from "@tanstack/react-query";
 import type { UUID } from "node:crypto";
-import type { Message, Server, User, Channel } from "./types";
+import type { Message, Server, User, Channel, MessagesQuery } from "./types";
 
 export const serverUsersOptions = (serverId: UUID) => {
 	return queryOptions({
@@ -37,33 +37,35 @@ export const textChannelOptions = (
 	return infiniteQueryOptions({
 		refetchOnWindowFocus: false,
 		refetchOnReconnect: true,
-		getNextPageParam: () => undefined,
-		getPreviousPageParam: () => undefined,
+		getNextPageParam: (page) => page.nextCursor,
+		getPreviousPageParam: (page) => page.prevCursor,
 		queryKey,
 		maxPages: 3,
 		initialPageParam,
 		placeholderData: keepPreviousData,
-		queryFn: ({ pageParam, signal }) => {
-			return Array.from({ length: 20 })
-				.map(
-					() =>
-						({
+		queryFn: () => {
+			return {
+				results: Array.from({ length: 20 })
+					.map(
+						() =>
+							({
+								id: faker.string.ulid(),
+								timestamp: faker.date.recent().toUTCString(),
+								userId: faker.string.uuid(),
+								reacts: [],
+								content: faker.lorem.sentences({ min: 1, max: 3 }),
+							}) as Message,
+					)
+					.concat([
+						{
 							id: faker.string.ulid(),
-							timestamp: faker.date.recent().toUTCString(),
 							userId: faker.string.uuid(),
+							content: "https://youtube.com/shorts/FiMXgmhSlo0",
 							reacts: [],
-							content: faker.lorem.sentences({ min: 1, max: 3 }),
-						}) as Message,
-				)
-				.concat([
-					{
-						id: faker.string.ulid(),
-						userId: faker.string.uuid(),
-						content: "https://youtube.com/shorts/FiMXgmhSlo0",
-						reacts: [],
-						timestamp: faker.date.recent().toISOString(),
-					} as Message,
-				]) as Message[];
+							timestamp: faker.date.recent().toISOString(),
+						} as Message,
+					]) as Message[],
+			} as MessagesQuery;
 		},
 	});
 };
@@ -74,6 +76,7 @@ export const peerChannelOptions = (
 ) => {
 	return textChannelOptions(["peer-text", peerId], initialPageParam);
 };
+
 
 export const serverTextChannelOptions = (
 	serverId: UUID,

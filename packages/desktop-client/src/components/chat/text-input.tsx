@@ -4,13 +4,12 @@ import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
-import { useMutation } from "@tanstack/react-query";
 import {
-	$convertFromMarkdownString,
+
 	$convertToMarkdownString,
 	TRANSFORMERS,
 } from "@lexical/markdown";
-import { Plus, Send, Users2 } from "lucide-react";
+import { Plus, Users2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import {
@@ -24,7 +23,7 @@ import { ListNode, ListItemNode } from "@lexical/list";
 import { CodeNode } from "@lexical/code-core";
 import { LinkNode } from "@lexical/link";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { useEffect } from "react";
+import { useEffect, useEffectEvent } from "react";
 
 const cfg = {
 	namespace: "textInput",
@@ -43,12 +42,19 @@ const cfg = {
 		CodeNode,
 		LinkNode,
 	],
-	onError: (err) => console.error(err),
-	editorState: () => $convertFromMarkdownString("# D", TRANSFORMERS),
+	onError: (err: unknown) => console.error(err),
 };
 
-const EnterSubmit = () => {
+const EnterSubmit = ({
+	mutateAsync,
+}: {
+	mutateAsync: (opts: { message: string }) => void;
+}) => {
 	const [editor] = useLexicalComposerContext();
+
+	const update = useEffectEvent((value: string) => {
+		mutateAsync({ message: value });
+	});
 
 	useEffect(() => {
 		editor.registerCommand(
@@ -58,10 +64,10 @@ const EnterSubmit = () => {
 				ev?.preventDefault();
 				const markdown = $convertToMarkdownString(TRANSFORMERS);
 
+				update(markdown);
+
 				const root = $getRoot();
 				root.clear();
-
-				console.log(markdown);
 
 				return true;
 			},
@@ -72,17 +78,13 @@ const EnterSubmit = () => {
 	return null;
 };
 
-export const TextInput = () => {
-	const mutation = useMutation({
-		mutationFn: async () => {
-			await new Promise((ok) => setTimeout(ok, 5000));
-
-			return {};
-		},
-	});
-
+export const TextInput = ({
+	mutateAsync,
+}: {
+	mutateAsync: (opts: { message: string }) => void;
+}) => {
 	return (
-		<div className="flex border h-16 bg-accent items-center gap-2 px-2">
+		<div className="flex border min-h-16 max-h-32 bg-accent items-center gap-2 px-2">
 			<Button variant="secondary" size="icon-lg">
 				<Plus />
 			</Button>
@@ -92,7 +94,7 @@ export const TextInput = () => {
 						<RichTextPlugin
 							contentEditable={
 								<ContentEditable
-									className="h-full w-full px-1 ring-0 outline-0"
+									className="h-full w-full px-1 ring-0 outline-0 overflow-y-scroll"
 									aria-placeholder={"Enter some text..."}
 									placeholder={
 										<div className="absolute top-0 left-1 select-none pointer-events-none text-muted-foreground">
@@ -105,7 +107,7 @@ export const TextInput = () => {
 						/>
 					</div>
 					<HistoryPlugin />
-					<EnterSubmit />
+					<EnterSubmit mutateAsync={mutateAsync} />
 					<MarkdownShortcutPlugin transformers={TRANSFORMERS} />
 				</LexicalComposer>
 			</div>

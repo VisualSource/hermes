@@ -1,15 +1,17 @@
-import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
+import {
+	type InfiniteData,
+	useInfiniteQuery,
+	useMutation,
+} from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-
-import { Button } from "@/components/ui/button";
-import { Send } from "lucide-react";
-import { Input } from "@/components/ui/input";
 
 import { VirtualList } from "@/components/chat/virtual-list";
 import { serverTextChannelOptions } from "@/lib/api/queries";
 import type { UUID } from "node:crypto";
 import { useServerId } from "@/hooks/use-server-id";
 import { TextInput } from "@/components/chat/text-input";
+import { queryClient } from "@/lib/clients/queryClient";
+import type { MessagesQuery } from "@/lib/api/types";
 
 export const Route = createFileRoute("/_text/text/$roomId")({
 	component: RouteComponent,
@@ -33,7 +35,34 @@ function RouteComponent() {
 		),
 	);
 
-	const items = data?.pages.flat() ?? [];
+	const mutation = useMutation({
+		mutationFn: async ({ message }: { message: string }) => {
+			await new Promise((ok) => setTimeout(ok, 5000));
+			const id = crypto.randomUUID();
+			return id;
+		},
+		onSuccess(result, variables) {
+			queryClient.setQueryData<InfiniteData<MessagesQuery>>(
+				["server-text", serverId, roomId],
+				(data) => {
+					if (!data) return data;
+					const lastPage = data.pages.at(-1);
+
+					lastPage?.results.push({
+						userId: crypto.randomUUID(),
+						content: variables.message,
+						id: result,
+						timestamp: new Date().toUTCString(),
+						reacts: [],
+					});
+
+					return { ...data };
+				},
+			);
+		},
+	});
+
+	const items = data?.pages.flatMap((page) => page.results) ?? [];
 
 	return (
 		<main className="container px-8 h-full flex flex-col pb-6 col-span-10">
@@ -46,7 +75,7 @@ function RouteComponent() {
 					items={items}
 				/>
 			</div>
-			<TextInput />
+			<TextInput mutateAsync={mutation.mutateAsync} />
 		</main>
 	);
 }

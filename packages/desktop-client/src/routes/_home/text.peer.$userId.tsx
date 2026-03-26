@@ -5,6 +5,7 @@ import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Hash, Send } from "lucide-react";
 import { peerChannelOptions } from "@/lib/api/queries";
+import { TextInput } from "@/components/chat/text-input";
 
 export const Route = createFileRoute("/_home/text/peer/$userId")({
 	component: RouteComponent,
@@ -22,15 +23,14 @@ function RouteComponent() {
 	} = useInfiniteQuery(peerChannelOptions(userId, new Date().toUTCString()));
 
 	const mutation = useMutation({
-		mutationKey: ["peer-channel", "msg-mut", userId],
-		mutationFn: async () => {
+		mutationFn: async (args: { message: string }) => {
 			await new Promise((ok) => setTimeout(ok, 5000));
 
 			return {};
 		},
 	});
 
-	const items = data?.pages.flat() ?? [];
+	const items = data?.pages.flatMap((page) => page.results) ?? [];
 
 	return (
 		<div className=" h-full flex flex-col pb-6 col-span-10">
@@ -48,25 +48,7 @@ function RouteComponent() {
 					items={items}
 				/>
 			</div>
-			<form
-				className="flex gap-1 px-8"
-				action={async (data) => {
-					const msg = data.get("msg");
-
-					console.log(msg);
-
-					await mutation.mutateAsync();
-				}}
-			>
-				<Input
-					placeholder="Send message to 'username'"
-					type="text"
-					name="msg"
-				/>
-				<Button type="submit" disabled={mutation.isPending}>
-					<Send />
-				</Button>
-			</form>
+			<TextInput mutateAsync={mutation.mutateAsync} />
 		</div>
 	);
 }

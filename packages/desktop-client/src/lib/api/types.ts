@@ -34,6 +34,13 @@ export type Message = {
 	content: string;
 };
 
+export type MessagesQuery = {
+	results: Message[];
+	nextCursor?: string;
+	prevCursor?: string;
+};
+
+
 export type Server = {
 	id: UUID;
 	name: string;
