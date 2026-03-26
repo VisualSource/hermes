@@ -36,12 +36,21 @@ function RouteComponent() {
 	);
 
 	const mutation = useMutation({
+		// https://github.com/TanStack/query/discussions/848
 		mutationFn: async ({ message }: { message: string }) => {
 			await new Promise((ok) => setTimeout(ok, 5000));
 			const id = crypto.randomUUID();
 			return id;
 		},
-		onSuccess(result, variables) {
+		async onMutate(variables, context) {
+			await queryClient.cancelQueries({
+				queryKey: ["server-text", serverId, roomId],
+			});
+
+			const previousData = queryClient.getQueryData<
+				InfiniteData<MessagesQuery>
+			>(["server-text", serverId, roomId]);
+
 			queryClient.setQueryData<InfiniteData<MessagesQuery>>(
 				["server-text", serverId, roomId],
 				(data) => {
@@ -51,7 +60,7 @@ function RouteComponent() {
 					lastPage?.results.push({
 						userId: crypto.randomUUID(),
 						content: variables.message,
-						id: result,
+						id: crypto.randomUUID(),
 						timestamp: new Date().toUTCString(),
 						reacts: [],
 					});
@@ -59,6 +68,20 @@ function RouteComponent() {
 					return { ...data };
 				},
 			);
+
+			return { previousData };
+		},
+		onError(error, _variables, onMutateResult, _context) {
+			console.error(error);
+			queryClient.setQueryData(
+				["server-text", serverId, roomId],
+				onMutateResult?.previousData,
+			);
+		},
+		onSettled() {
+			queryClient.invalidateQueries({
+				queryKey: ["server-text", serverId, roomId],
+			});
 		},
 	});
 
