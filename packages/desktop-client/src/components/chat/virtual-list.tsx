@@ -113,11 +113,12 @@ export const VirtualList = ({
 			<div className="relative" style={{ height: virtualizer.getTotalSize() }}>
 				{virtualizer.getVirtualItems().map((virtualRow) => {
 					const item = items[virtualRow.index];
-					const displayUser = item.userId === items[virtualRow.index - 1]?.userId;
+					const sameUserAsPrevious =
+						item.userId === items[virtualRow.index - 1]?.userId;
 
 					return (
 						<Message
-							displayUser={displayUser}
+							displayUser={sameUserAsPrevious}
 							ref={virtualizer.measureElement}
 							item={item}
 							key={virtualRow.key}

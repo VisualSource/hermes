@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Suspense } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { faker } from "@faker-js/faker";
+import { activeVoiceParticipantsOptions } from "@/lib/api/queries";
 
 const ActiveUser = ({
 	username,
@@ -29,18 +30,7 @@ const ActiveUser = ({
 };
 
 const ActiveUsersList = ({ channelId }: { channelId: string }) => {
-	const { data } = useSuspenseQuery({
-		queryKey: ["voice-channel-active-users", channelId],
-		queryFn: async () => {
-			return Array.from({ length: faker.number.int({ min: 2, max: 15 }) }).map(
-				() => ({
-					id: faker.string.uuid(),
-					avatar: faker.image.avatar(),
-					username: faker.person.firstName(),
-				}),
-			) as { avatar: string; id: string; username: string }[];
-		},
-	});
+	const { data } = useSuspenseQuery(activeVoiceParticipantsOptions(channelId));
 
 	return (
 		<ul className="pl-8 space-y-1">

@@ -12,6 +12,7 @@ import { useServerId } from "@/hooks/use-server-id";
 import { TextInput } from "@/components/chat/text-input";
 import { queryClient } from "@/lib/clients/queryClient";
 import type { MessagesQuery } from "@/lib/api/types";
+import { useUser } from "@/hooks/use-user";
 
 export const Route = createFileRoute("/_text/text/$roomId")({
 	component: RouteComponent,
@@ -20,6 +21,7 @@ export const Route = createFileRoute("/_text/text/$roomId")({
 function RouteComponent() {
 	const { roomId } = Route.useParams();
 	const serverId = useServerId();
+	const user = useUser();
 
 	const {
 		data,
@@ -58,7 +60,7 @@ function RouteComponent() {
 					const lastPage = data.pages.at(-1);
 
 					lastPage?.results.push({
-						userId: crypto.randomUUID(),
+						userId: user.id,
 						content: variables.message,
 						id: crypto.randomUUID(),
 						timestamp: new Date().toUTCString(),
@@ -89,7 +91,7 @@ function RouteComponent() {
 
 	return (
 		<main className="container px-8 h-full flex flex-col pb-6 col-span-10">
-			<div className="h-full overflow-hidden @container-[size] mb-2">
+			<div className="h-full overflow-hidden @container-[size] py-4">
 				<VirtualList
 					fetchNextPage={fetchNextPage}
 					fetchPreviousPage={fetchPreviousPage}

@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { friendListOptions } from "@/lib/api/queries";
+import { getStatusColor } from "@/lib/api/types";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { Users2 } from "lucide-react";
@@ -58,6 +59,7 @@ function RouteComponent() {
 					<h1>Online -- {data?.length}</h1>
 					<Separator />
 					{data?.map((user) => (
+						// biome-ignore lint/a11y/useKeyWithClickEvents: ignore
 						<li
 							key={user.id}
 							className="cursor-pointer hover:bg-accent-foreground/20 rounded-xs"
@@ -72,11 +74,7 @@ function RouteComponent() {
 								<Avatar>
 									<AvatarFallback>UN</AvatarFallback>
 									<AvatarImage src={user.avatar} />
-									<AvatarBadge
-										className={
-											user.status === 0 ? "bg-green-500" : "bg-gray-500"
-										}
-									/>
+									<AvatarBadge className={getStatusColor(user.status)} />
 								</Avatar>
 								<div>
 									<h1>{user.username}</h1>

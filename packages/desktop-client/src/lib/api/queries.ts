@@ -7,23 +7,49 @@ import {
 import type { UUID } from "node:crypto";
 import type { Message, Server, User, Channel, MessagesQuery } from "./types";
 
+
+const fakeData_serverListUsers = Array.from({
+	length: faker.number.int({ min: 5, max: 15 }),
+}).map(
+	() =>
+		({
+			id: faker.string.uuid(),
+			avatar: faker.image.avatarGitHub(),
+			status: faker.number.int({ min: 0, max: 2 }),
+			roles: faker.number.bigInt(),
+			username: faker.person.firstName(),
+			statusText: faker.lorem.words({ min: 0, max: 2 }),
+		}) as User,
+);
+const fakeData_textChannel = Array.from({ length: 20 })
+	.map(
+		() =>
+			({
+				id: faker.string.ulid(),
+				timestamp: faker.date.recent().toUTCString(),
+				userId: faker.helpers.arrayElement(fakeData_serverListUsers).id,
+				reacts: [],
+				content: faker.lorem.sentences({ min: 1, max: 3 }),
+			}) as Message,
+	)
+	.concat([
+		{
+			id: faker.string.ulid(),
+			userId: faker.helpers.arrayElement(fakeData_serverListUsers).id,
+			content: "https://youtube.com/shorts/FiMXgmhSlo0",
+			reacts: [],
+			timestamp: faker.date.recent().toUTCString(),
+		} as Message,
+	]) as Message[];
+const fakeData_friendList = faker.helpers.arrayElements(
+	fakeData_serverListUsers,
+);
+
 export const serverUsersOptions = (serverId: UUID) => {
 	return queryOptions({
 		queryKey: ["user-list-server", serverId],
 		queryFn: () => {
-			return Array.from({
-				length: faker.number.int({ min: 5, max: 15 }),
-			}).map(
-				() =>
-					({
-						id: faker.string.uuid(),
-						avatar: faker.image.avatarGitHub(),
-						status: faker.number.int({ min: 0, max: 2 }),
-						roles: faker.number.bigInt(),
-						username: faker.person.firstName(),
-						statusText: faker.lorem.words({ min: 0, max: 2 }),
-					}) as User,
-			);
+			return fakeData_serverListUsers;
 		},
 		refetchOnWindowFocus: false,
 		refetchOnMount: false,
@@ -45,26 +71,7 @@ export const textChannelOptions = (
 		placeholderData: keepPreviousData,
 		queryFn: () => {
 			return {
-				results: Array.from({ length: 20 })
-					.map(
-						() =>
-							({
-								id: faker.string.ulid(),
-								timestamp: faker.date.recent().toUTCString(),
-								userId: faker.string.uuid(),
-								reacts: [],
-								content: faker.lorem.sentences({ min: 1, max: 3 }),
-							}) as Message,
-					)
-					.concat([
-						{
-							id: faker.string.ulid(),
-							userId: faker.string.uuid(),
-							content: "https://youtube.com/shorts/FiMXgmhSlo0",
-							reacts: [],
-							timestamp: faker.date.recent().toISOString(),
-						} as Message,
-					]) as Message[],
+				results: fakeData_textChannel,
 			} as MessagesQuery;
 		},
 	});
@@ -156,19 +163,17 @@ export const friendListOptions = () => {
 		refetchOnWindowFocus: false,
 		queryKey: ["friend-list"],
 		queryFn: async () => {
-			return Array.from({
-				length: faker.number.int({ min: 2, max: 10 }),
-			}).map(
-				() =>
-					({
-						id: faker.string.uuid(),
-						avatar: faker.image.avatarGitHub(),
-						status: faker.number.int({ min: 0, max: 2 }),
-						roles: faker.number.bigInt(),
-						username: faker.person.firstName(),
-						statusText: faker.lorem.words({ min: 0, max: 2 }),
-					}) as User,
-			);
+			return fakeData_friendList;
+		},
+	});
+};
+
+
+export const activeVoiceParticipantsOptions = (channelId: string) => {
+	return queryOptions({
+		queryKey: ["active-voice-participant", channelId],
+		queryFn: async () => {
+			return faker.helpers.arrayElements(fakeData_serverListUsers);
 		},
 	});
 };
