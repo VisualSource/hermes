@@ -29,6 +29,9 @@ export const remarkNotify = () => {
 
 export const UserNotify = ({ userId }: { userId: UUID }) => {
 	const { data } = useServerUser(userId);
+
+	//TODO: replace text color with color from server profile
+
 	return (
 		<span className="hover:underline text-green-600">@{data?.username}</span>
 	);
