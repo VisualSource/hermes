@@ -1,8 +1,9 @@
 import { useCallback, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Message } from "./message";
-
+import { useThrottledCallback } from "use-debounce";
 import { useStickToBottom } from "use-stick-to-bottom";
+import { useMergeRefs } from "react-merge-refs";
 import type { MessagesQuery, Message as tMessage } from "@/lib/api/types";
 import type {
 	InfiniteData,
@@ -26,7 +27,9 @@ export const VirtualList = ({
 		InfiniteQueryObserverResult<InfiniteData<MessagesQuery, unknown>, Error>
 	>;
 }) => {
+	const { scrollRef, contentRef, isNearBottom, state } = useStickToBottom();
 	const containerRef = useRef<HTMLDivElement>(null);
+	const rootRef = useMergeRefs<HTMLDivElement>([containerRef, scrollRef]);
 
 	const count = items.length;
 
@@ -38,79 +41,26 @@ export const VirtualList = ({
 		overscan: 5,
 	});
 
-	const handleScroll = useCallback(() => {
-		const indexes = virtualizer.getVirtualIndexes();
-		if (indexes.length === 0) return;
-
-		const firstVisable = indexes.at(0);
-		const lastVisiable = indexes.at(-1);
-
-		if (firstVisable === undefined || lastVisiable === undefined) return;
-
-		if (firstVisable <= 5) {
-			if (hasPreviousPage) fetchPreviousPage();
+	const throttledScroll = useThrottledCallback(() => {
+		if (isNearBottom && hasNextPage) {
+			fetchNextPage();
+		} else if (state.scrollTop < 300 && hasPreviousPage) {
+			fetchPreviousPage();
 		}
+	}, 200);
 
-		if (lastVisiable >= count - 5) {
-			if (hasNextPage) fetchNextPage();
-		}
-	}, [
-		count,
-		fetchNextPage,
-		fetchPreviousPage,
-		hasNextPage,
-		hasPreviousPage,
-		virtualizer.getVirtualIndexes,
-	]);
-
-	/*const count = items.length;
-
-	const virtualizer = useVirtualizer({
-		count: hasNextPage ? count + 1 : count,
-		getScrollElement: () => listRef.current,
-		estimateSize: () => 52,
-		measureElement:
-			navigator.userAgent.indexOf("Firefox") === -1
-				? (el) => el.getBoundingClientRect()?.height
-				: undefined,
-		overscan: 6,
-	});
-
-	const handleScroll = useCallback((ev: React.UIEvent<HTMLDivElement>) => {
-		const el = ev.currentTarget;
-		const distanceFromBottom =
-			el.scrollHeight - (el.scrollTop + el.clientHeight);
-		isAtBottom.current = distanceFromBottom < 8;
-	}, []);
-
-	const handleEventScroll = useEffectEvent(
-		(index: number, behavior?: ScrollBehavior) => {
-			virtualizer.scrollToIndex(index, { align: "end", behavior });
-		},
-	);
-*/
-	/*useEffect(() => {
-		if (!listRef.current) return;
-		//if (count === 0) return;
-
-		if (!initScrollRef.current) {
-			initScrollRef.current = true;
-			listRef.current.scrollIntoView(false);
-			//handleEventScroll(count - 1, "instant");
-			return;
-		}
-
-		if (!isAtBottom.current) return;
-		//handleEventScroll(count - 1, "smooth");
-	}, []);*/
 
 	return (
 		<div
-			ref={containerRef}
+			ref={rootRef}
 			className="h-[100cqh] w-[100-cqw] overflow-y-auto contain-strict overflow-anchor-none"
-			//onScroll={handleScroll}
+			onScroll={throttledScroll}
 		>
-			<div className="relative" style={{ height: virtualizer.getTotalSize() }}>
+			<div
+				ref={contentRef}
+				className="relative"
+				style={{ height: virtualizer.getTotalSize() }}
+			>
 				{virtualizer.getVirtualItems().map((virtualRow) => {
 					const item = items[virtualRow.index];
 					const sameUserAsPrevious =

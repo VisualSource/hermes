@@ -25,7 +25,7 @@ Todo:
         [] home
     sidbar:
         channelText:
-            [] server user list
+            ☐ server user list
         peerText:
             [] link to peer text channel
             [] add peer
@@ -36,12 +36,12 @@ Todo:
         [] pins
         [] jump to pin
         List:
-            [] scrollbar
-            [] virtual (https://github.com/suhaotian/broad-infinite-list)?
-            [] infi list loaded
-            [] scroll to bottom on load
-            [] scroll to bottom on new message when at bottom
-            [] handle user send message
+            ✔ scrollbar @done(26-03-28 16:15)
+            ✔ virtual (https://github.com/suhaotian/broad-infinite-list)? @done(26-03-28 16:15)
+            ☐ infi list loaded
+            ✔ scroll to bottom on load @done(26-03-28 16:15)
+            ✔ scroll to bottom on new message when at bottom @done(26-03-28 16:15)
+            ✔ handle user send message @done(26-03-28 16:15)
             [] handle incomming messages
         Input:
             [] markdown preview
@@ -51,9 +51,9 @@ Todo:
             [] adding emoji
             [] adding custom emojis
         Message:
-            [] handle rending link previews
-            [] handle rending emojis
-            [] handle rending @ mention
+            ✔ handle rending link previews @done(26-03-28 16:15)
+            ✔ handle rending emojis @done(26-03-28 18:53)
+            ✔ handle rending @ mention @done(26-03-28 18:53)
             [] handle rendering cards
       
 Websocket API:

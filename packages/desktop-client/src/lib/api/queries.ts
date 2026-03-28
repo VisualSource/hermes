@@ -36,6 +36,20 @@ const fakeData_textChannel = Array.from({ length: 20 })
 		{
 			id: faker.string.ulid(),
 			userId: faker.helpers.arrayElement(fakeData_serverListUsers).id,
+			content: `<@${faker.helpers.arrayElement(fakeData_serverListUsers).id}>`,
+			reacts: [],
+			timestamp: faker.date.recent().toUTCString(),
+		} as Message,
+		{
+			id: faker.string.ulid(),
+			userId: faker.helpers.arrayElement(fakeData_serverListUsers).id,
+			content: ":cat: :hce_00000000000:",
+			reacts: [],
+			timestamp: faker.date.recent().toUTCString(),
+		} as Message,
+		{
+			id: faker.string.ulid(),
+			userId: faker.helpers.arrayElement(fakeData_serverListUsers).id,
 			content: "https://youtube.com/shorts/FiMXgmhSlo0",
 			reacts: [],
 			timestamp: faker.date.recent().toUTCString(),
