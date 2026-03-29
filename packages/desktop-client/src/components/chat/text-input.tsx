@@ -4,35 +4,27 @@ import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
-import {
-
-	$convertToMarkdownString,
-	TRANSFORMERS,
-} from "@lexical/markdown";
 import { Plus, Users2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import {
-	TextNode,
-	ParagraphNode,
-	KEY_ENTER_COMMAND,
-	COMMAND_PRIORITY_HIGH,
-	$getRoot,
-} from "lexical";
+import { TextNode, ParagraphNode } from "lexical";
 import { ListNode, ListItemNode } from "@lexical/list";
 import { CodeNode } from "@lexical/code-core";
 import { LinkNode } from "@lexical/link";
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { useEffect, useEffectEvent } from "react";
+import { UserAtNode } from "@/lib/markdown/user-at/lexical";
+import { EnterSubmitPlugin } from "./enter-submit-plugin";
+import { FULL_TRANSFORMS } from "@/lib/markdown/lexical-transforms";
 
 const cfg = {
 	namespace: "textInput",
 	theme: {
+		code: "text-red-200",
 		heading: {
 			h1: "font-bold",
 		},
 	},
 	nodes: [
+		UserAtNode,
 		TextNode,
 		ParagraphNode,
 		HeadingNode,
@@ -45,38 +37,7 @@ const cfg = {
 	onError: (err: unknown) => console.error(err),
 };
 
-const EnterSubmit = ({
-	mutateAsync,
-}: {
-	mutateAsync: (opts: { message: string }) => void;
-}) => {
-	const [editor] = useLexicalComposerContext();
 
-	const update = useEffectEvent((value: string) => {
-		mutateAsync({ message: value });
-	});
-
-	useEffect(() => {
-		editor.registerCommand(
-			KEY_ENTER_COMMAND,
-			(ev) => {
-				if (ev?.shiftKey) return false;
-				ev?.preventDefault();
-				const markdown = $convertToMarkdownString(TRANSFORMERS);
-
-				update(markdown);
-
-				const root = $getRoot();
-				root.clear();
-
-				return true;
-			},
-			COMMAND_PRIORITY_HIGH,
-		);
-	}, [editor]);
-
-	return null;
-};
 
 export const TextInput = ({
 	mutateAsync,
@@ -107,8 +68,8 @@ export const TextInput = ({
 						/>
 					</div>
 					<HistoryPlugin />
-					<EnterSubmit mutateAsync={mutateAsync} />
-					<MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+					<EnterSubmitPlugin mutateAsync={mutateAsync} />
+					<MarkdownShortcutPlugin transformers={FULL_TRANSFORMS} />
 				</LexicalComposer>
 			</div>
 			<Button size="icon-lg" variant="secondary">

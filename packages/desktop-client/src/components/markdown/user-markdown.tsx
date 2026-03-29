@@ -8,9 +8,10 @@ import { sanitizeUrl } from "@braintree/sanitize-url";
 import remarkGfm from "remark-gfm";
 import Markdown from "react-markdown";
 import { memo } from "react";
-import { remarkEmoji } from "./emoji";
-import { remarkNotify, UserNotify } from "./notify";
+import { UserNotify } from "./notify";
 import type { UUID } from "node:crypto";
+import { remarkEmoji } from "@/lib/markdown/emoji/remark";
+import { remarkNotify } from "@/lib/markdown/user-at/remark";
 
 const markdownComponents: Components = {
 	a: (props) => {
@@ -28,7 +29,7 @@ const markdownComponents: Components = {
 			return <UserNotify userId={props["data-user"] as UUID} />;
 		}
 
-		return <span {...props} />;
+		return <span role={props.role}>{props.children}</span>;
 	},
 	object: (props) => {
 		if (props.type === "link-preview" && props.data?.length) {

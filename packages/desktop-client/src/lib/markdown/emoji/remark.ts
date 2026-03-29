@@ -17,7 +17,8 @@ export const remarkEmoji = () => {
 						data: {
 							hName: "img",
 							hProperties: {
-								class: "inline h-[1.063rem] w-[1.063rem]",
+								"data-role": "emoji",
+								class: "inline h-[1.063rem] w-[1.063rem] select-text",
 								src: `https://cdn3.emoji.gg/emojis/254673-spray.gif`,
 								alt: match,
 							},
