@@ -1,4 +1,7 @@
-import { LexicalComposer } from "@lexical/react/LexicalComposer";
+import {
+	type InitialConfigType,
+	LexicalComposer,
+} from "@lexical/react/LexicalComposer";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
@@ -14,8 +17,9 @@ import { LinkNode } from "@lexical/link";
 import { UserAtNode } from "@/lib/markdown/user-at/lexical";
 import { EnterSubmitPlugin } from "./enter-submit-plugin";
 import { FULL_TRANSFORMS } from "@/lib/markdown/lexical-transforms";
+import { EmojiNode } from "@/lib/markdown/emoji/lexical";
 
-const cfg = {
+const cfg: InitialConfigType = {
 	namespace: "textInput",
 	theme: {
 		code: "text-red-200",
@@ -24,6 +28,7 @@ const cfg = {
 		},
 	},
 	nodes: [
+		EmojiNode,
 		UserAtNode,
 		TextNode,
 		ParagraphNode,

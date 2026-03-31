@@ -1,35 +1,31 @@
 import type { Transformer } from "@lexical/markdown";
 import {
-	$applyNodeReplacement,
+	$create,
+	$getState,
+	$setState,
+	type BaseStaticNodeConfig,
+	createState,
 	DecoratorNode,
 	type EditorConfig,
 	type LexicalEditor,
 	type LexicalNode,
-	type NodeKey,
 } from "lexical";
-import { createBlockNode } from "../lexical-shared";
+import { UserNotify } from "@/components/markdown/notify";
+import type { UUID } from "node:crypto";
 
+const idState = createState("id", {
+	parse: (value) => (typeof value === "string" ? value : ""),
+});
 export class UserAtNode extends DecoratorNode<React.ReactNode> {
-	__userId: string;
-
-	static getType() {
-		return "user-at";
+	$config(): BaseStaticNodeConfig {
+		return this.config("user-at", {
+			extends: DecoratorNode,
+			stateConfigs: [{ flat: true, stateConfig: idState }],
+		});
 	}
-	static clone(node: UserAtNode): UserAtNode {
-		return new UserAtNode(node.__userId, node.__key);
-	}
-
-	constructor(id: string = "", key?: NodeKey) {
-		super(key);
-		this.__userId = id;
-	}
-
 	createDOM(_config: EditorConfig, _editor: LexicalEditor): HTMLElement {
-		const dom = document.createElement("span");
-		dom.classList.add("text-green-500");
-		return dom;
+		return document.createElement("div");
 	}
-
 	updateDOM(
 		_prevNode: unknown,
 		_dom: HTMLElement,
@@ -37,14 +33,15 @@ export class UserAtNode extends DecoratorNode<React.ReactNode> {
 	): boolean {
 		return false;
 	}
+	decorate(editor: LexicalEditor, config: EditorConfig): React.ReactNode {
+		const userId = $getState(this, idState) as UUID;
 
-	decorate(): React.ReactNode {
-		return <div className="hover:underline"></div>;
+		return <UserNotify userId={userId} />;
 	}
 }
 
 function $createUserAtNode(userId: string): UserAtNode {
-	return $applyNodeReplacement(new UserAtNode(userId));
+	return $setState($create(UserAtNode), idState, userId);
 }
 
 function $isUserAtNode(
@@ -57,14 +54,18 @@ export const NOTIFY: Transformer = {
 	dependencies: [UserAtNode],
 	type: "element",
 	regExp: /^@(?<userId>\w{3,})/,
-	export(node, traverseChildren) {
+	export(node, _traverseChildren) {
 		if (!$isUserAtNode(node)) return null;
 
-		return `<@${node.__userId}>`;
-	},
-	replace: createBlockNode((match: RegExpMatchArray) => {
-		const userId = match.groups?.userId;
+		const id = $getState(node, idState);
 
-		return $createUserAtNode(userId);
-	}),
+		return `<@${id}>`;
+	},
+	replace(parentNode, _children, match, isImport) {
+		const node = $createUserAtNode(match[0]);
+		parentNode.replace(node);
+		if (!isImport) {
+			node.selectNext(0, 0);
+		}
+	},
 };
