@@ -14,10 +14,11 @@ import { TextNode, ParagraphNode } from "lexical";
 import { ListNode, ListItemNode } from "@lexical/list";
 import { CodeNode } from "@lexical/code-core";
 import { LinkNode } from "@lexical/link";
-import { UserAtNode } from "@/lib/markdown/user-at/lexical";
+import { MentionNode } from "@/lib/markdown/mentions/lexical";
 import { EnterSubmitPlugin } from "./enter-submit-plugin";
-import { FULL_TRANSFORMS } from "@/lib/markdown/lexical-transforms";
+import { TRANSFORMERS } from "@lexical/markdown";
 import { EmojiNode } from "@/lib/markdown/emoji/lexical";
+import { MentionsPlugin } from "@/lib/markdown/mentions/mention-plugin";
 
 const cfg: InitialConfigType = {
 	namespace: "textInput",
@@ -29,7 +30,7 @@ const cfg: InitialConfigType = {
 	},
 	nodes: [
 		EmojiNode,
-		UserAtNode,
+		MentionNode,
 		TextNode,
 		ParagraphNode,
 		HeadingNode,
@@ -74,7 +75,8 @@ export const TextInput = ({
 					</div>
 					<HistoryPlugin />
 					<EnterSubmitPlugin mutateAsync={mutateAsync} />
-					<MarkdownShortcutPlugin transformers={FULL_TRANSFORMS} />
+					<MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+					<MentionsPlugin />
 				</LexicalComposer>
 			</div>
 			<Button size="icon-lg" variant="secondary">

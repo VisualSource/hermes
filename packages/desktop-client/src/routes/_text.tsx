@@ -10,10 +10,8 @@ import {
 	PopoverTrigger,
 } from "@/components/ui/popover";
 import { TooltipButton } from "@/components/ui/tooltip-button";
-import { useServerId } from "@/hooks/use-server-id";
-import { serverUsersOptions } from "@/lib/api/queries";
+import { useServerUsers } from "@/hooks/user-server-users";
 import { getStatusColor } from "@/lib/api/types";
-import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { Hash, Pin } from "lucide-react";
 
@@ -23,9 +21,7 @@ export const Route = createFileRoute("/_text")({
 
 
 const TextSidebar = () => {
-	const serverId = useServerId();
-
-	const { data } = useQuery(serverUsersOptions(serverId));
+	const { data } = useServerUsers();
 
 	return (
 		<aside className="col-span-2 bg-sidebar p-2 overflow-hidden">

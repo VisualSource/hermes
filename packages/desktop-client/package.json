@@ -48,6 +48,7 @@
     "@tauri-apps/plugin-upload": "~2.4.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "gemoji": "^8.1.0",
     "input-otp": "^1.4.2",

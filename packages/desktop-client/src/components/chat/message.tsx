@@ -24,6 +24,7 @@ export const Message = ({
 		<div
 			ref={ref}
 			data-index={index}
+			data-owner={item.userId}
 			style={{ transform: `translateY(${start}px)` }}
 			className="absolute left-0 top-0 flex w-full hover:bg-accent/60 gap-2 px-2 py-1 cursor-pointer"
 		>
