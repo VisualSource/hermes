@@ -11,15 +11,17 @@ import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { Plus, Users2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import { TextNode, ParagraphNode } from "lexical";
+import { TextNode, ParagraphNode, mergeRegister } from "lexical";
 import { ListNode, ListItemNode } from "@lexical/list";
 import { CodeNode } from "@lexical/code-core";
 import { LinkNode } from "@lexical/link";
 import { MentionNode } from "@/lib/markdown/mentions/lexical";
 import { EnterSubmitPlugin } from "./enter-submit-plugin";
 import { TRANSFORMERS } from "@lexical/markdown";
-import { EmojiNode } from "@/lib/markdown/emoji/lexical";
+import { EmojiNode, registerEmoji } from "@/lib/markdown/emoji/lexical";
 import { MentionsPlugin } from "@/lib/markdown/mentions/mention-plugin";
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
+import { useEffect } from "react";
 
 const cfg: InitialConfigType = {
 	namespace: "textInput",
@@ -45,6 +47,19 @@ const cfg: InitialConfigType = {
 };
 
 
+const Plugins = () => {
+	const [editor] = useLexicalComposerContext();
+
+	useEffect(() => {
+		const unsubscribe = mergeRegister(registerEmoji(editor));
+
+		return () => {
+			unsubscribe();
+		};
+	}, [editor]);
+
+	return null;
+};
 
 export const TextInput = ({
 	mutateAsync,
@@ -79,6 +94,7 @@ export const TextInput = ({
 					<MarkdownShortcutPlugin transformers={TRANSFORMERS} />
 					<MentionsPlugin />
 					<TabIndentationPlugin />
+					<Plugins />
 				</LexicalComposer>
 			</div>
 			<Button size="icon-lg" variant="secondary">

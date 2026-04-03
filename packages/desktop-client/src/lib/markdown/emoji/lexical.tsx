@@ -8,6 +8,7 @@ import {
 	type EditorConfig,
 	type LexicalEditor,
 	type LexicalNode,
+	TextNode,
 } from "lexical";
 
 import { nameToEmoji } from "gemoji";
@@ -24,7 +25,10 @@ export class EmojiNode extends DecoratorNode<React.ReactNode> {
 		}
 
 		createDOM(_config: EditorConfig, _editor: LexicalEditor): HTMLElement {
-			return document.createElement("span");
+			const el = document.createElement("span");
+			if (this.isCustomEmoji) el.setAttribute("data-emoji", "true");
+
+			return el;
 		}
 
 		updateDOM(
@@ -55,7 +59,7 @@ export class EmojiNode extends DecoratorNode<React.ReactNode> {
 			if (this.isCustomEmoji) {
 				return (
 					<img
-						className="inline h-[1.063rem] w-[1.063rem] select-text"
+						className="inline-block h-[1em] w-[1em]"
 						src="https://cdn3.emoji.gg/emojis/254673-spray.gif"
 						alt={`:${this.emojiId}:`}
 					/>
@@ -65,7 +69,6 @@ export class EmojiNode extends DecoratorNode<React.ReactNode> {
 			return <span>{this.emojiId}</span>;
 		}
 	}
-
 
 export function $createEmojiNode(id: string) {
 	const isCustom = id.startsWith("hce_");
@@ -79,3 +82,31 @@ export function $isEmojiNode(
 	): node is EmojiNode {
 		return node instanceof EmojiNode;
 	}
+
+const emojiRegex = /:(?<name>\w{2,}):/;
+
+function emojiTextTransform(node: TextNode): void {
+	if (!node.isSimpleText() || node.hasFormat("code")) {
+		return;
+	}
+
+	const text = node.getTextContent();
+	const match = emojiRegex.exec(text);
+
+	if (!match?.groups?.name) return;
+
+	let target: TextNode;
+	if (match.index === 0) {
+		[target] = node.splitText(match.index + match[0].length);
+	} else {
+		[, target] = node.splitText(match.index, match.index + match[0].length);
+	}
+
+	const emoji = $createEmojiNode(match.groups.name);
+
+	target.replace(emoji);
+}
+
+export function registerEmoji(editor: LexicalEditor) {
+	return editor.registerNodeTransform(TextNode, emojiTextTransform);
+}

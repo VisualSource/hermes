@@ -115,6 +115,12 @@
 	--radius-4xl: calc(var(--radius) + 16px);
 }
 
+
+.span[data-emoji="true"][data-lexical-decorator="true"] {
+	display: inline-block;
+	vertical-align: middle;
+}
+
 @layer base {
 	* {
 		@apply border-border outline-ring/50;
