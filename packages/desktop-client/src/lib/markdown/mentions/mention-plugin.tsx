@@ -1,10 +1,4 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-	Command,
-	CommandGroup,
-	CommandItem,
-	CommandList,
-} from "@/components/ui/command";
 import { useServerUsers } from "@/hooks/user-server-users";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import {
