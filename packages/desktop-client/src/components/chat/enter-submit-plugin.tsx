@@ -1,11 +1,7 @@
-
-import { MENTION } from "@/lib/markdown/mentions/lexical";
 import { $convertToMarkdownString, TRANSFORMERS } from "@lexical/markdown";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $getRoot, COMMAND_PRIORITY_HIGH, KEY_ENTER_COMMAND } from "lexical";
 import { useEffect, useEffectEvent } from "react";
-
-const transforms = [...TRANSFORMERS, MENTION];
 
 export const EnterSubmitPlugin = ({
 	mutateAsync,
@@ -24,7 +20,7 @@ export const EnterSubmitPlugin = ({
 			(ev) => {
 				if (ev?.shiftKey) return false;
 				ev?.preventDefault();
-				const markdown = $convertToMarkdownString(transforms);
+				const markdown = $convertToMarkdownString(TRANSFORMERS);
 
 				console.log(markdown);
 

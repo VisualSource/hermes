@@ -2,6 +2,7 @@ import {
 	type InitialConfigType,
 	LexicalComposer,
 } from "@lexical/react/LexicalComposer";
+import { TabIndentationPlugin } from "@lexical/react/LexicalTabIndentationPlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
@@ -77,6 +78,7 @@ export const TextInput = ({
 					<EnterSubmitPlugin mutateAsync={mutateAsync} />
 					<MarkdownShortcutPlugin transformers={TRANSFORMERS} />
 					<MentionsPlugin />
+					<TabIndentationPlugin />
 				</LexicalComposer>
 			</div>
 			<Button size="icon-lg" variant="secondary">
