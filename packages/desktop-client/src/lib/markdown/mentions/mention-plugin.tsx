@@ -46,10 +46,8 @@ export const MentionsPlugin = () => {
 	});
 
 	const triggerFn = useCallback((text: string) => {
-		console.log("trigger", text);
 		const match = mentionRegex.exec(text);
 		if (match !== null) {
-			console.log("trigger match", match);
 			return {
 				leadOffset: match.index,
 				matchingString: match.groups?.username ?? "",
