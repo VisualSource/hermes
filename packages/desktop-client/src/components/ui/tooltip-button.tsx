@@ -1,11 +1,13 @@
-import { Button, type ButtonProps } from "./button";
+import { Button } from "./button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip";
 
 export const TooltipButton = ({
 	children,
 	tooltip,
 	...props
-}: React.PropsWithChildren<{ tooltip: string } & ButtonProps>) => {
+}: React.PropsWithChildren<
+	{ tooltip: string } & React.ComponentProps<typeof Button>
+>) => {
 	return (
 		<Tooltip>
 			<TooltipTrigger render={<Button {...props}>{children}</Button>} />

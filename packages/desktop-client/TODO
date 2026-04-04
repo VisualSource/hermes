@@ -8,6 +8,7 @@ https://medium.com/@ahsanmubariz/end-to-end-encryption-e2ee-a-deep-dive-with-sim
 https://github.com/sodenn/lexical-beautiful-mentions
 
 Todo:
+    [] add i18next
     pages:
         [] audio
         [] text channel
@@ -37,7 +38,7 @@ Todo:
         [] jump to pin
         List:
             ✔ scrollbar @done(26-03-28 16:15)
-            ✔ virtual (https://github.com/suhaotian/broad-infinite-list)? @done(26-03-28 16:15)
+            ✔ virtual @done(26-03-28 16:15)
             ☐ infi list loaded
             ✔ scroll to bottom on load @done(26-03-28 16:15)
             ✔ scroll to bottom on new message when at bottom @done(26-03-28 16:15)
@@ -48,9 +49,10 @@ Todo:
             [] handle sending message
             [] handle adding attchmenets
             [] @ mentions (seperate when submitting)
-            [] adding emoji
-            [] adding custom emojis
+            ✔ adding emoji @done(26-04-03 19:35)
+            ✔ adding custom emojis @done(26-04-03 19:35)
         Message:
+            [] reactions
             ✔ handle rending link previews @done(26-03-28 16:15)
             ✔ handle rending emojis @done(26-03-28 18:53)
             ✔ handle rending @ mention @done(26-03-28 18:53)

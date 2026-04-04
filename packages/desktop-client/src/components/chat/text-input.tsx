@@ -8,21 +8,35 @@ import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
+import { EditorRefPlugin } from "@lexical/react/LexicalEditorRefPlugin";
 import { Plus, Users2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import { TextNode, ParagraphNode, mergeRegister } from "lexical";
+import {
+	TextNode,
+	ParagraphNode,
+	mergeRegister,
+	type LexicalEditor,
+	$getSelection,
+} from "lexical";
 import { ListNode, ListItemNode } from "@lexical/list";
 import { CodeNode } from "@lexical/code-core";
 import { LinkNode } from "@lexical/link";
 import { MentionNode } from "@/lib/markdown/mentions/lexical";
 import { EnterSubmitPlugin } from "./enter-submit-plugin";
 import { TRANSFORMERS } from "@lexical/markdown";
-import { EmojiNode, registerEmoji } from "@/lib/markdown/emoji/lexical";
+import {
+	$createEmojiNode,
+	EmojiNode,
+	registerEmoji,
+} from "@/lib/markdown/emoji/lexical";
 import { MentionsPlugin } from "@/lib/markdown/mentions/mention-plugin";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { useEffect } from "react";
-
+import { useCallback, useEffect, useRef } from "react";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { gemoji } from "gemoji";
+import { TooltipButton } from "../ui/tooltip-button";
+import { EmojiPicker } from "./emoji-picker";
 const cfg: InitialConfigType = {
 	namespace: "textInput",
 	theme: {
@@ -66,11 +80,29 @@ export const TextInput = ({
 }: {
 	mutateAsync: (opts: { message: string }) => void;
 }) => {
+	const editorRef = useRef<LexicalEditor>(null);
+
+	const addEmoji = useCallback((id: string) => {
+		editorRef.current?.update(() => {
+			const node = $createEmojiNode(id);
+
+			const selection = $getSelection();
+			selection?.insertNodes([node]);
+		});
+	}, []);
+
 	return (
 		<div className="flex border min-h-16 max-h-32 bg-accent items-center gap-2 px-2">
-			<Button variant="secondary" size="icon-lg">
-				<Plus />
-			</Button>
+			<Popover>
+				<PopoverTrigger
+					render={
+						<Button variant="secondary" size="icon-lg">
+							<Plus />
+						</Button>
+					}
+				/>
+				<PopoverContent align="end" className="w-80"></PopoverContent>
+			</Popover>
 			<div className="h-full w-full flex py-1">
 				<LexicalComposer initialConfig={cfg}>
 					<div className="h-full w-full relative border">
@@ -94,12 +126,12 @@ export const TextInput = ({
 					<MarkdownShortcutPlugin transformers={TRANSFORMERS} />
 					<MentionsPlugin />
 					<TabIndentationPlugin />
+					<EditorRefPlugin editorRef={editorRef} />
 					<Plugins />
 				</LexicalComposer>
 			</div>
-			<Button size="icon-lg" variant="secondary">
-				<Users2 />
-			</Button>
+			<EmojiPicker addEmoji={addEmoji} />
 		</div>
 	);
 };
+	<button type="button" className="h-10 w-10 hover:bg-background/50"></button>;
