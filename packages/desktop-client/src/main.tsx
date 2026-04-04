@@ -1,11 +1,13 @@
 import "./lib/logger";
+import "./lib/i18next";
+import "./index.css";
 import ReactDOM from "react-dom/client";
 import { StrictMode } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
-import "./index.css";
+
 import { queryClient } from "./lib/clients/queryClient";
 import { TooltipProvider } from "./components/ui/tooltip";
 
