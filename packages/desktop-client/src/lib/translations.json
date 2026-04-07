@@ -1,7 +1,34 @@
 {
     "en": {
         "translation": {
+            "Edit": "Edit",
+            "AddReaction": "Add Reaction",
+            "connection": {
+                "voiceConnected": "Voice Connected",
+                "Mute": "Mute",
+                "Unmute": "Unmute",
+                "Deafen": "Deafen",
+                "Undeafen": "Undeafen"
+            },
+
+            "home": {
+                "Friends": "Friends",
+                "Online": "Online",
+                "AddFriend": "Add Friend",
+                "Pending": "Pending",
+                "searchUser": "Search..."
+            },
+            "titlebar": {
+                "BugReport": "Bug Report"
+            },
+            "voice": {
+                "empty": "Theres no one in the room",
+                "Join": "Join",
+                "Close": "Close"
+            },
+            "Settings": "Settings",
             "Welcome": "Welcome",
+            "Member": "Member",
             "ChangeLog": "Change Log"
         }
     }

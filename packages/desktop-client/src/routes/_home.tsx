@@ -19,12 +19,14 @@ import { getStatusColor } from "@/lib/api/types";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { Users2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_home")({
 	component: RouteComponent,
 });
 
 function RouteComponent() {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const { data } = useQuery(friendListOptions());
 
@@ -36,19 +38,19 @@ function RouteComponent() {
 			<aside className="bg-accent col-span-2">
 				<div className="flex items-center py-2 px-3 bg-background shadow border-b justify-between">
 					<h1 className="inline-flex gap-2 items-center">
-						<Users2 className="h-4 w-4" /> Friends
+						<Users2 className="h-4 w-4" /> {t("home.Friends")}
 					</h1>
 
 					<div className="flex gap-1">
-						<Button variant="secondary">Pending</Button>
+						<Button variant="secondary">{t("home.Pending")}</Button>
 						<Dialog>
-							<DialogTrigger render={<Button>Add Friend</Button>} />
+							<DialogTrigger render={<Button>{t("home.AddFriend")}</Button>} />
 							<DialogContent>
 								<DialogHeader>
-									<DialogTitle>Add Friend</DialogTitle>
+									<DialogTitle>{t("home.AddFriend")}</DialogTitle>
 								</DialogHeader>
 								<div className="flex flex-col gap-2">
-									<Input placeholder="search..." />
+									<Input placeholder={t("home.searchUser")} />
 									<ul></ul>
 								</div>
 							</DialogContent>
@@ -56,7 +58,9 @@ function RouteComponent() {
 					</div>
 				</div>
 				<ul className="space-y-1 px-2 py-2 overflow-y-auto">
-					<h1>Online -- {data?.length}</h1>
+					<h1>
+						{t("home.Online")} -- {data?.length}
+					</h1>
 					<Separator />
 					{data?.map((user) => (
 						// biome-ignore lint/a11y/useKeyWithClickEvents: ignore

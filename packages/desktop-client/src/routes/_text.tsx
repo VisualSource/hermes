@@ -14,6 +14,7 @@ import { useServerUsers } from "@/hooks/user-server-users";
 import { getStatusColor } from "@/lib/api/types";
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { Hash, Pin } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_text")({
 	component: RouteComponent,
@@ -22,11 +23,14 @@ export const Route = createFileRoute("/_text")({
 
 const TextSidebar = () => {
 	const { data } = useServerUsers();
+	const { t } = useTranslation();
 
 	return (
 		<aside className="col-span-2 bg-sidebar p-2 overflow-hidden">
 			<ul className="space-y-0.5 overflow-y-auto">
-				<li className="border-b p-2">Member - {data?.length}</li>
+				<li className="border-b p-2">
+					{t("Member")} - {data?.length}
+				</li>
 				{data?.map((user) => (
 					<li key={user.id}>
 						<div className="w-full flex px-1.5 py-2 items-center gap-2 hover:shadow hover:bg-background/35">

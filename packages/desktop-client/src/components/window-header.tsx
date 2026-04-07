@@ -3,6 +3,7 @@ import { Button } from "./ui/button"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import { TooltipButton } from "./ui/tooltip-button";
 import { isTauri } from "@tauri-apps/api/core";
+import { useTranslation } from "react-i18next";
 
 const win = isTauri()
 	? getCurrentWindow()
@@ -19,6 +20,8 @@ const win = isTauri()
 		};
 
 export const WindowHeader = () => {
+	const { t } = useTranslation();
+
     return (
 					<header
 						data-tauri-drag-region
@@ -28,7 +31,7 @@ export const WindowHeader = () => {
 							<TooltipButton
 								size="icon-lg"
 								variant="ghost"
-								tooltip="Bug Report"
+								tooltip={t("titlebar.BugReport")}
 							>
 								<Bug />
 							</TooltipButton>

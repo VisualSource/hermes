@@ -18,8 +18,10 @@ import { useInVoice } from "@/hooks/use-in-voice";
 import { app } from "@/lib/clients/app";
 
 import { TooltipButton } from "../ui/tooltip-button";
+import { useTranslation } from "react-i18next";
 
 export const UserInfo = () => {
+	const { t } = useTranslation();
 	const matchRoute = useMatchRoute();
 	const params = matchRoute({ to: "/voice/$roomId" });
 
@@ -84,7 +86,7 @@ export const UserInfo = () => {
 				</div>
 				<div className="flex ml-auto">
 					<TooltipButton
-						tooltip={mute ? "Mute" : "Unmute"}
+						tooltip={t(mute ? "connection.Mute" : "connection.Unmute")}
 						size="icon-lg"
 						type="button"
 						variant="ghost"
@@ -97,13 +99,13 @@ export const UserInfo = () => {
 						type="button"
 						variant="ghost"
 						onClick={() => setDepth((e) => !e)}
-						tooltip={depth ? "Depthen" : "Undepthen"}
+						tooltip={t(depth ? "connection.Undeafen" : "connection.Deafen")}
 					>
 						{depth ? <Headphones /> : <HeadphoneOff />}
 					</TooltipButton>
 
 					<TooltipButton
-						tooltip="Settings"
+						tooltip={t("Settings")}
 						size="icon-lg"
 						type="button"
 						variant="ghost"

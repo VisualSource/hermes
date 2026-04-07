@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { app } from "@/lib/clients/app";
 import { Background } from "@/components/background-grid";
 import { requestChannelSwitch } from "@/components/voice/change-channel-alert-dialog";
+import { useTranslation } from "react-i18next";
 export const Route = createFileRoute("/voice/$roomId")({
 	component: RouteComponent,
 	pendingComponent: () => <div></div>,
@@ -17,6 +18,7 @@ export const Route = createFileRoute("/voice/$roomId")({
 
 
 function RouteComponent() {
+	const { t } = useTranslation();
 	const { roomId } = Route.useParams();
 	const { watchingStream, items, watch, inVoice } = useVoice();
 
@@ -45,10 +47,10 @@ function RouteComponent() {
 				<Card className="z-3">
 					<CardContent className="flex flex-col gap-2">
 						<h1 className="text-4xl">Room Name</h1>
-						<p>Theres no one in the room</p>
+						<p>{t("voice.empty")}</p>
 
 						<Button variant="secondary" onClick={() => app.joinVoice(roomId)}>
-							Join
+							{t("voice.join")}
 						</Button>
 					</CardContent>
 				</Card>
@@ -80,7 +82,7 @@ function RouteComponent() {
 								variant="secondary"
 								onClick={() => document.startViewTransition(() => watch(null))}
 							>
-								<X /> Close
+								<X /> {t("voice.close")}
 							</Button>
 						</div>
 					</div>
