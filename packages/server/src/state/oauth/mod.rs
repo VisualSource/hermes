@@ -29,7 +29,9 @@ pub struct OAuthAuthorizeQuery {
 
 impl OAuthAuthorizeQuery {
     pub fn validate(&self) -> Result<(), OAuthError> {
-        if self.redirect_uri != OAUTH_REDIRECT_URI {
+        log::debug!("request uri: {}",self.redirect_uri);
+
+        if self.redirect_uri != OAUTH_REDIRECT_URI && self.redirect_uri != "http://localhost:1420/oauth" {
             return Err(OAuthError::error(OAuthErrorType::InvalidRedirect));
         }
 
