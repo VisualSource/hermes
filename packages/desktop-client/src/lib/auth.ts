@@ -82,19 +82,42 @@ export class OAuth {
 			>();
 
 			if (!isTauri()) {
-				const win = window.open(url, "_blank", "width=480,height=600");
-				if (!win) throw new Error("unable to process request");
+				
+				if (import.meta.env.DEV) {
+					const channel = new BroadcastChannel("oauth");
+					channel.addEventListener("message", (ev) => {
+						if (typeof ev.data !== "string") return reject("Invalid data");
+						resolve(ev.data);
+					});
 
-				win.addEventListener("beforeunload", () => reject("no win"));
+					const win = window.open(
+						url,
+						"OauthLogin",
+						"width=480,height=600,scrollbars=yes",
+					);
+					if (!win) {
+						reject(new Error("no popup no allowed"));
+					}
 
-				setInterval(() => {
-					const loc = win.location.origin;
-					console.log(loc);
-				}, 5000);
+					const result = await promise;
 
-				await promise;
+					if (!result) throw new Error("a");
 
-				return;
+					this._token =
+						await this.client.authorizationCode.getTokenFromCodeRedirect(
+							result,
+							{
+								redirectUri,
+								codeVerifier,
+								state,
+							},
+						);
+
+					localStorage.setItem("auth", JSON.stringify(this._token));
+
+					return this.token;
+				}
+				throw new Error("Unsupported env!");
 			}
 
 			const unlisten = await listen<AuthFlowEvent>("hermes://auth", (ev) => {

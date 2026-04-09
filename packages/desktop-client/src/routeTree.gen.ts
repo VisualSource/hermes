@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from "./routes/__root";
+import { Route as OauthRouteImport } from "./routes/oauth";
 import { Route as TextRouteImport } from "./routes/_text";
 import { Route as HomeRouteImport } from "./routes/_home";
 import { Route as HomeIndexRouteImport } from "./routes/_home/index";
@@ -27,6 +28,11 @@ import { Route as TextTextRoomIdRouteImport } from "./routes/_text/text.$roomId"
 import { Route as TextRolesRoomIdRouteImport } from "./routes/_text/roles.$roomId";
 import { Route as HomeTextPeerUserIdRouteImport } from "./routes/_home/text.peer.$userId";
 
+const OauthRoute = OauthRouteImport.update({
+  id: "/oauth",
+  path: "/oauth",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const TextRoute = TextRouteImport.update({
   id: "/_text",
   getParentRoute: () => rootRouteImport,
@@ -122,6 +128,7 @@ const HomeTextPeerUserIdRoute = HomeTextPeerUserIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   "/": typeof HomeIndexRoute;
+  "/oauth": typeof OauthRoute;
   "/settings": typeof SettingsSettingsLayoutRouteWithChildren;
   "/voice/$roomId": typeof VoiceRoomIdRoute;
   "/roles/$roomId": typeof TextRolesRoomIdRoute;
@@ -139,6 +146,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   "/": typeof HomeIndexRoute;
+  "/oauth": typeof OauthRoute;
   "/settings": typeof SettingsSettingsLayoutRouteWithChildren;
   "/voice/$roomId": typeof VoiceRoomIdRoute;
   "/roles/$roomId": typeof TextRolesRoomIdRoute;
@@ -158,6 +166,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/_home": typeof HomeRouteWithChildren;
   "/_text": typeof TextRouteWithChildren;
+  "/oauth": typeof OauthRoute;
   "/settings/_settingsLayout": typeof SettingsSettingsLayoutRouteWithChildren;
   "/voice/$roomId": typeof VoiceRoomIdRoute;
   "/_home/": typeof HomeIndexRoute;
@@ -178,6 +187,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
     | "/"
+    | "/oauth"
     | "/settings"
     | "/voice/$roomId"
     | "/roles/$roomId"
@@ -195,6 +205,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/"
+    | "/oauth"
     | "/settings"
     | "/voice/$roomId"
     | "/roles/$roomId"
@@ -213,6 +224,7 @@ export interface FileRouteTypes {
     | "__root__"
     | "/_home"
     | "/_text"
+    | "/oauth"
     | "/settings/_settingsLayout"
     | "/voice/$roomId"
     | "/_home/"
@@ -233,12 +245,20 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   HomeRoute: typeof HomeRouteWithChildren;
   TextRoute: typeof TextRouteWithChildren;
+  OauthRoute: typeof OauthRoute;
   SettingsSettingsLayoutRoute: typeof SettingsSettingsLayoutRouteWithChildren;
   VoiceRoomIdRoute: typeof VoiceRoomIdRoute;
 }
 
 declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
+    "/oauth": {
+      id: "/oauth";
+      path: "/oauth";
+      fullPath: "/oauth";
+      preLoaderRoute: typeof OauthRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/_text": {
       id: "/_text";
       path: "";
@@ -420,6 +440,7 @@ const SettingsSettingsLayoutRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   HomeRoute: HomeRouteWithChildren,
   TextRoute: TextRouteWithChildren,
+  OauthRoute: OauthRoute,
   SettingsSettingsLayoutRoute: SettingsSettingsLayoutRouteWithChildren,
   VoiceRoomIdRoute: VoiceRoomIdRoute,
 };
