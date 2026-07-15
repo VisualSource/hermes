@@ -5,11 +5,11 @@
   "main": "index.js",
   "scripts": {
     "dev:caddy": "sudo docker compose --file ./depolyments/docker-compose-local.yml up",
-    "dev:server": "cd ./packages/server && cargo run",
+    "dev:server": "cd ./apps/server && cargo run",
     "backend:dev": "pnpm run \"/^dev:.*/\""
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.33.0"
+  "packageManager": "pnpm@11.13.0"
 }

@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-asdf-overlay-client = "1.2.0"
-tokio = { version = "1.49", features = ["full"]}
+asdf-overlay-client = "1.2"
+tokio = { version = "1.52", features = ["full"]}
 anyhow = "1.0"
-egui = "0.33" # https://crates.io/crates/iced
+iced = "1.14" # https://crates.io/crates/iced
 
 [profile.release] 
 opt-level = "s"  # Optimize for binary size
