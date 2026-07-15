@@ -1,0 +1,3 @@
+publish: {"kind":"room_joined","room_id":"r1","room_name":"general"}
+publish: {"kind":"user_joined","user_id":"u1","display_name":"Alice"}
+publish: {"kind":"user_joined","user_id":"u2","display_name":"Bob"}
