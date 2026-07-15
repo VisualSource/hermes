@@ -7,7 +7,9 @@ edition = "2024"
 asdf-overlay-client = "1.2"
 tokio = { version = "1.52", features = ["full"]}
 anyhow = "1.0"
-iced = "1.14" # https://crates.io/crates/iced
+iced = "0.14" # https://crates.io/crates/iced
+sysinfo = "0.39"
+nng = "1.0.1"
 
 [profile.release] 
 opt-level = "s"  # Optimize for binary size
