@@ -8,14 +8,64 @@
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
     <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="/static/stylesheet.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://www.google.com/recaptcha/enterprise.js?render={RECAPTCHA_SITE_KEY}"></script>
+    <script>
+        async function onSubmit(target){
+           try {
+                const data = new FormData(target);
+                
+                const csrf = data.get("{CSRF_TOKEN_FIELD}");
+                data.delete("{CSRF_TOKEN_FIELD}");
+
+                const token = await getRecaptchaToken("{RECAPTCHA_SITE_KEY}","login");
+                data.set("recaptcha",token);
+
+                const path = new URL("/login",window.location.origin);
+                const response = await fetch(path,{
+                    method: "post",
+                    body: new URLSearchParams(formData.entries()),
+                    headers: {
+                        "X-CSRF-Token": csrf
+                    }
+                });
+
+                if(!response.ok) {
+                    // parse error;
+                    const msg = "";
+                    throw new Error(msg, { cause: response });
+                }
+
+                const query = new URLSearchParams(window.location.search);
+                const returnTo = query.get("return_to");
+                if(!returnTo) throw new Error("no return_to query param in response");
+                const url = new URL(returnTo);
+                if(url.origin !== window.location.origin) throw new Error("invalid return to origin");
+                window.location.href = url.toString();
+           } catch (error) {
+                if(error instanceof TypeError) {
+                    throw new Error("a network error occurred", { cause: error });
+                }
+
+                throw error;
+           }
+        }
+    </script>
 </head>
-<body class="dark">
+<body class="dark" x-data="{ 
+        showDialog(title, msg){ 
+            this.dTitle = title; 
+            this.dDesc = msg; 
+            document.getElementById('message-dialog').showModal();  
+        }, 
+        dTitle: 'Error', 
+        dDesc: '' 
+    }">
     <dialog id="message-dialog" class="backdrop:bg-black/10 backdrop:supports-backdrop-filter:backdrop-blur-xs">
         <form method="dialog" data-slot="alert-dialog-content" data-size="default" class="dialog-content group/alert-dialog-content">
             <header data-slot="alert-dialog-header" class="dialog-header">
-                <h1 data-slot="alert-dialog-title" class="dialog-title">Error</h1>
-                <p data-slot="alert-dialog-description" class="dialog-description"></p>
+                <h1 data-slot="alert-dialog-title" class="dialog-title" x-text="dTitle">Error</h1>
+                <p data-slot="alert-dialog-description" class="dialog-description" x-text="dDesc"></p>
             </header>
             <footer data-slot="alert-dialog-footer" class="dialog-footer">
                 <button data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">
@@ -24,33 +74,53 @@
             </footer>
         </form>
     </dialog>
-     <template id="login-done">
-        <div data-slot="card" data-size="default" class="card group/card text-center">
-             <section data-slot="card-content" class="card-content">
-                <h1 class="text-lg font-bold">Your loggedin.</h1>
-                <p class="text-muted-foreground mt-4">
-                    If the app doesn't open try <a class="underline text-primary-foreground" href="hermes://open">clicking here</a>
-                </p>
-             </section>
-        </div>
-    </template>
     <div class="bg-muted flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-        <div class="w-full max-w-sm">
-            <main class="flex flex-col gap-6">
+        <div class="w-full max-w-sm" x-data="{ 
+                done: false, 
+                loginDone(){ this.done = true; } 
+            }">
+            <template id="login-done" x-if="done">
+                <div data-slot="card" data-size="default" class="card group/card text-center">
+                    <section data-slot="card-content" class="card-content">
+                        <h1 class="text-lg font-bold">Your loggedin.</h1>
+                        <p class="text-muted-foreground mt-4">
+                            If the app doesn't open try <a class="underline text-primary-foreground" href="hermes://open">clicking here</a>
+                        </p>
+                    </section>
+                </div>
+            </template>
+            <main class="flex flex-col gap-6" x-show="!done">
                 <div data-slot="card" data-size="default" class="card group/card">
                     <header data-slot="card-header" class="card-header group/card-header">
                         <div data-slot="card-title" class="card-title">Login to your account</div>
                         <div data-slot="card-description" class="card-description">Enter your username below to login to your account.</div>
                     </header>
                     <section data-slot="card-content" class="card-content">
-                        <form id="login-form">
+                        <form id="login-form" @submit.prevent="submit($event)" x-data="{ 
+                                submit(ev){ 
+                                    this.pending = true; 
+                                    onSubmit(ev.target).then(loginDone).catch((err)=>{ 
+                                        showDialog('Error',err.message); 
+                                    }).finally(()=>{ 
+                                        this.pending = false; 
+                                    }); 
+                                }, 
+                                pending: false, 
+                                errors: { usr: [], psd: [], psdChk:[] } 
+                            }">
                             <input type="hidden" name="{CSRF_TOKEN_FIELD}" value="{CSRF_TOKEN_VALUE}" />
                             <div data-slot="field-group" class="field-group group/field-group">
                                 <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
                                     <label for="username" class="field-label group/field-label peer/field-label" data-slot="field-label">Username</label>
                                     <input class="input" data-slot="input" id="username" name="username" type="text" minlength="4" maxlength="255" placeholder="hermes" required/>
-                                     <div id="username-errors" role="alert" data-slot="field-error" class="field-error hidden">
-                                        <ul></ul>
+                                     <div id="username-errors" role="alert" data-slot="field-error" class="field-error hidden" x-show="errors" x-transition>
+                                        <ul>
+                                            <template x-for="err in errors.usr">
+                                                <li>
+                                                    <span x-text="err"></span>
+                                                </li>
+                                            </template>
+                                        </ul>
                                     </div>
                                 </div>
                                 <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
@@ -59,15 +129,18 @@
                                         <a href="/forget-psd" class="ml-auto text-sm underline-offset-2 hover:underline">Forgot your password?</a>
                                     </div>
                                     <input class="input" data-slot="input" id="password" name="password" required type="password" minlength="8" maxlength="384"/>
-                                    <div id="password-errors" role="alert" data-slot="field-error" class="field-error hidden">
-                                        <ul></ul>
+                                    <div id="password-errors" role="alert" data-slot="field-error" class="field-error hidden" x-show="errors" x-transition>
+                                          <ul>
+                                            <template x-for="err in errors.psd">
+                                                <li>
+                                                    <span x-text="err"></span>
+                                                </li>
+                                            </template>
+                                        </ul>
                                     </div>
                                 </div>
-                                <div id="body-errors" role="alert" data-slot="field-error" class="field-error hidden">
-                                        <ul></ul>
-                                    </div>
                                 <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
-                                    <button id="submitBtn" data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">
+                                    <button :disabled="pending" id="submitBtn" data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">
                                         Login
                                         <svg role="status" aria-label="Loading" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-loader-circle-icon lucide-loader-circle animate-spin size-4 hidden"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                                     </button>
@@ -85,8 +158,13 @@
             </main>
         </div>
     </div>
-    <script type="module">
+  
+    <!--<script type="module">
         import {onFormSubmit,reportError,getRecaptchaToken, handleErrorResponse,  showMessage} from "/static/shared.js";
+
+  
+
+
         document.addEventListener("DOMContentLoaded",()=>{
             reportError(["username","password"]);
 
@@ -98,52 +176,6 @@
             if(link){
                 link.href = `${link.href}${window.location.search}`;
             }
-
-            onFormSubmit("login-form",async (formData)=>{
-                const path = new URL("/login",window.location.origin);
-     
-                try {
-                    document.getElementById("body-errors")?.classList.add("hidden");
-                    submitBtn.setAttribute("disabled","true");
-                    spinner.classList.remove("hidden");
-
-                    const token = await getRecaptchaToken("{RECAPTCHA_SITE_KEY}","login");
-                    formData.set("recaptcha",token);
-
-                    const response = await fetch(path,{
-                        method: "post",
-                        body: new URLSearchParams(formData.entries()),
-                        credentials: "same-origin"
-                    });
-
-                    if(!response.ok) {
-                        await handleErrorResponse(response);
-                        return;
-                    }
-
-                    const template = document.getElementById("login-done");
-                    const clone = document.importNode(template.content,true);
-                    document.querySelector("main").replaceChildren(clone);
-
-                   try {
-                      const query = new URLSearchParams(window.location.search);
-                      const returnTo = query.get("return_to");
-                        if(!returnTo) return;
-                      const url = new URL(returnTo);
-                      if(url.origin !== window.location.origin) return;
-                       window.location.href = url.toString();
-                   } catch (error) {
-                     console.error(error);
-                   }
-                } catch (error) {
-                    console.error("error");
-                    showMessage(typeof error === "object" && "message" in error ? error.message : "Unknown error");
-                } finally {
-                    submitBtn.removeAttribute("disabled");
-                    spinner.classList.add("hidden");
-                }
-            });
-        });
-    </script>
+    </script>-->
 </body>
 </html>
