@@ -86,13 +86,7 @@ pub async fn authorize(
             .append_pair("code", &code)
             .append_pair("state", &query.state);
 
-        return Ok(HttpResponse::Found()
-            .insert_header((header::LOCATION, redirect.to_string()))
-            .insert_header((header::REFERRER_POLICY, "no-referrer"))
-            .insert_header((header::X_FRAME_OPTIONS, "DENY"))
-            .insert_header((header::CONTENT_SECURITY_POLICY, "frame-ancestors 'none'"))
-            .insert_header((header::X_CONTENT_TYPE_OPTIONS, "nosniff"))
-            .finish());
+        return Ok(oauth::secure_redirect(redirect.to_string()));
     }
 
     let iss = std::env::var("SERVER_ORIGIN")?;
@@ -116,15 +110,7 @@ pub async fn authorize(
         .query_pairs_mut()
         .append_pair("return_to", return_to.as_str());
 
-    let resp = HttpResponse::Found()
-        .insert_header((header::REFERRER_POLICY, "no-referrer"))
-        .insert_header((header::X_FRAME_OPTIONS, "DENY"))
-        .insert_header((header::CONTENT_SECURITY_POLICY, "frame-ancestors 'none'"))
-        .insert_header((header::X_CONTENT_TYPE_OPTIONS, "nosniff"))
-        .insert_header((header::LOCATION, login.to_string()))
-        .finish();
-
-    Ok(resp)
+    Ok(oauth::secure_redirect(login.to_string()))
 }
 
 #[derive(Debug, serde::Deserialize, ToSchema)]

@@ -116,13 +116,7 @@ impl actix_web::ResponseError for OAuthAuthorizeError {
                 self.state.as_deref(),
             );
 
-            HttpResponse::Found()
-                .append_header((header::LOCATION, location))
-                .insert_header((header::REFERRER_POLICY, "no-referrer"))
-                .insert_header((header::X_FRAME_OPTIONS, "DENY"))
-                .insert_header((header::CONTENT_SECURITY_POLICY, "frame-ancestors 'none'"))
-                .insert_header((header::X_CONTENT_TYPE_OPTIONS, "nosniff"))
-                .finish()
+            crate::state::oauth::secure_redirect(location)
         } else {
             let status = self.status_code();
             HttpResponse::build(status).json(ApplicationError::new(

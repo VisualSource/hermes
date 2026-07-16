@@ -1,6 +1,11 @@
 setup:
     ☐ oauth
         ✔ csrf @done(26-07-16 00:00)
+            [] optimization: have shared.ts's onFormSubmit read the hidden
+               CSRF field and send it as X-CSRF-Token header. The middleware
+               (actix-csrf-middleware 0.7, lib.rs:897-916) checks the header
+               first and skips body reading entirely when present, avoiding
+               the buffer + re-inject roundtrip on every login/signup POST.
         ✔ pcke @done(26-03-03 17:12)
         ☐ https://developers.google.com/recaptcha/docs/v3
             [] recaptcha finish

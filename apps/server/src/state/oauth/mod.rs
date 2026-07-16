@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use actix_web::HttpResponse;
+use actix_web::http::header;
 use uuid::uuid;
 
 use crate::state::oauth::errors::{OAuthAuthorizeError, OAuthErrorType};
@@ -11,6 +13,20 @@ pub mod jwt;
 pub const OAUTH_CLIENT_ID: uuid::Uuid = uuid!("00000000-0000-0000-0000-000000000000");
 pub const OAUTH_REDIRECT_URI: &str = "hermes://oauth";
 pub const OAUTH_DEV_REDIRECT_URI: &str = "http://localhost:1420/oauth";
+
+/// Build a 302 Found response with the hardening headers we apply on every
+/// OAuth redirect: no-referrer (so codes/tokens don't leak in `Referer`),
+/// deny-framing (X-Frame-Options + CSP), and nosniff. Every OAuth-adjacent
+/// redirect must go through this so the header set stays uniform.
+pub fn secure_redirect(location: impl Into<String>) -> HttpResponse {
+    HttpResponse::Found()
+        .insert_header((header::LOCATION, location.into()))
+        .insert_header((header::REFERRER_POLICY, "no-referrer"))
+        .insert_header((header::X_FRAME_OPTIONS, "DENY"))
+        .insert_header((header::CONTENT_SECURITY_POLICY, "frame-ancestors 'none'"))
+        .insert_header((header::X_CONTENT_TYPE_OPTIONS, "nosniff"))
+        .finish()
+}
 
 /// Advertised scopes. Any request scope outside this set is rejected with
 /// `invalid_scope` per RFC 6749 §4.1.2.1.
