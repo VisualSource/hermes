@@ -22,22 +22,34 @@ CREATE TABLE IF NOT EXISTS grants (
     id BLOB NOT NULL PRIMARY KEY,
     code TEXT NOT NULL,
     user_id BLOB NOT NULL,
+    client_id BLOB NOT NULL,
+    redirect_uri TEXT NOT NULL,
     created_at DATETIME NOT NULL,
     expires_at DATETIME NOT NULL,
     scopes TEXT,
     used BOOLEAN NOT NULL DEFAULT FALSE,
     code_challenge TEXT NOT NULL,
-    code_challenge_method TEXT NOT NULL 
+    code_challenge_method TEXT NOT NULL,
+
+    FOREIGN KEY(user_id)
+        REFERENCES users(id)
+            ON DELETE CASCADE
+            ON UPDATE NO ACTION
 );
+CREATE INDEX IF NOT EXISTS idx_grants_code ON grants(code);
+
 CREATE TABLE IF NOT EXISTS refresh_tokens (
     id BLOB NOT NULL PRIMARY KEY,
     user_id BLOB NOT NULL,
+    family_id BLOB NOT NULL,
     created_at DATETIME NOT NULL,
     expires_at DATETIME NOT NULL,
     used BOOLEAN NOT NULL DEFAULT FALSE,
+    revoked BOOLEAN NOT NULL DEFAULT FALSE,
 
-    FOREIGN KEY(user_id) 
+    FOREIGN KEY(user_id)
         REFERENCES users(id)
-            ON DELETE CASCADE 
+            ON DELETE CASCADE
             ON UPDATE NO ACTION
 );
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family ON refresh_tokens(family_id);

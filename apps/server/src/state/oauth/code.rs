@@ -17,8 +17,19 @@ pub fn generate_code() -> String {
     code
 }
 
+/// RFC 7636 §4.1: `code_verifier` = `[A-Z] / [a-z] / [0-9] / "-" / "." / "_" / "~"`.
+/// The same character set applies to `code_challenge` (§4.2) since it's the
+/// base64url-no-pad of a SHA-256 digest, a strict subset of unreserved chars.
+pub fn is_valid_pkce_charset(s: &str) -> bool {
+    s.bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~'))
+}
+
 pub fn validate_pkce(challenge: &str, verifier: &str, method: &str) -> bool {
     if verifier.len() < 43 || verifier.len() > 128 {
+        return false;
+    }
+    if !is_valid_pkce_charset(verifier) {
         return false;
     }
 
