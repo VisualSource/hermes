@@ -21,6 +21,10 @@ pub struct Claims {
     pub jti: uuid::Uuid,
     pub iat: i64,
     pub exp: i64,
+    /// RFC 9068 §2.2.2: space-separated scope list. Present only when the
+    /// grant carried a non-empty scope.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub scope: Option<String>,
 }
 
 #[derive(Debug, Error)]
@@ -44,6 +48,19 @@ pub struct RefreshClaims {
     pub exp: i64,
     pub iat: i64,
     pub jti: uuid::Uuid,
+    /// Scope granted to this refresh-token family. Copied verbatim onto every
+    /// access token minted from this family so RFC 6749 §6 ("scope of the
+    /// access token MUST NOT include any scope not originally granted") holds.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub scope: Option<String>,
+}
+
+/// Bundle returned by `create_refresh_jwt` — the encoded JWT string plus the
+/// two DB-side pieces the caller needs to record it.
+pub struct NewRefreshToken {
+    pub token: String,
+    pub jti: uuid::Uuid,
+    pub expires: time::UtcDateTime,
 }
 
 /// Ed25519 keypair + derived JWKS/JWT metadata, loaded once at startup and
@@ -130,13 +147,30 @@ fn compute_jwk_thumbprint(public_key_bytes: &[u8; 32]) -> String {
     base64::prelude::BASE64_URL_SAFE_NO_PAD.encode(digest)
 }
 
+/// Resource-server audience for access tokens (RFC 9068 §2.2). The API is
+/// served under `/api/*` on the same origin as the AS, so the resource
+/// identifier is `SERVER_ORIGIN/api`. Anyone else validating an access token
+/// (a future split-out resource server) uses this string as their expected
+/// audience.
+fn resource_audience() -> Result<String, JwtError> {
+    let iss = std::env::var("SERVER_ORIGIN")?;
+    Ok(format!("{}/api", iss.trim_end_matches('/')))
+}
+
+fn sign_jwt<T: serde::Serialize>(typ: &str, claims: &T) -> Result<String, JwtError> {
+    let keys = keys()?;
+    let mut header = jsonwebtoken::Header::new(Algorithm::EdDSA);
+    header.typ = Some(typ.to_string());
+    header.kid = Some(keys.kid.clone());
+    Ok(jsonwebtoken::encode::<T>(&header, claims, &keys.encoding)?)
+}
+
 pub fn create_refresh_jwt(
     client_id: uuid::Uuid,
     user_id: uuid::Uuid,
-) -> Result<(String, uuid::Uuid, time::UtcDateTime), JwtError> {
-    let keys = keys()?;
+    scope: Option<String>,
+) -> Result<NewRefreshToken, JwtError> {
     let jti = uuid::Uuid::now_v7();
-
     let iss = std::env::var("SERVER_ORIGIN")?;
 
     let now = time::UtcDateTime::now();
@@ -149,23 +183,26 @@ pub fn create_refresh_jwt(
         exp: exp.unix_timestamp(),
         iat: now.unix_timestamp(),
         jti,
+        scope,
     };
 
-    let mut header = jsonwebtoken::Header::new(Algorithm::EdDSA);
-    header.typ = Some("rt+jwt".to_string());
-    header.kid = Some(keys.kid.clone());
-
-    let token = jsonwebtoken::encode::<RefreshClaims>(&header, &claims, &keys.encoding)?;
-
-    Ok((token, jti, exp))
+    let token = sign_jwt("rt+jwt", &claims)?;
+    Ok(NewRefreshToken {
+        token,
+        jti,
+        expires: exp,
+    })
 }
 
-pub fn create_jwt(user_id: uuid::Uuid, client_id: uuid::Uuid) -> Result<String, JwtError> {
-    let keys = keys()?;
+pub fn create_jwt(
+    user_id: uuid::Uuid,
+    client_id: uuid::Uuid,
+    scope: Option<String>,
+) -> Result<String, JwtError> {
     let now = time::UtcDateTime::now();
     let exp = now.add(time::Duration::days(1)).unix_timestamp();
     let iss = std::env::var("SERVER_ORIGIN")?;
-    let aud = std::env::var("SERVER_ORIGIN")?;
+    let aud = resource_audience()?;
 
     let claims = Claims {
         iss,
@@ -175,24 +212,18 @@ pub fn create_jwt(user_id: uuid::Uuid, client_id: uuid::Uuid) -> Result<String, 
         jti: uuid::Uuid::now_v7(),
         iat: now.unix_timestamp(),
         exp,
+        scope,
     };
 
     // RFC 9068 §2.1: access tokens SHOULD use `typ: at+jwt` so they can't be
-    // confused with ID tokens or unrelated JWTs. `kid` in the header tells
-    // downstream verifiers which JWKS entry to fetch.
-    let mut header = jsonwebtoken::Header::new(Algorithm::EdDSA);
-    header.typ = Some("at+jwt".to_string());
-    header.kid = Some(keys.kid.clone());
-
-    let token = jsonwebtoken::encode::<Claims>(&header, &claims, &keys.encoding)?;
-
-    Ok(token)
+    // confused with ID tokens or unrelated JWTs.
+    sign_jwt("at+jwt", &claims)
 }
 
 pub fn validate_jwt(token: &str) -> Result<TokenData<Claims>, JwtError> {
     let keys = keys()?;
     let iss = std::env::var("SERVER_ORIGIN")?;
-    let aud = std::env::var("SERVER_ORIGIN")?;
+    let aud = resource_audience()?;
 
     let mut validater = Validation::new(Algorithm::EdDSA);
     validater.set_issuer(&[iss]);
@@ -239,12 +270,18 @@ mod tests {
         setup_test_key();
 
         let user_id = uuid::uuid!("00000000-0000-0000-1000-000000000000");
-        let jwt = super::create_jwt(user_id, super::OAUTH_CLIENT_ID).expect("Failed to create jwt");
+        let jwt = super::create_jwt(
+            user_id,
+            super::OAUTH_CLIENT_ID,
+            Some("profile offline_access".to_string()),
+        )
+        .expect("Failed to create jwt");
 
         let decoded = super::validate_jwt(&jwt).expect("failed to validate jwt");
         assert_eq!(decoded.claims.sub, user_id);
         assert_eq!(decoded.claims.client_id, super::OAUTH_CLIENT_ID);
-        assert_eq!(decoded.claims.aud, "http://localhost:5000");
+        assert_eq!(decoded.claims.aud, "http://localhost:5000/api");
+        assert_eq!(decoded.claims.scope.as_deref(), Some("profile offline_access"));
         assert_eq!(decoded.header.typ.as_deref(), Some("at+jwt"));
         assert!(decoded.header.kid.is_some());
     }
@@ -254,10 +291,16 @@ mod tests {
         setup_test_key();
 
         let user_id = uuid::uuid!("00000000-0000-0000-1000-000000000000");
-        let (jwt, _, _) =
-            super::create_refresh_jwt(super::OAUTH_CLIENT_ID, user_id).expect("failed to make jwt");
+        let issued = super::create_refresh_jwt(
+            super::OAUTH_CLIENT_ID,
+            user_id,
+            Some("offline_access".to_string()),
+        )
+        .expect("failed to make jwt");
 
-        let data = super::validate_refresh_token(&jwt).expect("failed to validate token");
+        let data =
+            super::validate_refresh_token(&issued.token).expect("failed to validate token");
         assert_eq!(data.claims.sub, user_id);
+        assert_eq!(data.claims.scope.as_deref(), Some("offline_access"));
     }
 }

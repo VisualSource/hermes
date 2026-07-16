@@ -49,21 +49,24 @@ impl RefreshToken {
     }
 
     /// Revoke every refresh token in a family. Called when reuse is detected,
-    /// per OAuth 2.1 §6.1 / RFC 6819 §5.2.2.3.
+    /// per OAuth 2.1 §6.1 / RFC 6819 §5.2.2.3. Sets both `used` and `revoked`
+    /// so the reuse-detection predicate (`used || revoked`) short-circuits on
+    /// the first check regardless of order.
     pub async fn revoke_family(
         family_id: &uuid::Uuid,
         db: &SqlitePool,
     ) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
         query!(
-            "UPDATE refresh_tokens SET revoked = TRUE WHERE family_id = ?",
+            "UPDATE refresh_tokens SET revoked = TRUE, used = TRUE WHERE family_id = ?",
             family_id
         )
         .execute(db)
         .await
     }
 
-    /// Delete expired refresh tokens plus revoked tokens whose family only
-    /// contains revoked/expired rows. Called by the periodic cleanup task.
+    /// Delete expired refresh tokens. Called hourly by the cleanup task.
+    /// Revoked-but-not-expired rows stay until natural expiry so reuse
+    /// detection still fires on them.
     pub async fn remove_expired(db: &SqlitePool) -> Result<(), sqlx::Error> {
         let now = time::OffsetDateTime::now_utc();
         sqlx::query!("DELETE FROM refresh_tokens WHERE expires_at < ?;", now)

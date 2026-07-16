@@ -1,6 +1,6 @@
 setup:
     ☐ oauth
-        [] csrf
+        ✔ csrf @done(26-07-16 00:00)
         ✔ pcke @done(26-03-03 17:12)
         ☐ https://developers.google.com/recaptcha/docs/v3
             [] recaptcha finish
@@ -17,7 +17,8 @@ setup:
         api routes:
             ✔ token @done(26-03-03 17:12)
             ✔ authorize @done(26-03-03 17:12)
-            [] refresh
+            ✔ refresh @done(26-07-16 00:00)
+            ✔ revoke @done(26-07-16 00:00)
     ☐ database
         ☐ schema
         ☐ models

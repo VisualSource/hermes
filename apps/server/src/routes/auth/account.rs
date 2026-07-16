@@ -31,7 +31,7 @@ use utoipa::ToSchema;
     )
 )]
 #[get("/login")]
-pub async fn login(/*csrf: CsrfToken*/) -> std::io::Result<impl Responder> {
+pub async fn login(csrf: CsrfToken) -> std::io::Result<impl Responder> {
     let site_key = env::var("RECAPTCHA_SITE_KEY");
     if let Err(err) = site_key {
         log::error!("{}", err);
@@ -44,8 +44,8 @@ pub async fn login(/*csrf: CsrfToken*/) -> std::io::Result<impl Responder> {
     file.read_to_string(&mut buffer)?;
 
     let content = buffer
-        /* .replace("{CSRF_TOKEN_FIELD}", DEFAULT_CSRF_TOKEN_FIELD)
-        .replace("{CSRF_TOKEN_VALUE}", &csrf.0)*/
+        .replace("{CSRF_TOKEN_FIELD}", DEFAULT_CSRF_TOKEN_FIELD)
+        .replace("{CSRF_TOKEN_VALUE}", &csrf.0)
         .replace("{RECAPTCHA_SITE_KEY}", &site_key);
 
     Ok(HttpResponse::Ok()
@@ -61,7 +61,7 @@ pub async fn login(/*csrf: CsrfToken*/) -> std::io::Result<impl Responder> {
     )
 )]
 #[get("/signup")]
-pub async fn signup(/*csrf: CsrfToken*/) -> std::io::Result<impl Responder> {
+pub async fn signup(csrf: CsrfToken) -> std::io::Result<impl Responder> {
     let site_key = env::var("RECAPTCHA_SITE_KEY");
     if let Err(err) = site_key {
         log::error!("{}", err);
@@ -74,8 +74,8 @@ pub async fn signup(/*csrf: CsrfToken*/) -> std::io::Result<impl Responder> {
     file.read_to_string(&mut buffer)?;
 
     let content = buffer
-        /*.replace("{CSRF_TOKEN_FIELD}", DEFAULT_CSRF_TOKEN_FIELD)
-        .replace("{CSRF_TOKEN_VALUE}", &csrf.0) */
+        .replace("{CSRF_TOKEN_FIELD}", DEFAULT_CSRF_TOKEN_FIELD)
+        .replace("{CSRF_TOKEN_VALUE}", &csrf.0)
         .replace("{RECAPTCHA_SITE_KEY}", &site_key);
 
     Ok(HttpResponse::Ok()

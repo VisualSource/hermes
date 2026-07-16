@@ -127,7 +127,7 @@ impl actix_web::ResponseError for OAuthAuthorizeError {
             let status = self.status_code();
             HttpResponse::build(status).json(ApplicationError::new(
                 status.as_u16(),
-                self.error_type.name(),
+                self.error_type.name_static().to_string(),
                 "query",
                 vec![ErrorDetail::new(
                     status.as_u16(),
@@ -198,9 +198,9 @@ pub enum OAuthErrorType {
     MissingRefreshToken,
 
     #[error("The provided refresh token was malformed")]
-    MalformatedRefreshToken,
+    MalformedRefreshToken,
     #[error("The provided code was malformed")]
-    MalformatedCode,
+    MalformedCode,
     #[error("The provided code verifier was malformed")]
     MalformedCodeVerifier,
     #[error("the provided redirect URI is invalid")]
@@ -262,17 +262,13 @@ impl OAuthErrorType {
             | Self::UnsupportedCodeChallengeMethod
             | Self::InvalidCodeChallenge
             | Self::MalformedCodeVerifier
-            | Self::MalformatedCode
-            | Self::MalformatedRefreshToken => "invalid_request",
+            | Self::MalformedCode
+            | Self::MalformedRefreshToken => "invalid_request",
             Self::InvalidScope => "invalid_scope",
             Self::AccessDenied => "access_denied",
             Self::InvalidClientId => "invalid_client",
             Self::InvalidCodeGrant => "invalid_grant",
         }
-    }
-
-    pub fn name(&self) -> String {
-        self.name_static().to_string()
     }
 
     pub fn get_context(&self) -> Option<InnerError> {

@@ -138,10 +138,7 @@ enum OAuthTokenRequest {
         redirect_uri: String,
     },
     RefreshToken {
-        // Optional per RFC 6749 §6: the JWT's `aud` already binds this token
-        // to a client, so we only require client_id when the caller sends it,
-        // and then only verify it matches the JWT.
-        client_id: Option<uuid::Uuid>,
+        client_id: uuid::Uuid,
         refresh_token: String,
     },
     #[serde(other)]
@@ -161,14 +158,14 @@ impl OAuthTokenRequest {
                 }
 
                 if code.len() != 32 {
-                    return Err(OAuthTokenError::error(OAuthErrorType::MalformatedCode));
+                    return Err(OAuthTokenError::error(OAuthErrorType::MalformedCode));
                 }
 
                 Ok(())
             }
             OAuthTokenRequest::RefreshToken { refresh_token, .. } => {
                 if refresh_token.is_empty() {
-                    return Err(OAuthTokenError::error(OAuthErrorType::MalformatedRefreshToken));
+                    return Err(OAuthTokenError::error(OAuthErrorType::MalformedRefreshToken));
                 }
                 Ok(())
             }
@@ -260,23 +257,24 @@ pub async fn token(
 
             let granted = oauth::scopes_from_stored(&request.scopes);
             let issue_refresh = granted.contains(&Scope::OfflineAccess);
+            let scope_string = request.scopes.clone();
 
-            let jwt = create_jwt(request.user_id, client_id)?;
+            let jwt = create_jwt(request.user_id, client_id, scope_string.clone())?;
 
             AuthorizationCode::mark_code_used(&request.code, &db).await?;
 
             let refresh = if issue_refresh {
-                let (refresh, refresh_jti, expires) =
-                    create_refresh_jwt(client_id, request.user_id)?;
+                let issued =
+                    create_refresh_jwt(client_id, request.user_id, scope_string.clone())?;
                 RefreshToken::insert_token(
-                    &refresh_jti,
+                    &issued.jti,
                     &request.user_id,
                     &family_id,
-                    expires,
+                    issued.expires,
                     &db,
                 )
                 .await?;
-                Some(refresh)
+                Some(issued.token)
             } else {
                 None
             };
@@ -286,7 +284,7 @@ pub async fn token(
                 refresh_token: refresh,
                 token_type: "Bearer".to_string(),
                 expires_in: 3600,
-                scope: request.scopes,
+                scope: scope_string,
             };
 
             // RFC 6749 §5.1 requires no-store + no-cache on successful token
@@ -302,15 +300,11 @@ pub async fn token(
         } => {
             let info = validate_refresh_token(&refresh_token)?;
 
-            // If the caller sent client_id, it must match the token's audience.
-            // If they didn't, we trust the signed JWT alone (single-client
-            // deployment, Ed25519-authenticated).
-            if let Some(sent) = client_id {
-                if info.claims.aud != sent {
-                    return Err(OAuthTokenError::error(OAuthErrorType::InvalidClientId));
-                }
+            // RFC 6749 §6: for public clients the request MUST carry
+            // `client_id`; verify it matches the token's audience.
+            if info.claims.aud != client_id {
+                return Err(OAuthTokenError::error(OAuthErrorType::InvalidClientId));
             }
-            let client_id = info.claims.aud;
 
             let token = match RefreshToken::get_token(&info.claims.jti, &db).await? {
                 Some(t) => t,
@@ -329,23 +323,40 @@ pub async fn token(
 
             if token.user_id != info.claims.sub {
                 return Err(OAuthTokenError::error(
-                    OAuthErrorType::MalformatedRefreshToken,
+                    OAuthErrorType::MalformedRefreshToken,
                 ));
+            }
+
+            // RFC 6749 §6: the scope of the new access token MUST NOT include
+            // any scope not originally granted. Carry the refresh JWT's `scope`
+            // claim forward verbatim; if `offline_access` is missing, treat as
+            // a corrupted or downgraded token and revoke the family.
+            let scope_string = info.claims.scope.clone();
+            let granted = oauth::scopes_from_stored(&scope_string);
+            if !granted.contains(&Scope::OfflineAccess) {
+                RefreshToken::revoke_family(&token.family_id, &db).await?;
+                return Err(OAuthTokenError::error(OAuthErrorType::AccessDenied));
             }
 
             RefreshToken::mark_token_used(&token.id, &db).await?;
 
-            let jwt = create_jwt(token.user_id, client_id)?;
-            let (refresh, jti, expires) = create_refresh_jwt(client_id, token.user_id)?;
-            RefreshToken::insert_token(&jti, &token.user_id, &token.family_id, expires, &db)
-                .await?;
+            let jwt = create_jwt(token.user_id, client_id, scope_string.clone())?;
+            let issued = create_refresh_jwt(client_id, token.user_id, scope_string.clone())?;
+            RefreshToken::insert_token(
+                &issued.jti,
+                &token.user_id,
+                &token.family_id,
+                issued.expires,
+                &db,
+            )
+            .await?;
 
             let res = OAuthTokenResponse {
                 access_token: jwt,
-                refresh_token: Some(refresh),
+                refresh_token: Some(issued.token),
                 token_type: "Bearer".to_string(),
                 expires_in: 3600,
-                scope: None,
+                scope: scope_string,
             };
 
             // RFC 6749 §5.1 requires no-store + no-cache on successful token
@@ -355,7 +366,12 @@ pub async fn token(
                 .insert_header((header::PRAGMA, "no-cache"))
                 .json(res))
         }
-        _ => Err(OAuthTokenError::error(OAuthErrorType::UnsupportedGrantType)),
+        // Every non-{AuthorizationCode, RefreshToken} variant is filtered by
+        // `validate()` above, so this arm is unreachable in practice — kept
+        // only to satisfy exhaustiveness.
+        OAuthTokenRequest::Unsupported => {
+            unreachable!("validate() rejects Unsupported before this match")
+        }
     }
 }
 

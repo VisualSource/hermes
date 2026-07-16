@@ -35,7 +35,6 @@ pub async fn oauth_server_details() -> HttpResponse {
         "code_challenge_methods_supported": ["S256"],
         "token_endpoint_auth_methods_supported": ["none"],
         "revocation_endpoint_auth_methods_supported": ["none"],
-        "id_token_signing_alg_values_supported": ["EdDSA"],
     }))
 }
 

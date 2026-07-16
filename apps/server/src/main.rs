@@ -1,3 +1,4 @@
+use actix_csrf_middleware::{CsrfMiddleware, CsrfMiddlewareConfig};
 use actix_governor::{Governor, GovernorConfigBuilder};
 use actix_identity::IdentityMiddleware;
 use actix_session::SessionMiddleware;
@@ -107,6 +108,14 @@ async fn main() -> std::io::Result<()> {
     let session_key = load_session_key()
         .map_err(|err| std::io::Error::new(ErrorKind::Other, err))?;
 
+    // Reuse SESSION_SECRET (already validated as >= 64 bytes) as the CSRF
+    // double-submit-cookie signing key. Applied only to the /login and /signup
+    // scope; the OAuth endpoints have PKCE + first-party redirect_uri
+    // whitelisting instead.
+    let csrf_secret = std::env::var("SESSION_SECRET")
+        .expect("SESSION_SECRET validated above");
+    let csrf_config = CsrfMiddlewareConfig::double_submit_cookie(csrf_secret.as_bytes());
+
     // Periodic cleanup: expire old grants + prune expired refresh tokens.
     // Runs hourly; each failure is logged but doesn't take down the server.
     let cleanup_pool = pool.clone();
@@ -155,11 +164,12 @@ async fn main() -> std::io::Result<()> {
                     .service(routes::api::api_routes()),
             )
             // Login/signup are at the root path (`/login`, `/signup`) because
-            // the authorize handler redirects there. They also get the
-            // auth-tightened rate limiter to slow credential brute-forcing.
+            // the authorize handler redirects there. Auth-tightened rate limit
+            // + CSRF double-submit protection (RFC 6265bis-adjacent).
             .service(
                 web::scope("")
                     .wrap(Governor::new(&auth_governor))
+                    .wrap(CsrfMiddleware::new(csrf_config.clone()))
                     .service(routes::auth::get_account_routes()),
             )
             .service(routes::static_files::get_static_files())
