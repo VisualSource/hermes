@@ -4,6 +4,34 @@ use actix_identity::error::GetIdentityError;
 use actix_web::HttpResponse;
 use actix_web::http::{StatusCode, header};
 
+/// Compose a redirect Location that echoes an OAuth error back to the client
+/// per RFC 6749 §4.1.2.1. Every parameter is percent-encoded via `url::Url`
+/// so `state`, `error`, and `error_description` cannot smuggle extra query
+/// parameters into the callback.
+fn build_error_redirect(
+    redirect_uri: &str,
+    error: &str,
+    error_description: &str,
+    state: Option<&str>,
+) -> String {
+    let mut url = match url::Url::parse(redirect_uri) {
+        Ok(u) => u,
+        // If the redirect URI was already validated upstream, this should
+        // never happen. Fall back to a raw string with no user input mixed in
+        // so we can't smuggle anything even in the failure path.
+        Err(_) => return redirect_uri.to_string(),
+    };
+    {
+        let mut q = url.query_pairs_mut();
+        q.append_pair("error", error);
+        q.append_pair("error_description", error_description);
+        if let Some(state) = state {
+            q.append_pair("state", state);
+        }
+    }
+    url.to_string()
+}
+
 #[derive(Debug, thiserror::Error)]
 #[error("{}",.error_type)]
 pub struct OAuthError {
@@ -32,12 +60,12 @@ impl OAuthError {
     }
     pub fn redirect(
         err: impl Into<OAuthErrorType>,
-        state: &Option<String>,
+        state: &str,
         valid_redirect_uri: String,
     ) -> Self {
         Self {
             error_type: Box::new(err.into()),
-            state: state.clone(),
+            state: Some(state.to_string()),
             valid_redirect_uri: Some(valid_redirect_uri),
         }
     }
@@ -50,20 +78,16 @@ impl actix_web::ResponseError for OAuthError {
         }
     }
     fn error_response(&self) -> HttpResponse<actix_web::body::BoxBody> {
-        if let Some(mut redirect_uri) = self.valid_redirect_uri.clone() {
-            redirect_uri = format!(
-                "{}?error={}&error_description={}",
+        if let Some(redirect_uri) = self.valid_redirect_uri.as_deref() {
+            let location = build_error_redirect(
                 redirect_uri,
                 self.error_type.name(),
-                urlencoding::encode(&self.error_type.to_string())
+                &self.error_type.to_string(),
+                self.state.as_deref(),
             );
 
-            if let Some(state) = self.state.as_ref() {
-                redirect_uri = format!("{redirect_uri}&state={state}")
-            }
-
             HttpResponse::Found()
-                .append_header((header::LOCATION, redirect_uri.clone()))
+                .append_header((header::LOCATION, location))
                 .insert_header((header::REFERRER_POLICY, "no-referrer"))
                 .insert_header((header::X_FRAME_OPTIONS, "DENY"))
                 .insert_header((header::CONTENT_SECURITY_POLICY, "frame-ancestors 'none'"))
@@ -94,6 +118,8 @@ pub enum OAuthErrorType {
     MalformedCodeVerifier,
     #[error("the provided redirect URI is invalid")]
     InvalidRedirect,
+    #[error("The request is missing a required parameter or is otherwise malformed")]
+    InvalidRequest,
     #[error("The resource owner denied the request")]
     AccessDenied,
     #[error("The provided client id was invalid")]
@@ -105,6 +131,8 @@ pub enum OAuthErrorType {
     UnsupportedCodeChallengeMethod,
     #[error("The provided code challenge is invalid")]
     InvalidCodeChallenge,
+    #[error("The requested scope is invalid, unknown, or malformed")]
+    InvalidScope,
 
     #[error("Internal Server Error")]
     Session(#[from] GetIdentityError),
@@ -140,12 +168,14 @@ impl OAuthErrorType {
                 _ => "server_error",
             },
             Self::InvalidRedirect
+            | Self::InvalidRequest
             | Self::MissingRefreshToken
             | Self::UnsupportedCodeChallengeMethod
             | Self::InvalidCodeChallenge
             | Self::MalformedCodeVerifier
             | Self::MalformatedCode
             | Self::MalformatedRefreshToken => "invalid_request",
+            Self::InvalidScope => "invalid_scope",
             Self::AccessDenied => "access_denied",
             Self::InvalidClientId => "invalid_client",
             Self::InvalidCodeGrant => "invalid_grant",

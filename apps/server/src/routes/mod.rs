@@ -26,7 +26,7 @@ pub async fn oauth_server_details() -> HttpResponse {
         ],
         "response_types_supported": ["code"],
         "response_modes_supported": ["query"],
-        "grant_types_supported": ["authorization_code"],
+        "grant_types_supported": ["authorization_code", "refresh_token"],
         "code_challenge_methods_supported": ["S256"],
     }))
 }

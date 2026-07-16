@@ -3,9 +3,9 @@ use std::str::FromStr;
 use crate::{
     models::auth::{AuthorizationCode, RefreshToken},
     state::oauth::{
-        self,
+        self, Scope,
         errors::{OAuthError, OAuthErrorType},
-        jwt::{ create_jwt, create_refresh_jwt, validate_refresh_token},
+        jwt::{create_jwt, create_refresh_jwt, validate_refresh_token},
     },
 };
 use actix_identity::Identity;
@@ -41,6 +41,23 @@ pub async fn authorize(
 ) -> Result<HttpResponse, OAuthError> {
     query.validate()?;
 
+    let scopes = query
+        .scope
+        .as_deref()
+        .map(oauth::parse_scopes)
+        .transpose()
+        .map_err(|mut err| {
+            err.state = Some(query.state.clone());
+            err.valid_redirect_uri = Some(query.redirect_uri.clone());
+            err
+        })?
+        .unwrap_or_default();
+    let stored_scope = if scopes.is_empty() {
+        None
+    } else {
+        Some(oauth::scopes_to_string(&scopes))
+    };
+
     if let Some(user) = user {
         let user_id = user.id().map_err(|err| {
             OAuthError::redirect(
@@ -56,20 +73,23 @@ pub async fn authorize(
         AuthorizationCode::insert_request(
             &code,
             &user_id,
+            &query.client_id,
+            &query.redirect_uri,
             &query.code_challenge,
             &query.code_challenge_method,
-            query.scopes.clone(),
+            stored_scope,
             &db,
         )
         .await?;
 
-        let mut redirect_uri = format!("{}?code={}", query.redirect_uri, code);
-        if let Some(state) = &query.state {
-            redirect_uri = format!("{redirect_uri}&state={state}");
-        }
+        let mut redirect = url::Url::parse(&query.redirect_uri)?;
+        redirect
+            .query_pairs_mut()
+            .append_pair("code", &code)
+            .append_pair("state", &query.state);
 
         return Ok(HttpResponse::Found()
-            .insert_header((header::LOCATION, redirect_uri))
+            .insert_header((header::LOCATION, redirect.to_string()))
             .insert_header((header::REFERRER_POLICY, "no-referrer"))
             .insert_header((header::X_FRAME_OPTIONS, "DENY"))
             .insert_header((header::CONTENT_SECURITY_POLICY, "frame-ancestors 'none'"))
@@ -78,30 +98,35 @@ pub async fn authorize(
     }
 
     let iss = std::env::var("SERVER_ORIGIN")?;
-    let mut return_to = format!(
-        "{}/auth/authorize?response_type={}&client_id={}&redirect_uri={}&code_challenge={}&code_challenge_method={}",
-        iss,
-        query.response_type,
-        query.client_id,
-        query.redirect_uri,
-        query.code_challenge,
-        query.code_challenge_method
-    );
-    if let Some(state) = &query.state {
-        return_to = format!("{return_to}&state={state}")
+    let mut return_to = url::Url::parse(&iss)?.join("/auth/authorize")?;
+    {
+        let client_id = query.client_id.to_string();
+        let mut q = return_to.query_pairs_mut();
+        q.append_pair("response_type", &query.response_type);
+        q.append_pair("client_id", &client_id);
+        q.append_pair("redirect_uri", &query.redirect_uri);
+        q.append_pair("code_challenge", &query.code_challenge);
+        q.append_pair("code_challenge_method", &query.code_challenge_method);
+        q.append_pair("state", &query.state);
+        if let Some(scope) = &query.scope {
+            q.append_pair("scope", scope);
+        }
     }
 
-    let encoded_url = urlencoding::encode(&return_to);
-    let redirect_uri = format!("{iss}/login?return_to={encoded_url}");
+    let mut login = url::Url::parse(&iss)?.join("/login")?;
+    login
+        .query_pairs_mut()
+        .append_pair("return_to", return_to.as_str());
+
     let resp = HttpResponse::Found()
         .insert_header((header::REFERRER_POLICY, "no-referrer"))
         .insert_header((header::X_FRAME_OPTIONS, "DENY"))
         .insert_header((header::CONTENT_SECURITY_POLICY, "frame-ancestors 'none'"))
         .insert_header((header::X_CONTENT_TYPE_OPTIONS, "nosniff"))
-        .insert_header((header::LOCATION, redirect_uri))
+        .insert_header((header::LOCATION, login.to_string()))
         .finish();
 
-    return Ok(resp);
+    Ok(resp)
 }
 
 #[derive(Debug, serde::Deserialize, ToSchema)]
@@ -112,8 +137,13 @@ enum OAuthTokenRequest {
         client_id: uuid::Uuid,
         code: String,
         code_verifier: String,
+        redirect_uri: String,
     },
     RefreshToken {
+        // Optional per RFC 6749 §6: the JWT's `aud` already binds this token
+        // to a client, so we only require client_id when the caller sends it,
+        // and then only verify it matches the JWT.
+        client_id: Option<uuid::Uuid>,
         refresh_token: String,
     },
     #[serde(other)]
@@ -124,14 +154,10 @@ impl OAuthTokenRequest {
     fn validate(&self) -> Result<(), OAuthError> {
         match self {
             OAuthTokenRequest::AuthorizationCode {
-                client_id,
                 code,
                 code_verifier,
+                ..
             } => {
-                if client_id != &oauth::OAUTH_CLIENT_ID {
-                    return Err(OAuthError::error(OAuthErrorType::InvalidClientId));
-                }
-
                 if code_verifier.len() < 43 || code_verifier.len() > 128 {
                     return Err(OAuthError::error(OAuthErrorType::MalformedCodeVerifier));
                 }
@@ -142,8 +168,8 @@ impl OAuthTokenRequest {
 
                 Ok(())
             }
-            OAuthTokenRequest::RefreshToken { refresh_token } => {
-                if refresh_token.len() == 0 {
+            OAuthTokenRequest::RefreshToken { refresh_token, .. } => {
+                if refresh_token.is_empty() {
                     return Err(OAuthError::error(OAuthErrorType::MalformatedRefreshToken));
                 }
                 Ok(())
@@ -190,14 +216,34 @@ pub async fn token(
             client_id,
             code,
             code_verifier,
+            redirect_uri,
         } => {
-            let request = match AuthorizationCode::get_by_code_and_user(&code, &db).await? {
+            let request = match AuthorizationCode::get_by_code(&code, &db).await? {
                 Some(v) => v,
                 None => return Err(OAuthError::error(OAuthErrorType::AccessDenied)),
             };
 
+            // RFC 6749 §4.1.2: if a code is presented more than once, the auth
+            // server SHOULD attempt to revoke all tokens previously issued
+            // based on it. The refresh-token family is keyed by grant.id, so a
+            // reused code revokes every descendant refresh token.
+            if request.used {
+                RefreshToken::revoke_family(&request.id, &db).await?;
+                return Err(OAuthError::error(OAuthErrorType::AccessDenied));
+            }
             if !request.is_valid() {
                 return Err(OAuthError::error(OAuthErrorType::AccessDenied));
+            }
+
+            // RFC 6749 §4.1.3: the auth server MUST verify the code was issued
+            // to this client and that the redirect_uri matches the one used at
+            // /authorize. Compare against the values stored on the grant, not
+            // against any global constant.
+            if request.client_id != client_id {
+                return Err(OAuthError::error(OAuthErrorType::InvalidClientId));
+            }
+            if request.redirect_uri != redirect_uri {
+                return Err(OAuthError::error(OAuthErrorType::InvalidRedirect));
             }
 
             if !oauth::code::validate_pkce(
@@ -208,15 +254,37 @@ pub async fn token(
                 return Err(OAuthError::error(OAuthErrorType::AccessDenied));
             };
 
+            // Family = grant.id, so any reuse of this code (see the branch
+            // above) or reuse of any refresh token in the chain revokes the
+            // whole family in one query.
+            let family_id = request.id;
+
+            let granted = oauth::scopes_from_stored(&request.scopes);
+            let issue_refresh = granted.contains(&Scope::OfflineAccess);
+
             let jwt = create_jwt(request.user_id, client_id)?;
-            let (refresh,refresh_jti,expires) = create_refresh_jwt(client_id, request.user_id)?;
 
             AuthorizationCode::mark_code_used(&request.code, &db).await?;
-            RefreshToken::insert_token(&refresh_jti, &request.user_id, expires, &db).await?;
+
+            let refresh = if issue_refresh {
+                let (refresh, refresh_jti, expires) =
+                    create_refresh_jwt(client_id, request.user_id)?;
+                RefreshToken::insert_token(
+                    &refresh_jti,
+                    &request.user_id,
+                    &family_id,
+                    expires,
+                    &db,
+                )
+                .await?;
+                Some(refresh)
+            } else {
+                None
+            };
 
             let res = OAuthTokenResponse {
                 access_token: jwt,
-                refresh_token: Some(refresh),
+                refresh_token: refresh,
                 token_type: "Bearer".to_string(),
                 expires_in: 3600,
                 scope: request.scopes,
@@ -226,25 +294,45 @@ pub async fn token(
                 .insert_header(header::CacheControl(vec![CacheDirective::NoStore]))
                 .json(res))
         }
-        OAuthTokenRequest::RefreshToken { refresh_token } => {
+        OAuthTokenRequest::RefreshToken {
+            client_id,
+            refresh_token,
+        } => {
             let info = validate_refresh_token(&refresh_token)?;
+
+            // If the caller sent client_id, it must match the token's audience.
+            // If they didn't, we trust the signed JWT alone (single-client
+            // deployment, HS512-authenticated).
+            if let Some(sent) = client_id {
+                if info.claims.aud != sent {
+                    return Err(OAuthError::error(OAuthErrorType::InvalidClientId));
+                }
+            }
+            let client_id = info.claims.aud;
 
             let token = match RefreshToken::get_token(&info.claims.jti, &db).await? {
                 Some(t) => t,
                 None => return Err(OAuthError::error(OAuthErrorType::MissingRefreshToken)),
             };
-            if token.used {
-                return Err(OAuthError::error(OAuthErrorType::AccessDenied))
+
+            // Reuse detection: if this token has already been used or the family
+            // has been revoked, treat as a compromised family and revoke every
+            // token in it (OAuth 2.1 §6.1 / RFC 6819 §5.2.2.3).
+            if token.used || token.revoked {
+                RefreshToken::revoke_family(&token.family_id, &db).await?;
+                return Err(OAuthError::error(OAuthErrorType::AccessDenied));
             }
+
             if token.user_id != info.claims.sub {
                 return Err(OAuthError::error(OAuthErrorType::MalformatedRefreshToken));
             }
 
             RefreshToken::mark_token_used(&token.id, &db).await?;
 
-            let jwt = create_jwt(token.user_id, info.claims.aud)?;
-            let (refresh,jti,expires) = create_refresh_jwt(info.claims.aud, token.user_id)?;
-            RefreshToken::insert_token(&jti, &token.user_id, expires, &db).await?;
+            let jwt = create_jwt(token.user_id, client_id)?;
+            let (refresh, jti, expires) = create_refresh_jwt(client_id, token.user_id)?;
+            RefreshToken::insert_token(&jti, &token.user_id, &token.family_id, expires, &db)
+                .await?;
 
             let res = OAuthTokenResponse {
                 access_token: jwt,
