@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use uuid::uuid;
 
-use crate::state::oauth::errors::{OAuthError, OAuthErrorType};
+use crate::state::oauth::errors::{OAuthAuthorizeError, OAuthErrorType};
 
 pub mod code;
 pub mod errors;
@@ -42,12 +42,11 @@ impl FromStr for Scope {
 }
 
 /// Parse a space-separated scope string (RFC 6749 §3.3). Returns
-/// `invalid_scope` if any token is unknown or if the same scope appears twice.
-pub fn parse_scopes(raw: &str) -> Result<Vec<Scope>, OAuthError> {
+/// `invalid_scope` if any token is unknown. Duplicates are collapsed.
+pub fn parse_scopes(raw: &str) -> Result<Vec<Scope>, OAuthErrorType> {
     let mut out = Vec::new();
     for token in raw.split_ascii_whitespace() {
-        let scope = Scope::from_str(token)
-            .map_err(|_| OAuthError::error(OAuthErrorType::InvalidScope))?;
+        let scope = Scope::from_str(token).map_err(|_| OAuthErrorType::InvalidScope)?;
         if !out.contains(&scope) {
             out.push(scope);
         }
@@ -92,23 +91,26 @@ pub struct OAuthAuthorizeQuery {
 }
 
 impl OAuthAuthorizeQuery {
-    pub fn validate(&self) -> Result<(), OAuthError> {
+    pub fn validate(&self) -> Result<(), OAuthAuthorizeError> {
         log::debug!("request uri: {}", self.redirect_uri);
 
+        // Pre-redirect checks: redirect_uri and client_id must be validated
+        // before we're willing to redirect an error back anywhere (RFC 6749
+        // §3.1.2.4, §4.1.2.1).
         if self.redirect_uri != OAUTH_REDIRECT_URI && self.redirect_uri != OAUTH_DEV_REDIRECT_URI {
-            return Err(OAuthError::error(OAuthErrorType::InvalidRedirect));
+            return Err(OAuthAuthorizeError::error(OAuthErrorType::InvalidRedirect));
         }
 
         if self.client_id != OAUTH_CLIENT_ID {
-            return Err(OAuthError::error(OAuthErrorType::InvalidClientId));
+            return Err(OAuthAuthorizeError::error(OAuthErrorType::InvalidClientId));
         }
 
         if self.state.is_empty() {
-            return Err(OAuthError::error(OAuthErrorType::InvalidRequest));
+            return Err(OAuthAuthorizeError::error(OAuthErrorType::InvalidRequest));
         }
 
         if self.response_type != "code" {
-            return Err(OAuthError::redirect(
+            return Err(OAuthAuthorizeError::redirect(
                 OAuthErrorType::InvalidCodeGrant,
                 &self.state,
                 self.redirect_uri.clone(),
@@ -116,15 +118,18 @@ impl OAuthAuthorizeQuery {
         }
 
         if self.code_challenge_method != "S256" {
-            return Err(OAuthError::redirect(
+            return Err(OAuthAuthorizeError::redirect(
                 OAuthErrorType::UnsupportedCodeChallengeMethod,
                 &self.state,
                 self.redirect_uri.clone(),
             ));
         }
 
-        if self.code_challenge.len() < 43 || self.code_challenge.len() > 128 {
-            return Err(OAuthError::redirect(
+        if self.code_challenge.len() < 43
+            || self.code_challenge.len() > 128
+            || !code::is_valid_pkce_charset(&self.code_challenge)
+        {
+            return Err(OAuthAuthorizeError::redirect(
                 OAuthErrorType::InvalidCodeChallenge,
                 &self.state,
                 self.redirect_uri.clone(),
@@ -132,10 +137,8 @@ impl OAuthAuthorizeQuery {
         }
 
         if let Some(scope) = &self.scope {
-            parse_scopes(scope).map_err(|mut err| {
-                err.state = Some(self.state.clone());
-                err.valid_redirect_uri = Some(self.redirect_uri.clone());
-                err
+            parse_scopes(scope).map_err(|err| {
+                OAuthAuthorizeError::redirect(err, &self.state, self.redirect_uri.clone())
             })?;
         }
 

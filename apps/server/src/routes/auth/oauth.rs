@@ -4,7 +4,7 @@ use crate::{
     models::auth::{AuthorizationCode, RefreshToken},
     state::oauth::{
         self, Scope,
-        errors::{OAuthError, OAuthErrorType},
+        errors::{OAuthAuthorizeError, OAuthErrorType, OAuthTokenError},
         jwt::{create_jwt, create_refresh_jwt, validate_refresh_token},
     },
 };
@@ -38,7 +38,7 @@ pub async fn authorize(
     user: Option<Identity>,
     query: web::Query<oauth::OAuthAuthorizeQuery>,
     db: web::Data<SqlitePool>,
-) -> Result<HttpResponse, OAuthError> {
+) -> Result<HttpResponse, OAuthAuthorizeError> {
     query.validate()?;
 
     let scopes = query
@@ -46,10 +46,8 @@ pub async fn authorize(
         .as_deref()
         .map(oauth::parse_scopes)
         .transpose()
-        .map_err(|mut err| {
-            err.state = Some(query.state.clone());
-            err.valid_redirect_uri = Some(query.redirect_uri.clone());
-            err
+        .map_err(|err| {
+            OAuthAuthorizeError::redirect(err, &query.state, query.redirect_uri.clone())
         })?
         .unwrap_or_default();
     let stored_scope = if scopes.is_empty() {
@@ -60,7 +58,7 @@ pub async fn authorize(
 
     if let Some(user) = user {
         let user_id = user.id().map_err(|err| {
-            OAuthError::redirect(
+            OAuthAuthorizeError::redirect(
                 OAuthErrorType::Session(err),
                 &query.state,
                 query.redirect_uri.clone(),
@@ -151,7 +149,7 @@ enum OAuthTokenRequest {
 }
 
 impl OAuthTokenRequest {
-    fn validate(&self) -> Result<(), OAuthError> {
+    fn validate(&self) -> Result<(), OAuthTokenError> {
         match self {
             OAuthTokenRequest::AuthorizationCode {
                 code,
@@ -159,23 +157,23 @@ impl OAuthTokenRequest {
                 ..
             } => {
                 if code_verifier.len() < 43 || code_verifier.len() > 128 {
-                    return Err(OAuthError::error(OAuthErrorType::MalformedCodeVerifier));
+                    return Err(OAuthTokenError::error(OAuthErrorType::MalformedCodeVerifier));
                 }
 
                 if code.len() != 32 {
-                    return Err(OAuthError::error(OAuthErrorType::MalformatedCode));
+                    return Err(OAuthTokenError::error(OAuthErrorType::MalformatedCode));
                 }
 
                 Ok(())
             }
             OAuthTokenRequest::RefreshToken { refresh_token, .. } => {
                 if refresh_token.is_empty() {
-                    return Err(OAuthError::error(OAuthErrorType::MalformatedRefreshToken));
+                    return Err(OAuthTokenError::error(OAuthErrorType::MalformatedRefreshToken));
                 }
                 Ok(())
             }
             OAuthTokenRequest::Unsupported => {
-                Err(OAuthError::error(OAuthErrorType::UnsupportedGrantType))
+                Err(OAuthTokenError::error(OAuthErrorType::UnsupportedGrantType))
             }
         }
     }
@@ -208,7 +206,7 @@ struct OAuthTokenResponse {
 pub async fn token(
     body: web::Form<OAuthTokenRequest>,
     db: web::Data<SqlitePool>,
-) -> Result<HttpResponse, OAuthError> {
+) -> Result<HttpResponse, OAuthTokenError> {
     body.validate()?;
 
     match body.0 {
@@ -220,7 +218,7 @@ pub async fn token(
         } => {
             let request = match AuthorizationCode::get_by_code(&code, &db).await? {
                 Some(v) => v,
-                None => return Err(OAuthError::error(OAuthErrorType::AccessDenied)),
+                None => return Err(OAuthTokenError::error(OAuthErrorType::AccessDenied)),
             };
 
             // RFC 6749 §4.1.2: if a code is presented more than once, the auth
@@ -229,10 +227,10 @@ pub async fn token(
             // reused code revokes every descendant refresh token.
             if request.used {
                 RefreshToken::revoke_family(&request.id, &db).await?;
-                return Err(OAuthError::error(OAuthErrorType::AccessDenied));
+                return Err(OAuthTokenError::error(OAuthErrorType::AccessDenied));
             }
             if !request.is_valid() {
-                return Err(OAuthError::error(OAuthErrorType::AccessDenied));
+                return Err(OAuthTokenError::error(OAuthErrorType::AccessDenied));
             }
 
             // RFC 6749 §4.1.3: the auth server MUST verify the code was issued
@@ -240,18 +238,19 @@ pub async fn token(
             // /authorize. Compare against the values stored on the grant, not
             // against any global constant.
             if request.client_id != client_id {
-                return Err(OAuthError::error(OAuthErrorType::InvalidClientId));
+                return Err(OAuthTokenError::error(OAuthErrorType::InvalidClientId));
             }
             if request.redirect_uri != redirect_uri {
-                return Err(OAuthError::error(OAuthErrorType::InvalidRedirect));
+                return Err(OAuthTokenError::error(OAuthErrorType::InvalidRedirect));
             }
 
+            // RFC 7636 §4.6: on PKCE mismatch, respond with `invalid_grant`.
             if !oauth::code::validate_pkce(
                 &request.code_challenge,
                 &code_verifier,
                 &request.code_challenge_method,
             ) {
-                return Err(OAuthError::error(OAuthErrorType::AccessDenied));
+                return Err(OAuthTokenError::error(OAuthErrorType::InvalidCodeGrant));
             };
 
             // Family = grant.id, so any reuse of this code (see the branch
@@ -290,8 +289,11 @@ pub async fn token(
                 scope: request.scopes,
             };
 
+            // RFC 6749 §5.1 requires no-store + no-cache on successful token
+            // responses to keep credentials out of intermediate caches.
             Ok(HttpResponse::Ok()
                 .insert_header(header::CacheControl(vec![CacheDirective::NoStore]))
+                .insert_header((header::PRAGMA, "no-cache"))
                 .json(res))
         }
         OAuthTokenRequest::RefreshToken {
@@ -305,14 +307,16 @@ pub async fn token(
             // deployment, HS512-authenticated).
             if let Some(sent) = client_id {
                 if info.claims.aud != sent {
-                    return Err(OAuthError::error(OAuthErrorType::InvalidClientId));
+                    return Err(OAuthTokenError::error(OAuthErrorType::InvalidClientId));
                 }
             }
             let client_id = info.claims.aud;
 
             let token = match RefreshToken::get_token(&info.claims.jti, &db).await? {
                 Some(t) => t,
-                None => return Err(OAuthError::error(OAuthErrorType::MissingRefreshToken)),
+                None => {
+                    return Err(OAuthTokenError::error(OAuthErrorType::MissingRefreshToken));
+                }
             };
 
             // Reuse detection: if this token has already been used or the family
@@ -320,11 +324,13 @@ pub async fn token(
             // token in it (OAuth 2.1 §6.1 / RFC 6819 §5.2.2.3).
             if token.used || token.revoked {
                 RefreshToken::revoke_family(&token.family_id, &db).await?;
-                return Err(OAuthError::error(OAuthErrorType::AccessDenied));
+                return Err(OAuthTokenError::error(OAuthErrorType::AccessDenied));
             }
 
             if token.user_id != info.claims.sub {
-                return Err(OAuthError::error(OAuthErrorType::MalformatedRefreshToken));
+                return Err(OAuthTokenError::error(
+                    OAuthErrorType::MalformatedRefreshToken,
+                ));
             }
 
             RefreshToken::mark_token_used(&token.id, &db).await?;
@@ -342,10 +348,52 @@ pub async fn token(
                 scope: None,
             };
 
+            // RFC 6749 §5.1 requires no-store + no-cache on successful token
+            // responses to keep credentials out of intermediate caches.
             Ok(HttpResponse::Ok()
                 .insert_header(header::CacheControl(vec![CacheDirective::NoStore]))
+                .insert_header((header::PRAGMA, "no-cache"))
                 .json(res))
         }
-        _ => Err(OAuthError::error(OAuthErrorType::UnsupportedGrantType)),
+        _ => Err(OAuthTokenError::error(OAuthErrorType::UnsupportedGrantType)),
     }
+}
+
+#[derive(Debug, serde::Deserialize, ToSchema)]
+pub struct OAuthRevokeRequest {
+    token: String,
+    #[serde(default)]
+    #[allow(dead_code)]
+    token_type_hint: Option<String>,
+}
+
+/// RFC 7009 token revocation. Only refresh tokens are meaningfully revocable
+/// here — access tokens are stateless short-lived JWTs. A caller presenting
+/// any valid refresh-token JWT gets the whole family revoked (belt and
+/// suspenders on top of reuse detection).
+#[utoipa::path(
+    post,
+    tag = "oauth",
+    path = "/auth/revoke",
+    description = "revoke a refresh token (RFC 7009)",
+    responses((status = OK))
+)]
+#[post("/revoke")]
+pub async fn revoke(
+    body: web::Form<OAuthRevokeRequest>,
+    db: web::Data<SqlitePool>,
+) -> HttpResponse {
+    // RFC 7009 §2.2: the authorization server responds with HTTP 200 whether
+    // or not the token was actually revoked, to avoid leaking information
+    // about token validity. So we swallow every failure and always return OK.
+    if let Ok(info) = validate_refresh_token(&body.token) {
+        if let Ok(Some(token)) = RefreshToken::get_token(&info.claims.jti, &db).await {
+            let _ = RefreshToken::revoke_family(&token.family_id, &db).await;
+        }
+    }
+
+    HttpResponse::Ok()
+        .insert_header(header::CacheControl(vec![CacheDirective::NoStore]))
+        .insert_header((header::PRAGMA, "no-cache"))
+        .finish()
 }

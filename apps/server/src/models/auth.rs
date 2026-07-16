@@ -62,6 +62,16 @@ impl RefreshToken {
         .await
     }
 
+    /// Delete expired refresh tokens plus revoked tokens whose family only
+    /// contains revoked/expired rows. Called by the periodic cleanup task.
+    pub async fn remove_expired(db: &SqlitePool) -> Result<(), sqlx::Error> {
+        let now = time::OffsetDateTime::now_utc();
+        sqlx::query!("DELETE FROM refresh_tokens WHERE expires_at < ?;", now)
+            .execute(db)
+            .await?;
+        Ok(())
+    }
+
     pub async fn insert_token(
         id: &uuid::Uuid,
         user_id: &uuid::Uuid,

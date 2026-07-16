@@ -18,8 +18,9 @@ pub async fn oauth_server_details() -> HttpResponse {
 
     HttpResponse::Ok().json(serde_json::json!({
         "issuer": iss,
-        "authorization_endpoint": format!("{}/auth/authorize",iss),
-        "token_endpoint":  format!("{}/auth/token",iss),
+        "authorization_endpoint": format!("{}/auth/authorize", iss),
+        "token_endpoint":  format!("{}/auth/token", iss),
+        "revocation_endpoint": format!("{}/auth/revoke", iss),
         "scopes_supported": [
             "profile",
             "offline_access"
@@ -28,5 +29,7 @@ pub async fn oauth_server_details() -> HttpResponse {
         "response_modes_supported": ["query"],
         "grant_types_supported": ["authorization_code", "refresh_token"],
         "code_challenge_methods_supported": ["S256"],
+        "token_endpoint_auth_methods_supported": ["none"],
+        "revocation_endpoint_auth_methods_supported": ["none"],
     }))
 }
