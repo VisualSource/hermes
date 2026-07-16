@@ -8,18 +8,9 @@ use actix_web::{
     middleware::{Logger, NormalizePath, TrailingSlash},
     web::{self},
 };
+use hermes_server::{db, models, routes, state};
 use std::io::ErrorKind;
 use std::time::Duration;
-use utoipa::OpenApi;
-
-mod db;
-mod models;
-mod routes;
-mod state;
-
-#[derive(OpenApi)]
-#[openapi(info(description = "Hermes server"), paths())]
-struct ApiDoc;
 
 /// Verify security-critical env vars before we start listening. Any of these
 /// missing or too weak means we refuse to boot, rather than fail late with

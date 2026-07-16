@@ -1,5 +1,9 @@
 openapi: 3.1.0
-info: 
-  title: Hermes Http API
+info:
+  title: hermes-server
+  description: Hermes server
+  license:
+    name: ''
   version: 0.1.0
 paths: {}
+components: {}
