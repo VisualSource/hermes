@@ -24,18 +24,16 @@ struct ApiDoc;
 /// missing or too weak means we refuse to boot, rather than fail late with
 /// mysterious auth errors.
 fn validate_env() -> Result<(), String> {
-    let jwt = std::env::var("JWT_SECRET_KEY")
-        .map_err(|_| "JWT_SECRET_KEY is not set".to_string())?;
-    // HS512 keys should be at least the hash output length per RFC 7518 §3.2.
-    if jwt.as_bytes().len() < 64 {
-        return Err(format!(
-            "JWT_SECRET_KEY must be at least 64 bytes (got {})",
-            jwt.as_bytes().len()
-        ));
-    }
-
     if std::env::var("SERVER_ORIGIN").is_err() {
         return Err("SERVER_ORIGIN is not set".to_string());
+    }
+
+    if std::env::var("JWT_PRIVATE_KEY_PATH").is_err() {
+        return Err(
+            "JWT_PRIVATE_KEY_PATH is not set (path to a PKCS#8 PEM Ed25519 private key; \
+             generate one with: `openssl genpkey -algorithm ed25519 -out ed25519.pem`)"
+                .to_string(),
+        );
     }
 
     if std::env::var("SESSION_SECRET").is_err() {
@@ -73,6 +71,16 @@ async fn main() -> std::io::Result<()> {
     if let Err(err) = validate_env() {
         log::error!("startup validation failed: {}", err);
         return Err(std::io::Error::new(ErrorKind::Other, err));
+    }
+
+    // Load Ed25519 signing key + derived public key + kid into a process-wide
+    // OnceLock. This is the single source of truth for JWT signing/verification
+    // and for the /.well-known/jwks.json endpoint.
+    let key_path = std::env::var("JWT_PRIVATE_KEY_PATH")
+        .expect("JWT_PRIVATE_KEY_PATH validated above");
+    if let Err(err) = state::oauth::jwt::init_keys_from_path(&key_path) {
+        log::error!("failed to load JWT signing key from {}: {}", key_path, err);
+        return Err(std::io::Error::new(ErrorKind::Other, err.to_string()));
     }
 
     // Default (read-mostly) governor: 5 burst, 1 request/2s. Applies to all
@@ -135,6 +143,7 @@ async fn main() -> std::io::Result<()> {
                 session_key.clone(),
             ))
             .service(routes::oauth_server_details)
+            .service(routes::jwks)
             .service(
                 web::scope("/auth")
                     .wrap(Governor::new(&auth_governor))

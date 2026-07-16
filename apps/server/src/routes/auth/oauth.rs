@@ -304,7 +304,7 @@ pub async fn token(
 
             // If the caller sent client_id, it must match the token's audience.
             // If they didn't, we trust the signed JWT alone (single-client
-            // deployment, HS512-authenticated).
+            // deployment, Ed25519-authenticated).
             if let Some(sent) = client_id {
                 if info.claims.aud != sent {
                     return Err(OAuthTokenError::error(OAuthErrorType::InvalidClientId));
@@ -387,8 +387,8 @@ pub async fn revoke(
     // or not the token was actually revoked, to avoid leaking information
     // about token validity. So we swallow every failure and always return OK.
     if let Ok(info) = validate_refresh_token(&body.token) {
-        if let Ok(Some(token)) = RefreshToken::get_token(&info.claims.jti, &db).await {
-            let _ = RefreshToken::revoke_family(&token.family_id, &db).await;
+        if let Ok(Some(rt)) = RefreshToken::get_token(&info.claims.jti, &db).await {
+            let _ = RefreshToken::revoke_family(&rt.family_id, &db).await;
         }
     }
 

@@ -282,6 +282,9 @@ impl OAuthErrorType {
                     Some(InnerError::labeled("env".into(), var_error.to_string()))
                 }
                 JwtError::Jwt(error) => Some(InnerError::labeled("jwt".into(), error.to_string())),
+                JwtError::KeysUninitialized | JwtError::KeyLoad(_) => {
+                    Some(InnerError::labeled("jwt".into(), err.to_string()))
+                }
             },
             Self::EnvVar(err) => Some(InnerError::labeled("env".into(), err.to_string())),
             Self::UrlParse(err) => Some(InnerError::labeled(
