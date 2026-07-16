@@ -232,12 +232,13 @@ export class App extends EventTarget {
 	}
 
 	private async initSocket() {
-		const url = new URL(
-			`${import.meta.env.VITE_SERVER_URL}/api/ws?token=${auth.token}`,
-		);
+		const url = new URL(`${import.meta.env.VITE_SERVER_URL}/api/ws`);
 		url.protocol = "wss";
 
-		const socket = new WebSocket(url);
+		// Send the access token via Sec-WebSocket-Protocol instead of the
+		// URL query — keeps the JWT out of access logs, Referer, and proxy
+		// caches. Server echoes `bearer` back per RFC 6455 §4.2.2.
+		const socket = new WebSocket(url, ["bearer", auth.token]);
 		socket.binaryType = "arraybuffer";
 
 		const { resolve, reject, promise } = Promise.withResolvers<void>();
