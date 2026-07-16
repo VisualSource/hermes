@@ -106,16 +106,15 @@
                                     }); 
                                 }, 
                                 pending: false, 
-                                errors: { usr: [], psd: [], psdChk:[] } 
                             }">
                             <input type="hidden" name="{CSRF_TOKEN_FIELD}" value="{CSRF_TOKEN_VALUE}" />
                             <div data-slot="field-group" class="field-group group/field-group">
-                                <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
+                                <div class="field group/field" data-slot="field" role="group" data-orientation="vertical" x-data="field">
                                     <label for="username" class="field-label group/field-label peer/field-label" data-slot="field-label">Username</label>
-                                    <input class="input" data-slot="input" id="username" name="username" type="text" minlength="4" maxlength="255" placeholder="hermes" required/>
-                                     <div id="username-errors" role="alert" data-slot="field-error" class="field-error hidden" x-show="errors" x-transition>
+                                    <input @invalid.prevent="" @input="onInput" x-ref="input" class="input" data-slot="input" id="username" name="username" type="text" minlength="4" maxlength="255" placeholder="hermes" required/>
+                                     <div id="username-errors" role="alert" data-slot="field-error" class="field-error hidden" x-show="errors.length > 0" x-transition>
                                         <ul>
-                                            <template x-for="err in errors.usr">
+                                            <template x-for="err in errors">
                                                 <li>
                                                     <span x-text="err"></span>
                                                 </li>
@@ -123,15 +122,15 @@
                                         </ul>
                                     </div>
                                 </div>
-                                <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
+                                <div class="field group/field" data-slot="field" role="group" data-orientation="vertical" x-data="field">
                                     <div class="flex items-center">
                                         <label for="password" class="field-label group/field-label peer/field-label" data-slot="field-label">Password</label>
                                         <a href="/forget-psd" class="ml-auto text-sm underline-offset-2 hover:underline">Forgot your password?</a>
                                     </div>
-                                    <input class="input" data-slot="input" id="password" name="password" required type="password" minlength="8" maxlength="384"/>
-                                    <div id="password-errors" role="alert" data-slot="field-error" class="field-error hidden" x-show="errors" x-transition>
+                                    <input @invalid.prevent="" @input="onInput" x-ref="input" class="input" data-slot="input" id="password" name="password" required type="password" minlength="8" maxlength="384"/>
+                                    <div id="password-errors" role="alert" data-slot="field-error" class="field-error hidden" x-show="errors.length > 0" x-transition>
                                           <ul>
-                                            <template x-for="err in errors.psd">
+                                            <template x-for="err in errors">
                                                 <li>
                                                     <span x-text="err"></span>
                                                 </li>

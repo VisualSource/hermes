@@ -5,6 +5,34 @@ declare const grecaptcha: {
 	};
 };
 
+type AlpineThis = {
+	$refs: Record<string,HTMLElement>
+}
+
+declare const Alpine: {
+	data: (name: string, state: ()=>Record<string,unknown>) => void;
+}
+
+document.addEventListener("alpine:init",()=>{
+	Alpine.data("field",()=>({
+		errors: [],
+		onInput(this: AlpineThis & { errors: string[] }){
+			const field = this.$refs.input as HTMLInputElement;
+			if(!field) return;
+			this.errors = [];
+			if(!field.checkValidity()){
+				field.setAttribute("aria-invalid", "true");
+				const message = getErrorMessage(field);
+				if (!message) return;
+				this.errors.push(message);
+			} else {
+				field.removeAttribute("aria-invalid");
+				this.errors = [];
+			}
+		}
+	}));
+});
+
 export const getErrorMessage = (target: HTMLInputElement): string | null => {
 	const validity = target.validity;
 	if (validity.tooLong) return "Field is too long";
@@ -14,46 +42,6 @@ export const getErrorMessage = (target: HTMLInputElement): string | null => {
 	return null;
 };
 
-const getErrorReporter = (field: string) => {
-	const reporter = document.getElementById(`${field}-errors`);
-	if (!reporter) throw new Error("failed to find reporter");
-	const list = reporter.querySelector("ul");
-	if (!list) throw new Error("failed to get reportes list");
-
-	return reporter;
-};
-
-const addError = (message: string, target: HTMLElement) => {
-	const error = document.createElement("li");
-	error.setAttribute("class", "text-xs text-left");
-	error.textContent = message;
-
-	target.replaceChildren(error);
-};
-
-export const reportError = (targets: string[]) => {
-	for (const name of targets) {
-		const target = document.getElementById(name) as HTMLInputElement | null;
-		if (!target) continue;
-
-		const reporter = getErrorReporter(target.name);
-
-		target.addEventListener("invalid", (ev) => ev.preventDefault());
-		target.addEventListener("input", () => {
-			if (!target.checkValidity()) {
-				reporter.classList.remove("hidden");
-				target.setAttribute("aria-invalid", "true");
-				const message = getErrorMessage(target);
-				if (!message) return;
-
-				addError(message, target);
-			} else {
-				target.removeAttribute("aria-invalid");
-				reporter.classList.add("hidden");
-			}
-		});
-	}
-};
 
 type ErrorObject = {
 	code: number;
@@ -86,32 +74,16 @@ export const handleErrorResponse = async (response: Response) => {
 	switch (response.status) {
 		case 400:
 			for (const err of body.details) {
-				addError(err.message, getErrorReporter(err.target));
-				document
-					.getElementById(`${err.target}-errors`)
-					?.classList.remove("hidden");
+	
+
 			}
 
-			document.getElementById("body-errors")?.classList.remove("hidden");
 			break;
 		case 500:
 		case 403:
 			showMessage(body.message);
 			break;
 	}
-};
-
-export const onFormSubmit = (
-	target: string,
-	callback: (formData: FormData) => void,
-) => {
-	const form = document.getElementById(target) as HTMLFormElement | null;
-	if (!form) throw new Error("failed to get form");
-	form?.addEventListener("submit", (ev) => {
-		ev.preventDefault();
-		const formData = new FormData(ev.target as HTMLFormElement);
-		callback(formData);
-	});
 };
 
 export const getRecaptchaToken = async (siteKey: string, action: string) => {

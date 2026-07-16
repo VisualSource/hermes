@@ -14,7 +14,11 @@
   "dependencies": {
     "@biomejs/biome": "^2.4.4",
     "@tailwindcss/cli": "^4.3.2",
+    "alpinejs": "^3.15.12",
     "tailwindcss": "^4.3.3",
     "typescript": "~7.0.2"
+  },
+  "devDependencies": {
+    "@types/alpinejs": "^3.13.11"
   }
 }
