@@ -12,7 +12,7 @@ prost = "0.14"
 prost-types = "0.14"
 urlencoding = "2.1.3"
 actix-session = { version = "0.11.0", features = ["cookie-session"]}
-actix-csrf-middleware = "0.5.4"
+actix-csrf-middleware = "0.7"
 actix-identity = "0.9.0"
 actix = "0.13"
 actix-files = "0.6"
@@ -20,18 +20,19 @@ actix-web = "4"
 actix-ws = "0.4.0"
 actix-cors ="0.7"
 jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
-ed25519-dalek = { version = "2.1", features = ["pkcs8", "pem"] }
+ed25519-dalek = { version = "3.0", features = ["pkcs8", "pem"] }
 actix-governor = "0.10"
 futures-util = "0.3"
-sha2 = "0.10"
+sha2 = "0.11"
 log = "0.4"
 base64 = "0.22"
 rand = "0.10"
-sqlx = { version = "0.8", features = [ "runtime-tokio", "sqlite","derive", "macros","migrate","bstr", "time","uuid"] }
+sqlx = { version = "0.9", features = [ "runtime-tokio", "sqlite","derive", "macros","migrate","bstr", "time","uuid"] }
+tokio = { version = "1", features = ["time", "rt", "macros"] }
 utoipa = { version = "5.4", features = ["actix_extras","yaml","uuid"]}
 utoipa-actix-web = "0.1"
 log4rs = "1.4"
-totp-rs = { version = "5.7.0", features = ["gen_secret"]}
+totp-rs = { version = "5.7", features = ["gen_secret"]}
 dotenvy = "0.15.7"
 url = "2.5"
 thiserror = "2.0.18"

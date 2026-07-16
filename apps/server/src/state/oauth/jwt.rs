@@ -2,7 +2,8 @@ use std::ops::Add;
 use std::sync::OnceLock;
 
 use base64::Engine;
-use ed25519_dalek::pkcs8::{DecodePrivateKey, EncodePublicKey, LineEnding};
+use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
+use ed25519_dalek::pkcs8::{DecodePrivateKey, EncodePublicKey};
 use jsonwebtoken::{Algorithm, TokenData, Validation};
 use thiserror::Error;
 
@@ -217,7 +218,8 @@ pub fn validate_refresh_token(token: &str) -> Result<TokenData<RefreshClaims>, J
 
 #[cfg(test)]
 mod tests {
-    use ed25519_dalek::pkcs8::{EncodePrivateKey, LineEnding};
+    use ed25519_dalek::pkcs8::EncodePrivateKey;
+    use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
 
     fn setup_test_key() {
         unsafe {

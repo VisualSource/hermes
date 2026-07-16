@@ -17,16 +17,16 @@ pub async fn ws(req: HttpRequest, stream: web::Payload, query: web::Query<WsQuer
     let token = match validate_jwt(&query.token){
         Ok(token)  => token,
         Err(err) => match err {
-            crate::state::oauth::jwt::JwtError::Var(error) => {
-            log::error!("{}",error);
-            let resp = HttpResponse::InternalServerError().json(ApplicationError::new(401, "internal server error","server", Vec::default(), Some(InnerError::new(error.to_string()))));
-            return Ok(resp);
-        },
             crate::state::oauth::jwt::JwtError::Jwt(error) => {
-            log::error!("{}",error);
-            let resp = HttpResponse::Unauthorized().json(ApplicationError::new(401, "unauthorized","query", Vec::default(), Some(InnerError::new(error.to_string()))));
-            return Ok(resp);
-        },
+                log::error!("{}",error);
+                let resp = HttpResponse::Unauthorized().json(ApplicationError::new(401, "unauthorized","query", Vec::default(), Some(InnerError::new(error.to_string()))));
+                return Ok(resp);
+            },
+            other => {
+                log::error!("{}", other);
+                let resp = HttpResponse::InternalServerError().json(ApplicationError::new(500, "internal server error","server", Vec::default(), Some(InnerError::new(other.to_string()))));
+                return Ok(resp);
+            },
         }
     };
     log::debug!("User inited socket connection: {}",token.claims.sub);

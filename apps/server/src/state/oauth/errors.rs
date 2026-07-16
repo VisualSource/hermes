@@ -111,7 +111,7 @@ impl actix_web::ResponseError for OAuthAuthorizeError {
         if let Some(redirect_uri) = self.valid_redirect_uri.as_deref() {
             let location = build_error_redirect(
                 redirect_uri,
-                self.error_type.name(),
+                self.error_type.name_static(),
                 &self.error_type.to_string(),
                 self.state.as_deref(),
             );
@@ -126,11 +126,11 @@ impl actix_web::ResponseError for OAuthAuthorizeError {
         } else {
             let status = self.status_code();
             HttpResponse::build(status).json(ApplicationError::new(
-                status.as_u16() as i32,
+                status.as_u16(),
                 self.error_type.name(),
                 "query",
                 vec![ErrorDetail::new(
-                    status.as_u16() as i32,
+                    status.as_u16(),
                     "query",
                     self.error_type.to_string(),
                 )],
