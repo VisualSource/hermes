@@ -1,3 +1,10 @@
 packages:
   - apps/desktop-client
+  - apps/server
   - apps/mobile-client
+allowBuilds:
+  '@parcel/watcher': false
+  esbuild: false
+  msw: false
+minimumReleaseAgeExclude:
+  - tailwindcss@4.3.3

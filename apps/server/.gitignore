@@ -1,2 +1,5 @@
 target
 sqlite.*
+keys
+
+public/*.{js,map,css,d.ts}

@@ -13,8 +13,8 @@
   "packageManager": "pnpm@10.28.2",
   "dependencies": {
     "@biomejs/biome": "^2.4.4",
-    "@tailwindcss/cli": "^4.2.1",
-    "tailwindcss": "^4.2.1",
+    "@tailwindcss/cli": "^4.3.2",
+    "tailwindcss": "^4.3.3",
     "typescript": "~7.0.2"
   }
 }
