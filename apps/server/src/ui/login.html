@@ -8,64 +8,22 @@
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
     <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="/static/stylesheet.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="https://www.google.com/recaptcha/enterprise.js?render={RECAPTCHA_SITE_KEY}"></script>
-    <script>
-        async function onSubmit(target){
-           try {
-                const data = new FormData(target);
-                
-                const csrf = data.get("{CSRF_TOKEN_FIELD}");
-                data.delete("{CSRF_TOKEN_FIELD}");
-
-                const token = await getRecaptchaToken("{RECAPTCHA_SITE_KEY}","login");
-                data.set("recaptcha",token);
-
-                const path = new URL("/login",window.location.origin);
-                const response = await fetch(path,{
-                    method: "post",
-                    body: new URLSearchParams(formData.entries()),
-                    headers: {
-                        "X-CSRF-Token": csrf
-                    }
-                });
-
-                if(!response.ok) {
-                    // parse error;
-                    const msg = "";
-                    throw new Error(msg, { cause: response });
-                }
-
-                const query = new URLSearchParams(window.location.search);
-                const returnTo = query.get("return_to");
-                if(!returnTo) throw new Error("no return_to query param in response");
-                const url = new URL(returnTo);
-                if(url.origin !== window.location.origin) throw new Error("invalid return to origin");
-                window.location.href = url.toString();
-           } catch (error) {
-                if(error instanceof TypeError) {
-                    throw new Error("a network error occurred", { cause: error });
-                }
-
-                throw error;
-           }
+    <script type="importmap">
+        {
+            "imports":{
+                "alpinejs": "/static/alpinejs/module.esm.min.js"
+            }
         }
     </script>
+    <script defer src="/static/login.js"></script>
+    <script src="https://www.google.com/recaptcha/enterprise.js?render={RECAPTCHA_SITE_KEY}"></script>
 </head>
-<body class="dark" x-data="{ 
-        showDialog(title, msg){ 
-            this.dTitle = title; 
-            this.dDesc = msg; 
-            document.getElementById('message-dialog').showModal();  
-        }, 
-        dTitle: 'Error', 
-        dDesc: '' 
-    }">
-    <dialog id="message-dialog" class="backdrop:bg-black/10 backdrop:supports-backdrop-filter:backdrop-blur-xs">
+<body class="dark">
+    <dialog id="message-dialog" class="backdrop:bg-black/10 backdrop:supports-backdrop-filter:backdrop-blur-xs" x-data>
         <form method="dialog" data-slot="alert-dialog-content" data-size="default" class="dialog-content group/alert-dialog-content">
             <header data-slot="alert-dialog-header" class="dialog-header">
-                <h1 data-slot="alert-dialog-title" class="dialog-title" x-text="dTitle">Error</h1>
-                <p data-slot="alert-dialog-description" class="dialog-description" x-text="dDesc"></p>
+                <h1 data-slot="alert-dialog-title" class="dialog-title" x-text="$store.app.dialog.title">Error</h1>
+                <p data-slot="alert-dialog-description" class="dialog-description" x-text="$store.app.dialog.desc"></p>
             </header>
             <footer data-slot="alert-dialog-footer" class="dialog-footer">
                 <button data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">
@@ -75,11 +33,8 @@
         </form>
     </dialog>
     <div class="bg-muted flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-        <div class="w-full max-w-sm" x-data="{ 
-                done: false, 
-                loginDone(){ this.done = true; } 
-            }">
-            <template id="login-done" x-if="done">
+        <div class="w-full max-w-sm" x-data>
+            <template x-if="$store.app.done">
                 <div data-slot="card" data-size="default" class="card group/card text-center">
                     <section data-slot="card-content" class="card-content">
                         <h1 class="text-lg font-bold">Your loggedin.</h1>
@@ -89,24 +44,14 @@
                     </section>
                 </div>
             </template>
-            <main class="flex flex-col gap-6" x-show="!done">
+            <main class="flex flex-col gap-6" x-show="!$store.app.done">
                 <div data-slot="card" data-size="default" class="card group/card">
                     <header data-slot="card-header" class="card-header group/card-header">
                         <div data-slot="card-title" class="card-title">Login to your account</div>
                         <div data-slot="card-description" class="card-description">Enter your username below to login to your account.</div>
                     </header>
                     <section data-slot="card-content" class="card-content">
-                        <form id="login-form" @submit.prevent="submit($event)" x-data="{ 
-                                submit(ev){ 
-                                    this.pending = true; 
-                                    onSubmit(ev.target).then(loginDone).catch((err)=>{ 
-                                        showDialog('Error',err.message); 
-                                    }).finally(()=>{ 
-                                        this.pending = false; 
-                                    }); 
-                                }, 
-                                pending: false, 
-                            }">
+                        <form id="login-form" @submit.prevent="submit($event)" x-data="appForm">
                             <input type="hidden" name="{CSRF_TOKEN_FIELD}" value="{CSRF_TOKEN_VALUE}" />
                             <div data-slot="field-group" class="field-group group/field-group">
                                 <div class="field group/field" data-slot="field" role="group" data-orientation="vertical" x-data="field">
@@ -141,11 +86,15 @@
                                 <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
                                     <button :disabled="pending" id="submitBtn" data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">
                                         Login
-                                        <svg role="status" aria-label="Loading" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-loader-circle-icon lucide-loader-circle animate-spin size-4 hidden"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                                        <template x-if="pending">
+                                            <svg role="status" aria-label="Loading" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-loader-circle-icon lucide-loader-circle animate-spin size-4">
+                                                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                                            </svg>
+                                        </template>
                                     </button>
                                 </div>
                                 <div data-slot="field-description" class="field-description text-center">
-                                    Don&apos;t have an account? <a href="/signup" id="signup-link">Sign up</a>
+                                    Don&apos;t have an account? <a :href="`/signup${window.location.search}`">Sign up</a>
                                 </div>
                             </div>
                         </form>
@@ -157,24 +106,5 @@
             </main>
         </div>
     </div>
-  
-    <!--<script type="module">
-        import {onFormSubmit,reportError,getRecaptchaToken, handleErrorResponse,  showMessage} from "/static/shared.js";
-
-  
-
-
-        document.addEventListener("DOMContentLoaded",()=>{
-            reportError(["username","password"]);
-
-            const submitBtn = document.getElementById("submitBtn");
-            const spinner = submitBtn.querySelector("svg");
-
-            /**@type {HTMLAnchorElement|null}*/
-            const link = document.getElementById("signup-link");
-            if(link){
-                link.href = `${link.href}${window.location.search}`;
-            }
-    </script>-->
 </body>
 </html>

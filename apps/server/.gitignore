@@ -2,4 +2,7 @@ target
 sqlite.*
 keys
 
-public/*.{js,map,css,d.ts}
+public/*.js
+public/*.css
+public/*.map
+public/*.html

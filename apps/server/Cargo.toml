@@ -44,6 +44,7 @@ time = { version = "0.3.47", features = ["serde"]}
 
 [build-dependencies]
 prost-build = "0.14"
+oxc = { version = "0.140", features = ["minifier","codegen","mangler","transformer","semantic"] }
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3
