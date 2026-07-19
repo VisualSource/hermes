@@ -1,0 +1,24 @@
+# Points tauri at the `feat/cef` branch so Linux can use the CEF webview runtime
+# instead of gtk/webkit2gtk. The runtime itself is selected by the per-target
+# feature sets in Cargo.toml: Linux gets `cef`, everything else keeps `wry`.
+#
+# This has to be a patch rather than a git dependency in Cargo.toml because Cargo
+# requires a single canonical source per dependency across all target tables, and
+# it has to apply on every platform because Cargo validates features for inactive
+# target tables too (the `cef` feature does not exist on the crates.io release).
+
+[patch.crates-io]
+tauri = { git = "https://github.com/tauri-apps/tauri", branch = "feat/cef" }
+tauri-build = { git = "https://github.com/tauri-apps/tauri", branch = "feat/cef" }
+tauri-runtime = { git = "https://github.com/tauri-apps/tauri", branch = "feat/cef" }
+tauri-runtime-wry = { git = "https://github.com/tauri-apps/tauri", branch = "feat/cef" }
+tauri-codegen = { git = "https://github.com/tauri-apps/tauri", branch = "feat/cef" }
+tauri-macros = { git = "https://github.com/tauri-apps/tauri", branch = "feat/cef" }
+
+# Deliberately NOT patched: tauri-utils and tauri-plugin.
+# The branch has migrated to schemars 1.0 (`Schema`), while every released
+# tauri-plugin-* on crates.io is built against schemars 0.8 (`RootSchema`) --
+# plugins-workspace `v2` still pins schemars 0.8. Patching these forces the
+# plugin build scripts onto the 1.0 API and they fail to compile. Leaving them
+# on crates.io lets the plugins keep their own copy; the two sides only exchange
+# ACL data as JSON on disk.
