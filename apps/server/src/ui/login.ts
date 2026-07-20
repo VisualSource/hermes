@@ -11,7 +11,7 @@ type AppStore = {
     showDone(): void;
 }
 
-document.addEventListener("alpine:init",()=>{
+document.addEventListener("DOMContentLoaded",()=>{
     initSharedAlpine();
     Alpine.store("app",{
         done: false,
@@ -41,7 +41,9 @@ document.addEventListener("alpine:init",()=>{
             }
         }, 
     }));
-});     
+    Alpine.start();
+    console.log("started alpinejs: " + Alpine.version)
+});
      
 async function onSubmit(target: HTMLFormElement){
     try {

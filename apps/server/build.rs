@@ -146,7 +146,7 @@ fn build_ui(project_dir: &PathBuf) {
         }
     }
 
-    let alpine_js_out = project_dir.join("./public/alpinejs.esm.min.js");
+    let alpine_js_out = project_dir.join("./public/static/alpinejs.esm.min.js");
     if !alpine_js_out.exists() {
         let alpine_js_file = project_dir.join("./node_modules/alpinejs/dist/module.esm.min.js");
         fs::copy(alpine_js_file, alpine_js_out).expect("failed to copy alpinejs dep to output dir");
