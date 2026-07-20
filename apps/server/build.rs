@@ -114,7 +114,7 @@ fn build_ui(project_dir: &PathBuf) {
                     .build(&program);
 
                 // write
-                let mut output_file_path = project_dir.join("public").join(file_name);
+                let mut output_file_path = project_dir.join("public/static").join(file_name);
                 output_file_path.add_extension("js");
 
                 fs::write(output_file_path, codegen_ret.code).expect("failed to write file");
@@ -124,7 +124,7 @@ fn build_ui(project_dir: &PathBuf) {
                 fs::copy(file_path, outdir).expect("failed to copy html file");
             }
             "css" => {
-                let outdir = project_dir.join("./public").join(name);
+                let outdir = project_dir.join("./public/static").join(name);
 
                 Command::new(&pnpm_cmd)
                     .current_dir(project_dir)

@@ -4,24 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login</title>
-    <link rel="preconnect" href="https://www.google.com">
-    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://challenges.cloudflare.com" />
     <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="/static/stylesheet.css">
-    <script type="importmap">
-        {
-            "imports":{
-                "alpinejs": "/static/alpinejs/module.esm.min.js"
-            }
-        }
-    </script>
+    <script type="importmap">{"imports":{"alpinejs": "/static/alpine.esm.min.js"}}</script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <script defer src="/static/login.js"></script>
-    <script src="https://www.google.com/recaptcha/enterprise.js?render={RECAPTCHA_SITE_KEY}"></script>
+
 </head>
 <body class="dark">
-    <dialog id="message-dialog" class="backdrop:bg-black/10 backdrop:supports-backdrop-filter:backdrop-blur-xs" x-data>
+    <dialog id="message-dialog" class="backdrop:bg-black/10 backdrop:supports-backdrop-filter:backdrop-blur-xs">
         <form method="dialog" data-slot="alert-dialog-content" data-size="default" class="dialog-content group/alert-dialog-content">
-            <header data-slot="alert-dialog-header" class="dialog-header">
+            <header data-slot="alert-dialog-header" class="dialog-header" x-data>
                 <h1 data-slot="alert-dialog-title" class="dialog-title" x-text="$store.app.dialog.title">Error</h1>
                 <p data-slot="alert-dialog-description" class="dialog-description" x-text="$store.app.dialog.desc"></p>
             </header>
@@ -52,11 +46,11 @@
                     </header>
                     <section data-slot="card-content" class="card-content">
                         <form id="login-form" @submit.prevent="submit($event)" x-data="appForm">
-                            <input type="hidden" name="{CSRF_TOKEN_FIELD}" value="{CSRF_TOKEN_VALUE}" />
+                            <input type="hidden" name="CSRF_TOKEN_FIELD" value="{CSRF_TOKEN_VALUE}" />
                             <div data-slot="field-group" class="field-group group/field-group">
                                 <div class="field group/field" data-slot="field" role="group" data-orientation="vertical" x-data="field">
                                     <label for="username" class="field-label group/field-label peer/field-label" data-slot="field-label">Username</label>
-                                    <input @invalid.prevent="" @input="onInput" x-ref="input" class="input" data-slot="input" id="username" name="username" type="text" minlength="4" maxlength="255" placeholder="hermes" required/>
+                                    <input @invalid.prevent="" @input="onInput" x-ref="input" class="input" data-slot="input" id="username" name="username" type="text" minlength="4" maxlength="255" placeholder="hermes" required autocomplete="username"/>
                                      <div id="username-errors" role="alert" data-slot="field-error" class="field-error hidden" x-show="errors.length > 0" x-transition>
                                         <ul>
                                             <template x-for="err in errors">
@@ -72,7 +66,7 @@
                                         <label for="password" class="field-label group/field-label peer/field-label" data-slot="field-label">Password</label>
                                         <a href="/forget-psd" class="ml-auto text-sm underline-offset-2 hover:underline">Forgot your password?</a>
                                     </div>
-                                    <input @invalid.prevent="" @input="onInput" x-ref="input" class="input" data-slot="input" id="password" name="password" required type="password" minlength="8" maxlength="384"/>
+                                    <input @invalid.prevent="" @input="onInput" x-ref="input" class="input" data-slot="input" id="password" name="password" required type="password" minlength="8" maxlength="384" autocomplete="current-password"/>
                                     <div id="password-errors" role="alert" data-slot="field-error" class="field-error hidden" x-show="errors.length > 0" x-transition>
                                           <ul>
                                             <template x-for="err in errors">
@@ -83,6 +77,9 @@
                                         </ul>
                                     </div>
                                 </div>
+
+                                <div class="cf-turnstile" data-sitekey="{CLOUDFLARE_TURNSTILE_SITE_KEY}" data-theme="dark" data-size="flexible" data-appearance="interaction-only" data-action="login"></div>
+
                                 <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
                                     <button :disabled="pending" id="submitBtn" data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">
                                         Login

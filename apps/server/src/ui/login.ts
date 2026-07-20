@@ -1,4 +1,4 @@
-import { initSharedAlpine, getRecaptchaToken,  type ErrorObject } from "./shared.js";
+import { initSharedAlpine, type ErrorObject } from "./shared.js";
 import Alpine from "alpinejs"; 
 
 type AppStore = {
@@ -47,12 +47,9 @@ async function onSubmit(target: HTMLFormElement){
     try {
         const data = new FormData(target);
                 
-        const csrf = data.get("{CSRF_TOKEN_FIELD}")?.toString();
+        const csrf = data.get("CSRF_TOKEN_FIELD")?.toString();
         if(!csrf) throw new Error("missing required field");
-        data.delete("{CSRF_TOKEN_FIELD}");
-
-        const token = await getRecaptchaToken("{RECAPTCHA_SITE_KEY}","login");
-        data.set("recaptcha",token);
+        data.delete("CSRF_TOKEN_FIELD");
 
         const path = new URL("/login",window.location.origin);
         const response = await fetch(path,{

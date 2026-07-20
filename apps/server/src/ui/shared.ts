@@ -1,20 +1,5 @@
 import Alpine from "alpinejs";
 
-declare const grecaptcha: {
-	enterprise: {
-		ready: (callback: () => void) => void;
-		execute: (key: string, opt?: { action: string }) => Promise<string>;
-	};
-};
-
-export const getRecaptchaToken = async (siteKey: string, action: string) => {
-	await new Promise<void>((ok) => grecaptcha.enterprise.ready(ok));
-
-	return await grecaptcha.enterprise.execute(siteKey, {
-		action,
-	});
-};
-
 const getErrorMessage = (target: HTMLInputElement): string | null => {
 	const validity = target.validity;
 	if (validity.tooLong) return "Field is too long";
@@ -23,7 +8,6 @@ const getErrorMessage = (target: HTMLInputElement): string | null => {
 	if (validity.customError) return target.validationMessage;
 	return null;
 };
-
 
 export type ErrorObject = {
 	code: number;

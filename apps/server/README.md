@@ -62,9 +62,9 @@ DATABASE_URL=sqlite://sqlite.db?mode=rwc
 # Optional: origin allowed to hit the API from a browser. Defaults to the Tauri dev origin.
 CORS_ALLOWED_ORIGIN=http://localhost:1420
 
-# reCAPTCHA v3. Required — the login/signup pages fail if these aren't set.
-RECAPTCHA_SITE_KEY=<google-recaptcha-site-key>
-RECAPTCHA_SECRET_KEY=<google-recaptcha-secret-key>
+# CloudFlare Turnstile. Required — the login/signup pages fail if these aren't set.
+CLOUDFLARE_TURNSTILE_SITE_KEY
+CLOUDFLARE_TURNSTILE_API_KEY
 ```
 
 Startup validation checks `SERVER_ORIGIN`, `JWT_PRIVATE_KEY_PATH`, and `SESSION_SECRET` (length included). Missing values print a clear error and exit before the HTTP listener binds.
