@@ -8,6 +8,12 @@ Bun.serve({
     const url = new URL(req.url);
     let pathName = url.pathname;
 
+    if(pathName === "/login" && req.method === "POST") {
+      await new Promise((ok)=>setTimeout(ok,5000));
+      return Response.json({});
+    }
+
+
     // Resolve the full file path safely
     const filePath = join(PUBLIC_DIR, pathName);
     const file = Bun.file(filePath);

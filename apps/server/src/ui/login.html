@@ -10,7 +10,6 @@
     <script type="importmap">{"imports":{"alpinejs": "/static/alpinejs.esm.min.js"}}</script>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <script type="module" src="/static/login.js"></script>
-
 </head>
 <body class="dark">
     <dialog id="message-dialog" class="backdrop:bg-black/10 backdrop:supports-backdrop-filter:backdrop-blur-xs">
@@ -50,7 +49,7 @@
                             <div data-slot="field-group" class="field-group group/field-group">
                                 <div class="field group/field" data-slot="field" role="group" data-orientation="vertical" x-data="field">
                                     <label for="username" class="field-label group/field-label peer/field-label" data-slot="field-label">Username</label>
-                                    <input @invalid.prevent="" @input="onInput" x-ref="input" class="input" data-slot="input" id="username" name="username" type="text" minlength="4" maxlength="255" placeholder="hermes" required autocomplete="username"/>
+                                    <input @invalid.prevent="" @input="onInput()" x-ref="input" class="input" data-slot="input" id="username" name="username" type="text" minlength="4" maxlength="255" placeholder="hermes" required autocomplete="username"/>
                                      <div id="username-errors" role="alert" data-slot="field-error" class="field-error hidden" x-show="errors.length > 0" x-transition>
                                         <ul>
                                             <template x-for="err in errors">
@@ -66,7 +65,7 @@
                                         <label for="password" class="field-label group/field-label peer/field-label" data-slot="field-label">Password</label>
                                         <a href="/forget-psd" class="ml-auto text-sm underline-offset-2 hover:underline">Forgot your password?</a>
                                     </div>
-                                    <input @invalid.prevent="" @input="onInput" x-ref="input" class="input" data-slot="input" id="password" name="password" required type="password" minlength="8" maxlength="384" autocomplete="current-password"/>
+                                    <input @invalid.prevent="" @input="onInput()" x-ref="input" class="input" data-slot="input" id="password" name="password" required type="password" minlength="8" maxlength="384" autocomplete="current-password"/>
                                     <div id="password-errors" role="alert" data-slot="field-error" class="field-error hidden" x-show="errors.length > 0" x-transition>
                                           <ul>
                                             <template x-for="err in errors">

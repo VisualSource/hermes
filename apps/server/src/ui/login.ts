@@ -30,6 +30,7 @@ document.addEventListener("DOMContentLoaded",()=>{
     Alpine.data("appForm",()=>({
         pending: false, 
         async submit(ev: Event){ 
+            console.log(ev);
             this.pending = true; 
             try {
                 await onSubmit(ev.target as HTMLFormElement);
@@ -42,21 +43,22 @@ document.addEventListener("DOMContentLoaded",()=>{
         }, 
     }));
     Alpine.start();
-    console.log("started alpinejs: " + Alpine.version)
 });
      
 async function onSubmit(target: HTMLFormElement){
     try {
         const data = new FormData(target);
-                
+ 
         const csrf = data.get("CSRF_TOKEN_FIELD")?.toString();
         if(!csrf) throw new Error("missing required field");
         data.delete("CSRF_TOKEN_FIELD");
-
+        const fields = Object.fromEntries(data.entries());
+        
+        const body = new URLSearchParams();
         const path = new URL("/login",window.location.origin);
         const response = await fetch(path,{
             method: "post",
-            body: new URLSearchParams(Object.entries(data.entries())),
+            body,
             headers: new Headers({
                 "X-CSRF-Token": csrf
             })

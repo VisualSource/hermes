@@ -10,6 +10,12 @@ pub async fn connect() -> Result<SqlitePool, sqlx::Error> {
 
     let pool = SqlitePool::connect(&database_url).await?;
 
+    // https://mort.coffee/home/sqlite-editions/?ref=dailydev
+    sqlx::query_file!("queries/init.sql")
+        .execute(&pool)
+        .await
+        .expect("failed to init db");
+
     sqlx::migrate!("./migrations").run(&pool).await?;
 
     Ok(pool)
