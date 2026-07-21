@@ -122,12 +122,34 @@ When the WebView is Chromium (Windows/WebView2, Android), you get the **complete
   `permissions-request` handler (else `getUserMedia` returns `NotAllowedError`), and it **only works under X11
   (Wayland throws GBM buffer errors)**. This is not viable for a normal distributable. **[primary — Tauri
   discussion #8426]**
-  - **Project plan for Hermes: use the CEF (Chromium) WebView on Linux instead of WebKitGTK.** Tauri has
-    in-progress work to swap the WebView backend for **CEF (Chromium Embedded Framework)**, which ships full
-    Chromium libwebrtc — the same complete voice stack as WebView2 on Windows — rather than WebKitGTK. This is
-    **currently a feature branch, not stable/released**, so it should be treated as forward-looking: it removes
-    the Linux WebRTC hole *if and when it lands and is production-viable*, but it is not something to ship on
-    today. **[project note — pending verification against Tauri's CEF branch status]**
+  - **Project plan for Hermes: swap to a Chromium/CEF WebView on Linux instead of WebKitGTK — verified as a real,
+    active core-team feature branch (pre-release).** The characterization checks out:
+    - The work lives on a public branch, **`feat/cef` in `tauri-apps/tauri`**, actively developed by Tauri core
+      maintainer *amrbashir*, with commits as recent as 2026-07-16 (e.g. "refactor(cef): bring
+      external_message_pump to be a closer port of cefclient official impl", "chore: move cef-helper into
+      crates/ directory", macOS `NSView`/`NSWindow` parenting fixes) and regularly merged up from `dev`. This is
+      genuine backend-integration work, not a stub. **[primary — github.com/tauri-apps/tauri/tree/feat/cef; GitHub commits API]**
+    - It is backed by an official bindings crate, **`tauri-apps/cef-rs`** ("Use CEF in Rust"), actively released
+      (latest tag `cef-v150.2.1+150.0.14`, 2026-07-21) with bundling tooling (`export-cef-dir`,
+      `bundle-cef-app`), and CEF handling is landing in the Tauri CLI/bundler (cf. tauri issue #15287 on CEF
+      framework copy). **[primary — github.com/tauri-apps/cef-rs; tauri#15287]**
+    - **But it is pre-release, not stable/merged, and possibly partly commercial.** Maintainer FabianLars: CEF is
+      "still not off the table but there's no ETA" (Jan 2024); it was "started… but halted… twice"; and "it
+      likely won't be part of tauri (the open source org) directly but a closed source or company offering." By
+      Nov 2025→Jan 2026 the team moved to "working on it" and "dogfooding while we're working on customer
+      projects. The open source work will follow a bit later." So "feature branch, not stable/released" is
+      accurate. **[primary — Tauri discussion #8524]**
+    - **Do not conflate CEF with Tauri's other alt-webview effort, Verso/Servo** ("Experimental Tauri Verso
+      Integration," 2025-03-17, NLnet-funded, with Igalia). That one is **Servo-based, not Chromium**, explicitly
+      experimental, and would **not** provide libwebrtc — Servo "won't be able to compete with the normal
+      browsers feature wise anytime soon, if ever." The CEF branch, not Verso, is the one relevant to closing the
+      WebRTC hole. **[primary — Tauri Verso blog; discussion #8524]**
+    - **Does CEF close the Linux WebRTC hole?** CEF embeds Chromium's content layer, which includes libwebrtc, so
+      a working CEF-backed webview should give `getUserMedia`/`RTCPeerConnection` the same complete voice stack as
+      WebView2 on Windows. **This last step is [inferred]** — no Tauri primary source I found explicitly states
+      "the CEF backend delivers WebRTC on Linux," and CEF media features can require build/runtime flags. Net: the
+      direction is real, core-team-driven, and progressing, but it is a **pre-release feature branch with no
+      committed ETA** — forward-looking, not something to ship on today.
 - **macOS / WKWebView: works, but must be wired up.** Historically `getUserMedia` was disabled in embedded
   WKWebView (noted in wry#85). Modern macOS/iOS (WKWebView, ~macOS 12+/iOS 14.3+) **does** support it *if* the
   app implements the `webView(_:requestMediaCapturePermissionFor:…:decisionHandler:)` delegate, sets
@@ -220,11 +242,14 @@ Hermes today: **Tauri desktop, peer-mesh voice, small scale, Windows-primary.** 
    The Rust crates would force you to re-own AEC/NS/AGC, jitter buffering, and Opus/device glue to merely match
    what you already have. **[primary basis: §2, §3]**
 2. **Treat Linux as the exception, not the rule — and the plan for it is the CEF WebView, not a Rust stack.**
-   The Hermes plan for Linux is to run Tauri on the **CEF (Chromium) WebView backend** (currently a Tauri feature
-   branch), which brings the same full Chromium libwebrtc as Windows/WebView2 and closes the WebKitGTK WebRTC hole
-   — keeping voice in the browser stack on all three platforms. Do **not** bet on custom-compiled WebKitGTK. Until
-   the CEF branch is stable and production-viable, options are (a) accept Linux-later, or (b) fall back to a
-   single Rust voice engine (option 3) — but the CEF path is what avoids option 3 entirely.
+   The Hermes plan for Linux is to run Tauri on the **CEF (Chromium) WebView backend** — verified as the real,
+   core-team `feat/cef` branch in `tauri-apps/tauri` (active as of July 2026, backed by the `cef-rs` crate),
+   though still a **pre-release feature branch with no committed ETA and a possible commercial component** (see
+   §2). CEF embeds Chromium's libwebrtc, so it *should* bring the same full voice stack as Windows/WebView2 and
+   close the WebKitGTK hole — but that WebRTC payoff is **[inferred]**, not yet confirmed by a Tauri primary
+   source. Do **not** bet on custom-compiled WebKitGTK, and note this is *not* the Verso/Servo effort (Servo has
+   no libwebrtc). Until `feat/cef` is stable and production-viable, options are (a) accept Linux-later, or (b)
+   fall back to a single Rust voice engine (option 3) — but the CEF path is what avoids option 3 entirely.
 3. **If a Rust engine becomes necessary (overlay voice, headless mode, or Linux), prefer `str0m` for the
    transport** (active, real BWE/TWCC, clean sans-IO) **paired with `cpal` + the `opus` crate (already present)
    + `webrtc-audio-processing` for AEC3.** Consider **libwebrtc via FFI** instead of pure-Rust if you want the
@@ -255,6 +280,14 @@ Primary (crate docs / source repos / vendor & spec docs):
 - Tauri v2, "Webview Versions": https://v2.tauri.app/reference/webview-versions/
 - wry issue #85, "WebRTC support on Linux": https://github.com/tauri-apps/wry/issues/85
 - Tauri discussion #8426, "Functional WebRTC in WebkitGTK on Linux!": https://github.com/orgs/tauri-apps/discussions/8426
+- Tauri CEF backend branch `feat/cef` (tauri-apps/tauri): https://github.com/tauri-apps/tauri/tree/feat/cef
+- Tauri `feat/cef` commit history (GitHub API): https://api.github.com/repos/tauri-apps/tauri/commits?sha=feat/cef
+- `tauri-apps/cef-rs` (official CEF Rust bindings): https://github.com/tauri-apps/cef-rs
+- tauri issue #15287 (CEF framework copy in tauri-cli): https://github.com/tauri-apps/tauri/issues/15287
+- wry issue #703, "Chromium Embedded Framework as a universal fallback" (closed, priority: low): https://github.com/tauri-apps/wry/issues/703
+- Tauri discussion #8524, "Webkit is totally unstable… use chromium or firefox instead" (CEF status quotes): https://github.com/orgs/tauri-apps/discussions/8524
+- Tauri blog, "Experimental Tauri Verso Integration" (2025-03-17, Servo-based, not Chromium): https://v2.tauri.app/blog/tauri-verso-integration/
+- NLnet, "Servo Webview for Tauri" / "Servo improvements for Tauri (Verso)": https://nlnet.nl/project/Tauri-Servo/ and https://nlnet.nl/project/Verso/
 - Tauri discussion #5572, "Use of media devices and desktop sharing": https://github.com/orgs/tauri-apps/discussions/5572
 - WebRTC Audio Processing Module g3doc: https://webrtc.googlesource.com/src//+/7c793a7dbe548735fe9e1d107e00d17937202f47/modules/audio_processing/g3doc/audio_processing_module.md
 - `webrtc-audio-processing` (tonarino) — README: https://github.com/tonarino/webrtc-audio-processing/blob/main/README.md
