@@ -1,20 +1,23 @@
-use sqlx::{SqlitePool, migrate::MigrateDatabase};
+use sqlx::SqlitePool;
+use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous};
 use std::env;
+use std::str::FromStr;
+use std::time::Duration;
 
 pub async fn connect() -> Result<SqlitePool, sqlx::Error> {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set");
 
-    if !sqlx::Sqlite::database_exists(&database_url).await? {
-        sqlx::Sqlite::create_database(&database_url).await?;
-    }
-
-    let pool = SqlitePool::connect(&database_url).await?;
-
     // https://mort.coffee/home/sqlite-editions/?ref=dailydev
-    sqlx::query_file!("queries/init.sql")
-        .execute(&pool)
-        .await
-        .expect("failed to init db");
+    // Set pragmas on the connection options so they apply to every pooled
+    // connection, rather than running them once as a checked query.
+    let options = SqliteConnectOptions::from_str(&database_url)?
+        .create_if_missing(true)
+        .foreign_keys(true)
+        .busy_timeout(Duration::from_millis(5000))
+        .journal_mode(SqliteJournalMode::Wal)
+        .synchronous(SqliteSynchronous::Normal);
+
+    let pool = SqlitePoolOptions::new().connect_with(options).await?;
 
     sqlx::migrate!("./migrations").run(&pool).await?;
 
