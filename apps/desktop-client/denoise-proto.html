@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>GTCRN Noise Suppression — Prototype</title>
+		<style>
+			:root { color-scheme: dark; }
+			body {
+				font-family: ui-sans-serif, system-ui, sans-serif;
+				max-width: 760px; margin: 2rem auto; padding: 0 1rem;
+				background: #0b0d10; color: #e6e6e6;
+			}
+			h1 { font-size: 1.25rem; }
+			section {
+				border: 1px solid #262b31; border-radius: 10px;
+				padding: 1rem 1.25rem; margin: 1rem 0; background: #12151a;
+			}
+			h2 { font-size: 1rem; margin-top: 0; }
+			button {
+				background: #2d6cdf; color: #fff; border: 0; border-radius: 6px;
+				padding: 0.5rem 0.9rem; font-size: 0.9rem; cursor: pointer;
+			}
+			button:disabled { background: #333; color: #777; cursor: not-allowed; }
+			.row { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+			.col { flex: 1; min-width: 240px; }
+			label.file {
+				display: inline-block; background: #1c2128; border: 1px solid #30363d;
+				padding: 0.5rem 0.9rem; border-radius: 6px; cursor: pointer;
+			}
+			input[type="file"] { display: none; }
+			audio { width: 100%; margin-top: 0.4rem; }
+			pre#log {
+				background: #05070a; border: 1px solid #20252b; border-radius: 8px;
+				padding: 0.8rem; height: 220px; overflow: auto; font-size: 0.8rem;
+				white-space: pre-wrap; margin: 0;
+			}
+			.hidden { display: none; }
+			.muted { color: #8b949e; font-size: 0.85rem; }
+		</style>
+	</head>
+	<body>
+		<h1>GTCRN Noise Suppression — Prototype</h1>
+		<p class="muted">
+			onnxruntime-web running the streaming GTCRN model (16kHz, n_fft 512,
+			hop 256). RTF &lt; 1 means it can run in real time on this machine.
+		</p>
+
+		<section>
+			<h2>1 · File A/B (quality + real-time factor)</h2>
+			<p class="muted">Pick a noisy voice recording. It's resampled to 16k, run
+				frame-by-frame through GTCRN, then you can compare.</p>
+			<label class="file">
+				Choose audio file…
+				<input id="fileInput" type="file" accept="audio/*" />
+			</label>
+			<div id="abResult" class="hidden">
+				<div class="row" style="margin-top: 1rem">
+					<div class="col">
+						<strong>Original (16k)</strong>
+						<audio id="audioOrig" controls></audio>
+					</div>
+					<div class="col">
+						<strong>Enhanced (GTCRN)</strong>
+						<audio id="audioEnh" controls></audio>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<section>
+			<h2>2 · Live mic monitor (real streaming path)</h2>
+			<p class="muted">⚠️ Use headphones — this plays your (denoised) mic back
+				to you in real time.</p>
+			<button id="btnStart">Start mic</button>
+			<button id="btnStop" disabled>Stop</button>
+		</section>
+
+		<section>
+			<h2>Log</h2>
+			<pre id="log"></pre>
+		</section>
+
+		<script type="module" src="/src/proto/denoise-proto.ts"></script>
+	</body>
+</html>
