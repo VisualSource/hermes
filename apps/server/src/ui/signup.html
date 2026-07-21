@@ -4,18 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Signup</title>
-    <link rel="preconnect" href="https://www.google.com">
-    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://challenges.cloudflare.com" />
     <link rel="stylesheet" href="/static/stylesheet.css">
     <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
-    <script src="https://www.google.com/recaptcha/enterprise.js?render={RECAPTCHA_SITE_KEY}"></script>
+    <script type="importmap">{"imports":{"alpinejs": "/static/alpinejs.esm.min.js"}}</script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <script type="module" src="/static/signup.js"></script>
 </head>
 <body class="dark">
     <dialog id="message-dialog" class="backdrop:bg-black/10 backdrop:supports-backdrop-filter:backdrop-blur-xs">
         <form method="dialog" data-slot="alert-dialog-content" data-size="default" class="dialog-content group/alert-dialog-content">
-            <header data-slot="alert-dialog-header" class="dialog-header">
-                <h1 data-slot="alert-dialog-title" class="dialog-title">Error</h1>
-                <p data-slot="alert-dialog-description" class="dialog-description"></p>
+            <header data-slot="alert-dialog-header" class="dialog-header" x-data>
+                <h1 data-slot="alert-dialog-title" class="dialog-title" x-text="$store.app.dialog.title">Error</h1>
+                <p data-slot="alert-dialog-description" class="dialog-description" x-text="$store.app.dialog.desc"></p>
             </header>
             <footer data-slot="alert-dialog-footer" class="dialog-footer">
                 <button data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">
@@ -24,16 +25,6 @@
             </footer>
         </form>
     </dialog>
-    <template id="account-created">
-        <div data-slot="card" data-size="default" class="card group/card text-center">
-             <section data-slot="card-content" class="card-content">
-                <h1 class="text-lg font-bold">Account Created</h1>
-                <p class="text-muted-foreground mt-4">
-                    Download the Hermes desktop or mobile app to get started.
-                </p>
-             </section>
-        </div>
-    </template>
     <div class="bg-muted flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
         <div class="flex w-full max-w-sm flex-col gap-6">
             <a href="#" class="flex items-center gap-2 self-center font-medium">
@@ -48,153 +39,106 @@
                 </div>
                 Hermes
             </a>
-            <main class="flex flex-col gap-6">
-                <div data-slot="card" data-size="default" class="card group/card text-center">
-                    <header data-slot="card-header" class="card-header group/card-header">
-                        <div data-slot="card-title" class="card-title text-xl">Create your account</div>
-                        <div data-slot="card-description">Enter your email below to create your account</div>
-                    </header>
-                    <section data-slot="card-content" class="card-content">
-                        <form id="signup-form">
-                            <input type="hidden" name="{CSRF_TOKEN_FIELD}" value="{CSRF_TOKEN_VALUE}" />
-                            <div data-slot="field-group" class="field-group group/field-group">
-                                <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
-                                    <label class="field-label group/field-label peer/field-label" data-slot="field-label" for="username">Username</label>
-                                    <input id="username" name="username" class="input" data-slot="input" minlength="4" maxlength="255" required type="text" placeholder="Hermes"/>
-                                    <div id="username-errors" role="alert" data-slot="field-error" class="field-error hidden">
-                                        <ul></ul>
-                                    </div>
-                                </div>
-                                <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
-                                    <label class="field-label group/field-label peer/field-label" for="email" data-slot="field-label">Email</label>
-                                    <input id="email" name="email" class="input" data-slot="input" type="email" placeholder="user@hermes.com" required />
-                                    <div id="email-errors" role="alert" data-slot="field-error" class="field-error hidden">
-                                        <ul></ul>
-                                    </div>
-                                </div>
-                                <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
-                                    <div data-slot="field" role="group" data-orientation="vertical" class="field group/field grid grid-cols-2 gap-4">
-                                        <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
-                                            <label class="field-label group/field-label peer/field-label" data-slot="field-label" for="password">Password</label>
-                                            <input id="password" name="password" type="password" class="input" required minlength="8" maxlength="384"/>
-                                            <div id="password-errors" role="alert" data-slot="field-error" class="field-error hidden">
-                                                <ul></ul>
-                                            </div>
-                                        </div>
-                                        <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
-                                            <label class="field-label group/field-label peer/field-label" data-slot="field-label" for="confirm-password">Confirm Password</label>
-                                            <input id="confirm-password" name="confirm-password" type="password" class="input" required minlength="8" maxlength="384"/>
-                                             <div id="confirm-password-errors" role="alert" data-slot="field-error" class="field-error hidden">
-                                                <ul></ul>
-                                            </div>
+            <main class="flex flex-col gap-6" x-data>
+                <template id="account-created" x-if="$store.app.done">
+                    <div data-slot="card" data-size="default" class="card group/card text-center">
+                        <section data-slot="card-content" class="card-content">
+                            <h1 class="text-lg font-bold" x-text="$store.signupState.title"></h1>
+                            <p class="text-muted-foreground mt-4" x-text="$store.signupState.desc"></p>
+                            <template x-if="$store.signupState.open">
+                                If app doesn't open <a :href="$store.signupState.openRoute" class="underline text-primary-foreground">click here</a>
+                            </template
+                        </section>
+                    </div>
+                </template>
+
+                <div class="flex flex-col" x-show="!$store.app.done">
+                    <div data-slot="card" data-size="default" class="card group/card text-center">
+                        <header data-slot="card-header" class="card-header group/card-header">
+                            <div data-slot="card-title" class="card-title text-xl">Create your account</div>
+                            <div data-slot="card-description">Enter your email below to create your account</div>
+                        </header>
+                        <section data-slot="card-content" class="card-content">
+                            <form @submit.prevent="onSubmit" x-data="appForm">
+                                <input type="hidden" name="CSRF_TOKEN_FIELD" value="{CSRF_TOKEN_VALUE}" />
+                                <div data-slot="field-group" class="field-group group/field-group">
+                                    <div class="field group/field" data-slot="field" role="group" data-orientation="vertical" x-data="field">
+                                        <label class="field-label group/field-label peer/field-label" data-slot="field-label" for="username">Username</label>
+                                        <input @invalid.prevent="" @input="onInput" autocomplete="username" name="username" class="input" data-slot="input" minlength="4" maxlength="255" required type="text" placeholder="Hermes"/>
+                                         <div role="alert" data-slot="field-error" class="field-error" x-show="hasErrors" x-transition>
+                                            <ul>
+                                                <template x-for="err in errors">
+                                                    <li x-text="err"></li>
+                                                </template>
+                                            </ul>
                                         </div>
                                     </div>
-                                    <div data-slot="field-description" class="field-description">
-                                        Must be at least 8 characters long.
+                                    <div class="field group/field" data-slot="field" role="group" data-orientation="vertical" x-data="field">
+                                        <label class="field-label group/field-label peer/field-label" for="email" data-slot="field-label">Email</label>
+                                        <input @invalid.prevent="" @input="onInput" autocomplete="email" name="email" class="input" data-slot="input" type="email" placeholder="user@hermes.com" required />
+                                        <div role="alert" data-slot="field-error" class="field-error" x-show="hasErrors" x-transition>
+                                            <ul>
+                                                <template x-for="err in errors">
+                                                    <li x-text="err"></li>
+                                                </template>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
+                                        <div data-slot="field" role="group" data-orientation="vertical" class="field group/field grid grid-cols-2 gap-4">
+                                            <div class="field group/field" data-slot="field" role="group" data-orientation="vertical" x-data="field">
+                                                <label class="field-label group/field-label peer/field-label" data-slot="field-label" for="password">Password</label>
+                                                <input id="psd" @invalid.prevent="" @input="onInput" autocomplete="new-password" name="password" type="password" class="input" required minlength="8" maxlength="384"/>
+                                                <div role="alert" data-slot="field-error" class="field-error" x-show="hasErrors" x-transition>
+                                                    <ul>
+                                                        <template x-for="err in errors">
+                                                            <li x-text="err"></li>
+                                                        </template>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                            <div class="field group/field" data-slot="field" role="group" data-orientation="vertical" x-data="checker">
+                                                <label class="field-label group/field-label peer/field-label" data-slot="field-label" for="confirm-password">Confirm Password</label>
+                                                <input @invalid.prevent="" @input="onInput" autocomplete="new-password" name="psd-check" type="password" class="input" required minlength="8" maxlength="384"/>
+                                                <div role="alert" data-slot="field-error" class="field-error" x-show="hasErrors" x-transition>
+                                                    <ul>
+                                                        <template x-for="err in errors">
+                                                            <li x-text="err"></li>
+                                                        </template>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div data-slot="field-description" class="field-description">
+                                            Must be at least 8 characters long.
+                                        </div>
+                                    </div>
+
+                                    <div class="cf-turnstile" data-sitekey="{CLOUDFLARE_TURNSTILE_SITE_KEY}" data-theme="dark" data-size="flexible" data-appearance="interaction-only" data-action="login"></div>
+                                    
+                                    <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
+                                        <button :disabled="pending" id="submitBtn" data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">
+                                            Create Account
+                                            <template x-if="pending">
+                                                <svg role="status" aria-label="Loading" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-loader-circle-icon lucide-loader-circle animate-spin size-4 hidden">
+                                                    <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                                                </svg>
+                                            </template>
+                                        </button>
+                                        <div data-slot="field-description" class="field-description text-center">
+                                            Already have an account? <a :href="`/login${window.location.search}`" href="/login">Sign in</a>
+                                        </div>
                                     </div>
                                 </div>
-                                <div id="body-errors" role="alert" data-slot="field-error" class="field-error hidden">
-                                    <ul></ul>
-                                </div>
-                                <div class="field group/field" data-slot="field" role="group" data-orientation="vertical">
-                                    <button id="submitBtn" data-variant="default" data-size="default" data-slot="button" type="submit" class="btn group/button">
-                                        Create Account
-                                        <svg role="status" aria-label="Loading" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-loader-circle-icon lucide-loader-circle animate-spin size-4 hidden"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-                                    </button>
-                                    <div data-slot="field-description" class="field-description text-center">
-                                        Already have an account? <a href="/login">Sign in</a>
-                                    </div>
-                                </div>
-                            </div>
-                        </form>
-                    </section>
-                </div>
-                <div data-slot="field-description" class="field-description px-6 text-center">
-                    By clicking continue, you agree to our <a href="/terms-of-service">Terms of Service</a> and <a href="/privacy-policy">Privacy Policy</a>.
+                            </form>
+                        </section>
+                    </div>
+                    <div data-slot="field-description" class="field-description px-6 text-center">
+                        By clicking continue, you agree to our <a href="/terms-of-service">Terms of Service</a> and <a href="/privacy-policy">Privacy Policy</a>.
+                    </div>
                 </div>
             </main>
         </div>
     </div>
-    <script type="module">
-        import { getRecaptchaToken, handleErrorResponse, onFormSubmit, reportError, showMessage } from "/static/shared.js";
-        document.addEventListener("DOMContentLoaded",()=>{
-            const passwordCheck = () => {
-                const psd = document.getElementById("password");
-                const psdCof = document.getElementById("confirm-password");
-                psdCof?.addEventListener("input",(ev)=>{
-                    const isSame = psd.value === ev.target.value;
-                    psdCof.setCustomValidity(isSame ? "" : "Passwords do not match");
-                    psdCof.reportValidity();
-                });
-            }
-            passwordCheck();
-            reportError(["username","password","confirm-password"]);
-
-            const submitBtn = document.getElementById("submitBtn");
-            const spinner = submitBtn.querySelector("svg");
-
-            onFormSubmit("signup-form",async (formData)=> {
-                const path = new URL("/signup",window.location.origin);
-
-                try {
-			        document.getElementById("body-errors")?.classList.add("hidden");
-                    submitBtn.setAttribute("disabled","true");
-                    spinner.classList.remove("hidden");
-                    const token = await getRecaptchaToken("{RECAPTCHA_SITE_KEY}","signup");
-
-                    formData.set("recaptcha",token);
-                    formData.delete("confirm-password");
-
-                    const response = await fetch(path,{
-                        method: "POST",
-                        body: new URLSearchParams(formData.entries()),
-                    });
-
-                    if(!response.ok) {
-                        await handleErrorResponse(response);
-                        return;
-                    }
-
-                    if(response.status === 201) {
-                        const temp = document.getElementById("account-created");
-                        const clone = document.importNode(temp.content,true);
-                        clone.querySelector("h1").textContent = "Account Created";
-                        clone.querySelector("p").textContent = "Download the Hermes desktop or mobile app to get started.";
-                        const target = document.querySelector("main");
-                        target.replaceChildren(clone);
-                    } else {
-                        const temp = document.getElementById("account-created");
-                        const clone = document.importNode(temp.content,true);
-
-                        clone.querySelector("h1").textContent = "Opening Hermes";
-                        clone.querySelector("p").textContent = "Returning you to the app";
-
-                        clone.querySelector("section").insertAdjacentHTML("beforeend",`If app doesn't open <a href="${body.redirect}" class="underline text-primary-foreground">click here</a>`);
-
-                        const target = document.querySelector("main");
-                        target.replaceChildren(clone);
-                    }
-
-                    try {
-                      const query = new URLSearchParams(window.location.search);
-                      const returnTo = query.get("return_to");
-                      if(!returnTo) return;
-
-                      const url = new URL(returnTo);
-                      if(url.origin !== window.location.origin) return;
-                      window.location.href = url.toString();
-                   } catch (error) {
-                     console.error(error);
-                   }
-                } catch (error) {
-                    console.error(error);
-                    showMessage(typeof error === "object" && "message" in error ? error.message : "Unknown error");
-                } finally {
-                    submitBtn.removeAttribute("disabled");
-                    spinner.classList.add("hidden");
-                }
-            });
-        });
-    </script>
 </body>
 </html>

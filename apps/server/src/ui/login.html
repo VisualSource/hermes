@@ -49,8 +49,8 @@
                             <div data-slot="field-group" class="field-group group/field-group">
                                 <div class="field group/field" data-slot="field" role="group" data-orientation="vertical" x-data="field">
                                     <label for="username" class="field-label group/field-label peer/field-label" data-slot="field-label">Username</label>
-                                    <input @invalid.prevent="" @input="onInput()" x-ref="input" class="input" data-slot="input" id="username" name="username" type="text" minlength="4" maxlength="255" placeholder="hermes" required autocomplete="username"/>
-                                     <div id="username-errors" role="alert" data-slot="field-error" class="field-error hidden" x-show="errors.length > 0" x-transition>
+                                    <input @invalid.prevent="" @input="onInput" class="input" data-slot="input" id="username" name="username" type="text" minlength="4" maxlength="255" placeholder="hermes" required autocomplete="username"/>
+                                     <div id="username-errors" role="alert" data-slot="field-error" class="field-error" x-show="hasErrors" x-transition>
                                         <ul>
                                             <template x-for="err in errors">
                                                 <li>
@@ -65,8 +65,8 @@
                                         <label for="password" class="field-label group/field-label peer/field-label" data-slot="field-label">Password</label>
                                         <a href="/forget-psd" class="ml-auto text-sm underline-offset-2 hover:underline">Forgot your password?</a>
                                     </div>
-                                    <input @invalid.prevent="" @input="onInput()" x-ref="input" class="input" data-slot="input" id="password" name="password" required type="password" minlength="8" maxlength="384" autocomplete="current-password"/>
-                                    <div id="password-errors" role="alert" data-slot="field-error" class="field-error hidden" x-show="errors.length > 0" x-transition>
+                                    <input @invalid.prevent="" @input="onInput" class="input" data-slot="input" id="password" name="password" required type="password" minlength="8" maxlength="384" autocomplete="current-password"/>
+                                    <div id="password-errors" role="alert" data-slot="field-error" class="field-error" x-show="hasErrors" x-transition>
                                           <ul>
                                             <template x-for="err in errors">
                                                 <li>
