@@ -1,7 +1,8 @@
 import type { CardType, StreamCard } from "@/components/voice/types";
 import { faker } from "@faker-js/faker";
 import { useState } from "react";
-import { useInVoice } from "./use-in-voice";
+import { useApp } from "./use-app";
+
 
 const items: CardType[] = [
 	{
@@ -29,7 +30,7 @@ const items: CardType[] = [
 
 export const useVoice = () => {
 	const [watching, setWatching] = useState<string | null>(null);
-	const inVoice = useInVoice();
+	const inVoice = useApp(store=>store.inVoice);
 
 	return {
 		inVoice,

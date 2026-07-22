@@ -12,7 +12,6 @@
   },
   "iconLibrary": "lucide",
   "rtl": false,
-  
   "aliases": {
     "components": "@/components",
     "utils": "@/lib/utils",

@@ -1,6 +1,7 @@
 import { UserStatus, type User } from "@/lib/api/types";
 import { faker } from "@faker-js/faker";
-import type { UUID } from "node:crypto";
+import { UUID } from "./use-app";
+
 
 const fakeData_user: User = {
 	id: faker.string.uuid() as UUID,
@@ -13,3 +14,4 @@ const fakeData_user: User = {
 export const useUser = () => {
 	return fakeData_user;
 };
+ 

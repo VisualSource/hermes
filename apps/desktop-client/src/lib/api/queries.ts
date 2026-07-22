@@ -4,8 +4,8 @@ import {
 	keepPreviousData,
 	queryOptions,
 } from "@tanstack/react-query";
-import type { UUID } from "node:crypto";
 import type { Message, Server, User, Channel, MessagesQuery } from "./types";
+import type { UUID } from "@/hooks/use-app";
 
 
 const fakeData_serverListUsers = Array.from({
@@ -66,12 +66,13 @@ const fakeData_friendList = faker.helpers.arrayElements(
 	fakeData_serverListUsers,
 );
 
-export const serverUsersOptions = (serverId: UUID) => {
+export const serverUsersOptions = (serverId: UUID | null) => {
 	return queryOptions({
 		queryKey: ["user-list-server", serverId],
 		queryFn: () => {
 			return fakeData_serverListUsers;
 		},
+		enabled: !!serverId,
 		refetchOnWindowFocus: false,
 		refetchOnMount: false,
 	});
