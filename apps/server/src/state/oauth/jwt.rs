@@ -12,7 +12,7 @@ use crate::state::oauth::OAUTH_CLIENT_ID;
 /// JWT profile for OAuth 2.0 access tokens (RFC 9068 §2.2). The `aud` claim
 /// carries the resource server identifier; the OAuth client is carried
 /// separately in `client_id`.
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
 pub struct Claims {
     pub iss: String,
     pub aud: String,
@@ -259,9 +259,7 @@ mod tests {
         // Deterministic Ed25519 keypair — never use in production. OnceLock
         // makes the actual init a no-op after the first test sets it.
         let signing = ed25519_dalek::SigningKey::from_bytes(&[42u8; 32]);
-        let pem = signing
-            .to_pkcs8_pem(LineEnding::LF)
-            .expect("to_pkcs8_pem");
+        let pem = signing.to_pkcs8_pem(LineEnding::LF).expect("to_pkcs8_pem");
         let _ = super::init_keys_from_pem(&pem);
     }
 
@@ -281,7 +279,10 @@ mod tests {
         assert_eq!(decoded.claims.sub, user_id);
         assert_eq!(decoded.claims.client_id, super::OAUTH_CLIENT_ID);
         assert_eq!(decoded.claims.aud, "http://localhost:5000/api");
-        assert_eq!(decoded.claims.scope.as_deref(), Some("profile offline_access"));
+        assert_eq!(
+            decoded.claims.scope.as_deref(),
+            Some("profile offline_access")
+        );
         assert_eq!(decoded.header.typ.as_deref(), Some("at+jwt"));
         assert!(decoded.header.kid.is_some());
     }
@@ -298,8 +299,7 @@ mod tests {
         )
         .expect("failed to make jwt");
 
-        let data =
-            super::validate_refresh_token(&issued.token).expect("failed to validate token");
+        let data = super::validate_refresh_token(&issued.token).expect("failed to validate token");
         assert_eq!(data.claims.sub, user_id);
         assert_eq!(data.claims.scope.as_deref(), Some("offline_access"));
     }

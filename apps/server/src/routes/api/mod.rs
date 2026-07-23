@@ -1,11 +1,15 @@
-use actix_web::{Scope, web};
+use actix_web::{dev::HttpServiceFactory, middleware::from_fn, web};
 
-mod account;
-mod channel;
-mod message;
+use crate::middleware;
 
-pub fn api_routes() -> Scope {
+pub mod account;
+pub mod channel;
+pub mod message;
+pub mod server;
+
+pub fn api_routes() -> impl HttpServiceFactory {
     web::scope("/v1")
+        .wrap(from_fn(middleware::require_jwt))
         .service((
             account::add_encypt_key,
             account::delete_encypt_key,
@@ -13,19 +17,9 @@ pub fn api_routes() -> Scope {
             account::get_encypt_keys,
             account::get_user,
             account::update_user,
-        ))
-        .service((
-            channel::create_server,
-            channel::delete_server,
-            channel::update_server,
-            channel::get_server,
-            channel::get_servers,
-        ))
-        .service((
-            channel::delete_channel,
-            channel::get_channel,
-            channel::get_channel_messages,
-            channel::get_channels,
-            channel::update_channel,
+            server::get_server,
+            server::delete_server,
+            server::post_server,
+            server::patch_server,
         ))
 }

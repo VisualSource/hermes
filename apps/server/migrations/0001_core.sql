@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS servers (
     name TEXT NOT NULL,
     owner_id BLOB NOT NULL,
     created_at DATETIME NOT NULL,
+    icon TEXT,
 
     FOREIGN KEY(owner_id)
         REFERENCES users(id)
