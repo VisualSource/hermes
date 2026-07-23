@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
     created_at DATETIME NOT NULL,
     mfa BOOLEAN NOT NULL DEFAULT FALSE,
     email TEXT UNIQUE NOT NULL
-) strict;
+);
 
 CREATE TABLE IF NOT EXISTS keys (
     id BLOB NOT NULL PRIMARY KEY,
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS keys (
         REFERENCES users(id) 
             ON DELETE CASCADE 
             ON UPDATE NO ACTION
-) strict;
+);
 
 CREATE TABLE IF NOT EXISTS grants (
     id BLOB NOT NULL PRIMARY KEY,
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS grants (
         REFERENCES users(id)
             ON DELETE CASCADE
             ON UPDATE NO ACTION
-) strict;
+);
 CREATE INDEX IF NOT EXISTS idx_grants_code ON grants(code);
 
 CREATE TABLE IF NOT EXISTS refresh_tokens (
@@ -51,5 +51,5 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
         REFERENCES users(id)
             ON DELETE CASCADE
             ON UPDATE NO ACTION
-) strict;
+);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family ON refresh_tokens(family_id);

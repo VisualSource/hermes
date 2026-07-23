@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO refresh_tokens (id, user_id, family_id, created_at, expires_at, used, revoked) VALUES (?, ?, ?, ?, ?, FALSE, FALSE)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "eed5920ca3092b21d6126187c85aa769f722ed9936437493a68be89cddfa8e37"
+}

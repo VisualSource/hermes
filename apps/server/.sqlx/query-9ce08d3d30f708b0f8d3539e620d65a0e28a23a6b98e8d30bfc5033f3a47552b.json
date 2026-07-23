@@ -1,0 +1,98 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT\n                id as \"id: uuid::Uuid\",\n                user_id as \"user_id: uuid::Uuid\",\n                family_id as \"family_id: uuid::Uuid\",\n                created_at,\n                expires_at,\n                used,\n                revoked\n             FROM refresh_tokens WHERE id = ? LIMIT 1;",
+  "describe": {
+    "columns": [
+      {
+        "name": "id: uuid::Uuid",
+        "ordinal": 0,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "refresh_tokens",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "user_id: uuid::Uuid",
+        "ordinal": 1,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "refresh_tokens",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "name": "family_id: uuid::Uuid",
+        "ordinal": 2,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "refresh_tokens",
+            "name": "family_id"
+          }
+        }
+      },
+      {
+        "name": "created_at",
+        "ordinal": 3,
+        "type_info": "Datetime",
+        "origin": {
+          "Table": {
+            "table": "refresh_tokens",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "name": "expires_at",
+        "ordinal": 4,
+        "type_info": "Datetime",
+        "origin": {
+          "Table": {
+            "table": "refresh_tokens",
+            "name": "expires_at"
+          }
+        }
+      },
+      {
+        "name": "used",
+        "ordinal": 5,
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "refresh_tokens",
+            "name": "used"
+          }
+        }
+      },
+      {
+        "name": "revoked",
+        "ordinal": 6,
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "refresh_tokens",
+            "name": "revoked"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "9ce08d3d30f708b0f8d3539e620d65a0e28a23a6b98e8d30bfc5033f3a47552b"
+}

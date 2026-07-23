@@ -1,0 +1,146 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT\n                id as \"id: uuid::Uuid\",\n                code,\n                user_id as \"user_id: uuid::Uuid\",\n                client_id as \"client_id: uuid::Uuid\",\n                redirect_uri,\n                created_at,\n                expires_at,\n                used,\n                code_challenge,\n                code_challenge_method,\n                scopes\n             FROM grants WHERE code = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id: uuid::Uuid",
+        "ordinal": 0,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "grants",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "code",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "grants",
+            "name": "code"
+          }
+        }
+      },
+      {
+        "name": "user_id: uuid::Uuid",
+        "ordinal": 2,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "grants",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "name": "client_id: uuid::Uuid",
+        "ordinal": 3,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "grants",
+            "name": "client_id"
+          }
+        }
+      },
+      {
+        "name": "redirect_uri",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "grants",
+            "name": "redirect_uri"
+          }
+        }
+      },
+      {
+        "name": "created_at",
+        "ordinal": 5,
+        "type_info": "Datetime",
+        "origin": {
+          "Table": {
+            "table": "grants",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "name": "expires_at",
+        "ordinal": 6,
+        "type_info": "Datetime",
+        "origin": {
+          "Table": {
+            "table": "grants",
+            "name": "expires_at"
+          }
+        }
+      },
+      {
+        "name": "used",
+        "ordinal": 7,
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "grants",
+            "name": "used"
+          }
+        }
+      },
+      {
+        "name": "code_challenge",
+        "ordinal": 8,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "grants",
+            "name": "code_challenge"
+          }
+        }
+      },
+      {
+        "name": "code_challenge_method",
+        "ordinal": 9,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "grants",
+            "name": "code_challenge_method"
+          }
+        }
+      },
+      {
+        "name": "scopes",
+        "ordinal": 10,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "grants",
+            "name": "scopes"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "7d5a9bdd984fd41a3025fdeb5acd569347b659dde8cd807a068dfed62a891391"
+}

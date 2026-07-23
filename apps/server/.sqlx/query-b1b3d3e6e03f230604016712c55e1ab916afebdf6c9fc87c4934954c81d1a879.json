@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE grants SET used = TRUE WHERE code = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "b1b3d3e6e03f230604016712c55e1ab916afebdf6c9fc87c4934954c81d1a879"
+}

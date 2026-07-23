@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO grants (id, code, user_id, client_id, redirect_uri, created_at, expires_at, scopes, used, code_challenge, code_challenge_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?, FALSE, ?, ?);",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 10
+    },
+    "nullable": []
+  },
+  "hash": "964b78a3075748f9b394e2b70b5be043a0b6c1a28b1585e9ba9e525829ac5bd6"
+}
