@@ -1,13 +1,15 @@
 use serde::{Deserialize, Serialize};
 use sqlx::{SqlitePool, query, query_as};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
 pub struct Server {
     pub id: Uuid,
     pub name: String,
     pub owner_id: Uuid,
-    pub created_at: time::UtcDateTime,
+    #[serde(with = "time::serde::rfc3339")]
+    pub created_at: time::OffsetDateTime,
     pub icon: Option<String>,
 }
 
@@ -58,7 +60,9 @@ impl Server {
             Server,
             r#"SELECT id, name, icon, owner_id, created_at FROM servers WHERE id = ?"#,
             id
-        ).fetch_one(db).await?;
+        )
+        .fetch_one(db)
+        .await?;
 
         Ok(result)
     }

@@ -23,7 +23,9 @@ actix-files = "0.6"
 actix-web = "4"
 actix-ws = "0.4.0"
 actix-cors ="0.7"
-jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
+actix-web-validation = {version = "0.8.0", features = ["validator"]}
+actix-ws-broadcaster = "0.12.0"
+jsonwebtoken = { version = "11", features = ["aws_lc_rs"] }
 ed25519-dalek = { version = "3.0", features = ["pkcs8", "pem"] }
 actix-governor = "0.10"
 futures-util = "0.3"
@@ -33,8 +35,8 @@ base64 = "0.23"
 rand = "0.10"
 sqlx = { version = "0.9", features = [ "runtime-tokio", "sqlite","derive", "macros","migrate","bstr", "time","uuid","sqlx-toml"] }
 tokio = { version = "1", features = ["time", "rt", "macros"] }
-
-utoipa = { version = "5.4", features = ["actix_extras","yaml","uuid"]}
+validator = { version = "0.20", features = ["derive"] }
+utoipa = { version = "5.4", features = ["actix_extras","yaml","uuid","time"]}
 utoipa-actix-web = "0.1"
 log4rs = "1.4"
 totp-rs = { version = "5.7", features = ["gen_secret"]}
@@ -45,7 +47,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
 argon2 = "0.5.3"
 uuid = { version = "1", features = ["v7","serde","fast-rng"] }
-time = { version = "0.3", features = ["serde"]}
+time = { version = "0.3", features = ["serde","serde-well-known"]}
 
 [build-dependencies]
 prost-build = "0.14"

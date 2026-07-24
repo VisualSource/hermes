@@ -1,7 +1,7 @@
 use sqlx::SqlitePool;
 use uuid::{NoContext, Timestamp, Uuid};
 
-#[derive(Debug, sqlx::FromRow, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, sqlx::FromRow, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct User {
     pub id: Uuid,
     pub username: String,
@@ -10,7 +10,8 @@ pub struct User {
     #[serde(skip_serializing)]
     pub psd_hash: String,
     pub avatar: Option<String>,
-    pub created_at: time::UtcDateTime,
+    #[serde(with = "time::serde::rfc3339")]
+    pub created_at: time::OffsetDateTime,
 }
 
 impl User {

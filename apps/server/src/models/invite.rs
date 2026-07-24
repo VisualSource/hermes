@@ -2,12 +2,13 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, utoipa::ToSchema)]
 pub struct Invite {
     id: Uuid,
     server_id: Uuid,
     created_by: Option<Uuid>,
-    expires_at: time::UtcDateTime,
+    #[serde(with = "time::serde::rfc3339")]
+    expires_at: time::OffsetDateTime,
     max_uses: u8,
     uses: u8,
     revoked: bool,

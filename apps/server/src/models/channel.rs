@@ -74,15 +74,18 @@ impl DmParticipant {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, utoipa::ToSchema)]
 pub struct Message {
     id: Uuid,
     channel_id: Uuid,
     user_id: Option<Uuid>,
     content: String,
-    created_at: time::UtcDateTime,
-    edited_at: Option<time::UtcDateTime>,
-    delete_at: Option<time::UtcDateTime>,
+    #[serde(with = "time::serde::rfc3339")]
+    created_at: time::OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339::option")]
+    edited_at: Option<time::OffsetDateTime>,
+    #[serde(with = "time::serde::rfc3339::option")]
+    delete_at: Option<time::OffsetDateTime>,
 }
 
 impl Message {

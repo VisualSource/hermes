@@ -19,7 +19,13 @@ paths:
         schema:
           type: string
           format: uuid
-      responses: {}
+      responses:
+        '200':
+          description: single server info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Server'
     post:
       tags:
       - server
@@ -38,4 +44,28 @@ paths:
       description: update a server
       operationId: patch_server
       responses: {}
-components: {}
+components:
+  schemas:
+    Server:
+      type: object
+      required:
+      - id
+      - name
+      - owner_id
+      - created_at
+      properties:
+        created_at:
+          type: string
+          format: date-time
+        icon:
+          type:
+          - string
+          - 'null'
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        owner_id:
+          type: string
+          format: uuid

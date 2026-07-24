@@ -1,3 +1,4 @@
+use actix_web::http::StatusCode;
 use actix_web::http::header::{self, HeaderValue};
 use actix_web::{Error, HttpRequest, HttpResponse, rt, web};
 use actix_ws::AggregatedMessage;
@@ -38,7 +39,7 @@ pub async fn ws(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, 
         Some(t) => t,
         None => {
             return Ok(HttpResponse::Unauthorized().json(ApplicationError::new(
-                401,
+                StatusCode::UNAUTHORIZED,
                 "unauthorized",
                 "sec-websocket-protocol",
                 Vec::default(),
@@ -55,7 +56,7 @@ pub async fn ws(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, 
             crate::state::oauth::jwt::JwtError::Jwt(error) => {
                 log::error!("{}", error);
                 let resp = HttpResponse::Unauthorized().json(ApplicationError::new(
-                    401,
+                    StatusCode::UNAUTHORIZED,
                     "unauthorized",
                     "sec-websocket-protocol",
                     Vec::default(),
@@ -66,7 +67,7 @@ pub async fn ws(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, 
             other => {
                 log::error!("{}", other);
                 let resp = HttpResponse::InternalServerError().json(ApplicationError::new(
-                    500,
+                    StatusCode::INTERNAL_SERVER_ERROR,
                     "internal server error",
                     "server",
                     Vec::default(),
@@ -112,7 +113,9 @@ pub async fn ws(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, 
                                     log::debug!("{:#?}", voice_channel_request);
                                 }
                                 _ => {
-                                    log::error!("got message that contained invalid message payload")
+                                    log::error!(
+                                        "got message that contained invalid message payload"
+                                    )
                                 }
                             }
                         }
