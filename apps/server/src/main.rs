@@ -5,10 +5,11 @@ use actix_session::SessionMiddleware;
 use actix_cors::Cors;
 use actix_web::{
     App, HttpServer,
-    middleware::{Logger, NormalizePath, TrailingSlash},
+    middleware::{Logger, NormalizePath, TrailingSlash, from_fn},
     web::{self},
 };
-use hermes_server::{db, models, routes, state};
+use hermes_server::{db, middleware, models, routes, state};
+use utoipa_actix_web::service_config::ServiceConfig;
 use std::io::ErrorKind;
 use std::time::Duration;
 
@@ -152,7 +153,13 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/api")
                     .route("/ws", web::get().to(routes::websocket::ws))
-                    .service(routes::api::api_routes()),
+                    .service(
+                        web::scope("/v1")
+                            .wrap(from_fn(middleware::require_jwt))
+                            .configure(|c| {
+                                routes::api::configure_v1(&mut ServiceConfig::new(c))
+                            }),
+                    ),
             )
             // Login/signup are at the root path (`/login`, `/signup`) because
             // the authorize handler redirects there. Auth-tightened rate limit

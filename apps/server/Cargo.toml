@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [[bin]]
+name ="gen-openapi"
+path = "src/bin/gen-openapi.rs"
+
+[[bin]]
 name = "hermes-server"
 path = "src/main.rs"
 

@@ -5,5 +5,37 @@ info:
   license:
     name: ''
   version: 0.1.0
-paths: {}
+paths:
+  /api/v1/server/{server}:
+    get:
+      tags:
+      - server
+      description: fetch a server
+      operationId: get_server
+      parameters:
+      - name: server
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses: {}
+    post:
+      tags:
+      - server
+      description: create a server
+      operationId: post_server
+      responses: {}
+    delete:
+      tags:
+      - server
+      description: delete a server
+      operationId: delete_server
+      responses: {}
+    patch:
+      tags:
+      - server
+      description: update a server
+      operationId: patch_server
+      responses: {}
 components: {}
