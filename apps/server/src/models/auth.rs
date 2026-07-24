@@ -105,9 +105,9 @@ impl RefreshToken {
         sqlx::query_as!(
             RefreshToken,
             r#"SELECT
-                id as "id: uuid::Uuid",
-                user_id as "user_id: uuid::Uuid",
-                family_id as "family_id: uuid::Uuid",
+                id,
+                user_id,
+                family_id,
                 created_at,
                 expires_at,
                 used,
@@ -128,10 +128,10 @@ impl AuthorizationCode {
         sqlx::query_as!(
             AuthorizationCode,
             r#"SELECT
-                id as "id: uuid::Uuid",
+                id,
                 code,
-                user_id as "user_id: uuid::Uuid",
-                client_id as "client_id: uuid::Uuid",
+                user_id,
+                client_id,
                 redirect_uri,
                 created_at,
                 expires_at,

@@ -1,0 +1,10 @@
+# Tell the query!/query_as! macros how to map SQL types to Rust types.
+# Every BLOB column in this schema stores a UUID, so map BLOB -> uuid::Uuid
+# globally. This removes the need for per-column `as "id: Uuid"` overrides.
+[macros.type-overrides]
+"BLOB" = "uuid::Uuid"
+
+# example column override
+#[macros.table-overrides.attachments]
+#data = "Vec<u8>"
+#

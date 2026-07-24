@@ -1,10 +1,10 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id: uuid::Uuid\", user_id as \"user_id: uuid::Uuid\", public_key FROM keys WHERE id = ?",
+  "query": "SELECT id, user_id, public_key FROM keys WHERE user_id = ?",
   "describe": {
     "columns": [
       {
-        "name": "id: uuid::Uuid",
+        "name": "id",
         "ordinal": 0,
         "type_info": "Blob",
         "origin": {
@@ -15,7 +15,7 @@
         }
       },
       {
-        "name": "user_id: uuid::Uuid",
+        "name": "user_id",
         "ordinal": 1,
         "type_info": "Blob",
         "origin": {
@@ -46,5 +46,5 @@
       false
     ]
   },
-  "hash": "58e8bd764046b384a622b8810985adfb495f61e9f216b531495df405d33a9935"
+  "hash": "e808b83b559b4f645b43449fdc601acc070fa548448aaebb2413b1eda81510a5"
 }

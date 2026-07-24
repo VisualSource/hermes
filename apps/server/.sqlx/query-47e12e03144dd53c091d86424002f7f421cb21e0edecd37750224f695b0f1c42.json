@@ -1,10 +1,10 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id: uuid::Uuid\", username, psd_hash, avatar, created_at,mfa,email FROM users WHERE username = ?",
+  "query": "SELECT id, username, psd_hash, avatar, created_at,mfa,email FROM users WHERE username = ?",
   "describe": {
     "columns": [
       {
-        "name": "id: uuid::Uuid",
+        "name": "id",
         "ordinal": 0,
         "type_info": "Blob",
         "origin": {
@@ -94,5 +94,5 @@
       false
     ]
   },
-  "hash": "75cf6a8934d99957478504e85cbe5af50b24bd70631833d30d6be31941ebf4a1"
+  "hash": "47e12e03144dd53c091d86424002f7f421cb21e0edecd37750224f695b0f1c42"
 }

@@ -1,10 +1,10 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT\n                id as \"id: uuid::Uuid\",\n                user_id as \"user_id: uuid::Uuid\",\n                family_id as \"family_id: uuid::Uuid\",\n                created_at,\n                expires_at,\n                used,\n                revoked\n             FROM refresh_tokens WHERE id = ? LIMIT 1;",
+  "query": "SELECT\n                id,\n                user_id,\n                family_id,\n                created_at,\n                expires_at,\n                used,\n                revoked\n             FROM refresh_tokens WHERE id = ? LIMIT 1;",
   "describe": {
     "columns": [
       {
-        "name": "id: uuid::Uuid",
+        "name": "id",
         "ordinal": 0,
         "type_info": "Blob",
         "origin": {
@@ -15,7 +15,7 @@
         }
       },
       {
-        "name": "user_id: uuid::Uuid",
+        "name": "user_id",
         "ordinal": 1,
         "type_info": "Blob",
         "origin": {
@@ -26,7 +26,7 @@
         }
       },
       {
-        "name": "family_id: uuid::Uuid",
+        "name": "family_id",
         "ordinal": 2,
         "type_info": "Blob",
         "origin": {
@@ -94,5 +94,5 @@
       false
     ]
   },
-  "hash": "9ce08d3d30f708b0f8d3539e620d65a0e28a23a6b98e8d30bfc5033f3a47552b"
+  "hash": "6ac2f2fcd52fb6832f15720f5f3e6af74d8b5f4029ce3446c23c3080aabad061"
 }

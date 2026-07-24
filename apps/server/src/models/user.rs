@@ -42,14 +42,14 @@ impl User {
     }
 
     pub async fn find_by_uuid(id: &Uuid, db: &SqlitePool) -> Result<Option<User>, sqlx::Error> {
-        let result = sqlx::query_as!(User,r#"SELECT id as "id: uuid::Uuid", username, psd_hash,avatar,created_at,mfa,email FROM users WHERE id = ?"#,id).fetch_optional(db).await?;
+        let result = sqlx::query_as!(User,r#"SELECT id, username, psd_hash,avatar,created_at,mfa,email FROM users WHERE id = ?"#,id).fetch_optional(db).await?;
         Ok(result)
     }
     pub async fn find_by_username(
         username: &str,
         db: &SqlitePool,
     ) -> Result<Option<User>, sqlx::Error> {
-        let result = sqlx::query_as!(User,r#"SELECT id as "id: uuid::Uuid", username, psd_hash, avatar, created_at,mfa,email FROM users WHERE username = ?"#,username).fetch_optional(db).await?;
+        let result = sqlx::query_as!(User,r#"SELECT id, username, psd_hash, avatar, created_at,mfa,email FROM users WHERE username = ?"#,username).fetch_optional(db).await?;
 
         Ok(result)
     }
@@ -83,7 +83,7 @@ impl UserPublicKey {
         user_id: &Uuid,
         db: &sqlx::SqlitePool,
     ) -> Result<Vec<UserPublicKey>, sqlx::Error> {
-        let result = sqlx::query_as!(UserPublicKey,r#"SELECT id as "id: uuid::Uuid",user_id as "user_id: uuid::Uuid", public_key FROM keys WHERE user_id = ?"#, user_id)
+        let result = sqlx::query_as!(UserPublicKey,r#"SELECT id, user_id, public_key FROM keys WHERE user_id = ?"#, user_id)
             .fetch_all(db).await?;
 
         Ok(result)
@@ -92,7 +92,7 @@ impl UserPublicKey {
         id: &Uuid,
         db: &sqlx::SqlitePool,
     ) -> Result<Option<UserPublicKey>, sqlx::Error> {
-        let result = sqlx::query_as!(UserPublicKey,r#"SELECT id as "id: uuid::Uuid", user_id as "user_id: uuid::Uuid", public_key FROM keys WHERE id = ?"#,id)
+        let result = sqlx::query_as!(UserPublicKey,r#"SELECT id, user_id, public_key FROM keys WHERE id = ?"#,id)
             .fetch_optional(db).await?;
         Ok(result)
     }

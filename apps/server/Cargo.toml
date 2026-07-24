@@ -27,7 +27,7 @@ sha2 = "0.11"
 log = "0.4"
 base64 = "0.23"
 rand = "0.10"
-sqlx = { version = "0.9", features = [ "runtime-tokio", "sqlite","derive", "macros","migrate","bstr", "time","uuid"] }
+sqlx = { version = "0.9", features = [ "runtime-tokio", "sqlite","derive", "macros","migrate","bstr", "time","uuid","sqlx-toml"] }
 tokio = { version = "1", features = ["time", "rt", "macros"] }
 
 utoipa = { version = "5.4", features = ["actix_extras","yaml","uuid"]}

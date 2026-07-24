@@ -1,10 +1,10 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id as \"id: Uuid\", name, owner_id as \"owner_id: Uuid\", created_at, icon FROM servers WHERE id = ?",
+  "query": "INSERT INTO servers (id, name, owner_id, created_at, icon) VALUES (?,?,?,?,?)\n               RETURNING id, name, owner_id, created_at, icon",
   "describe": {
     "columns": [
       {
-        "name": "id: Uuid",
+        "name": "id",
         "ordinal": 0,
         "type_info": "Blob",
         "origin": {
@@ -26,7 +26,7 @@
         }
       },
       {
-        "name": "owner_id: Uuid",
+        "name": "owner_id",
         "ordinal": 2,
         "type_info": "Blob",
         "origin": {
@@ -60,7 +60,7 @@
       }
     ],
     "parameters": {
-      "Right": 1
+      "Right": 5
     },
     "nullable": [
       false,
@@ -70,5 +70,5 @@
       true
     ]
   },
-  "hash": "2431b2da581f93484bf4b30d8e03a8eb4c8dd0f6505652884498fb9175af1d6e"
+  "hash": "8a117302b953c4623c286e86f54ebcf69bfcef43d0ce04a30269f52ee0652835"
 }

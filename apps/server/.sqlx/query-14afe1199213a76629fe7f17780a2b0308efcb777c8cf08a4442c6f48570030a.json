@@ -1,10 +1,10 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT\n                id as \"id: uuid::Uuid\",\n                code,\n                user_id as \"user_id: uuid::Uuid\",\n                client_id as \"client_id: uuid::Uuid\",\n                redirect_uri,\n                created_at,\n                expires_at,\n                used,\n                code_challenge,\n                code_challenge_method,\n                scopes\n             FROM grants WHERE code = ?",
+  "query": "SELECT\n                id,\n                code,\n                user_id,\n                client_id,\n                redirect_uri,\n                created_at,\n                expires_at,\n                used,\n                code_challenge,\n                code_challenge_method,\n                scopes\n             FROM grants WHERE code = ?",
   "describe": {
     "columns": [
       {
-        "name": "id: uuid::Uuid",
+        "name": "id",
         "ordinal": 0,
         "type_info": "Blob",
         "origin": {
@@ -26,7 +26,7 @@
         }
       },
       {
-        "name": "user_id: uuid::Uuid",
+        "name": "user_id",
         "ordinal": 2,
         "type_info": "Blob",
         "origin": {
@@ -37,7 +37,7 @@
         }
       },
       {
-        "name": "client_id: uuid::Uuid",
+        "name": "client_id",
         "ordinal": 3,
         "type_info": "Blob",
         "origin": {
@@ -142,5 +142,5 @@
       true
     ]
   },
-  "hash": "7d5a9bdd984fd41a3025fdeb5acd569347b659dde8cd807a068dfed62a891391"
+  "hash": "14afe1199213a76629fe7f17780a2b0308efcb777c8cf08a4442c6f48570030a"
 }

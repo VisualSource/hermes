@@ -24,7 +24,7 @@ impl Server {
         let result = query_as!(
             Server,
             r#"INSERT INTO servers (id, name, owner_id, created_at, icon) VALUES (?,?,?,?,?)
-               RETURNING id as "id: uuid::Uuid", name, owner_id as "owner_id: uuid::Uuid", created_at, icon"#,
+               RETURNING id, name, owner_id, created_at, icon"#,
             server_id,
             name,
             owner_id,
@@ -56,7 +56,7 @@ impl Server {
     pub async fn get(db: &SqlitePool, id: Uuid) -> Result<Server, sqlx::Error> {
         let result = query_as!(
             Server,
-            r#"SELECT id as "id: Uuid", name, icon, owner_id as "owner_id: Uuid", created_at FROM servers WHERE id = ?"#,
+            r#"SELECT id, name, icon, owner_id, created_at FROM servers WHERE id = ?"#,
             id
         ).fetch_one(db).await?;
 
