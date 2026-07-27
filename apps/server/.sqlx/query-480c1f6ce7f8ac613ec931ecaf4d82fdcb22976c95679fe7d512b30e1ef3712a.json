@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "INSERT INTO servers (id, name, owner_id, created_at, icon) VALUES (?,?,?,?,?)\n               RETURNING id, name, owner_id, created_at, icon",
+  "query": "INSERT INTO channels VALUES (?,?,?,?,?) RETURNING *",
   "describe": {
     "columns": [
       {
@@ -9,52 +9,52 @@
         "type_info": "Blob",
         "origin": {
           "Table": {
-            "table": "servers",
+            "table": "channels",
             "name": "id"
           }
         }
       },
       {
-        "name": "name",
+        "name": "kind",
         "ordinal": 1,
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "servers",
+            "table": "channels",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "name": "server_id",
+        "ordinal": 2,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "server_id"
+          }
+        }
+      },
+      {
+        "name": "name",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "channels",
             "name": "name"
           }
         }
       },
       {
-        "name": "owner_id",
-        "ordinal": 2,
-        "type_info": "Blob",
-        "origin": {
-          "Table": {
-            "table": "servers",
-            "name": "owner_id"
-          }
-        }
-      },
-      {
-        "name": "created_at",
-        "ordinal": 3,
-        "type_info": "Datetime",
-        "origin": {
-          "Table": {
-            "table": "servers",
-            "name": "created_at"
-          }
-        }
-      },
-      {
-        "name": "icon",
+        "name": "category",
         "ordinal": 4,
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "servers",
-            "name": "icon"
+            "table": "channels",
+            "name": "category"
           }
         }
       }
@@ -70,5 +70,5 @@
       true
     ]
   },
-  "hash": "8a117302b953c4623c286e86f54ebcf69bfcef43d0ce04a30269f52ee0652835"
+  "hash": "480c1f6ce7f8ac613ec931ecaf4d82fdcb22976c95679fe7d512b30e1ef3712a"
 }

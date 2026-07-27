@@ -4,6 +4,9 @@
 [macros.type-overrides]
 "BLOB" = "uuid::Uuid"
 
+[macros.table-overrides.channels]
+kind = "crate::models::channel::ChannelKind"
+
 # example column override
 #[macros.table-overrides.attachments]
 #data = "Vec<u8>"

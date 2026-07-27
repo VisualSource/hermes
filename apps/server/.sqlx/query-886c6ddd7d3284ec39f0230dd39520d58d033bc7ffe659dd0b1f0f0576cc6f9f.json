@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE servers SET name = ?, icon = ? WHERE id = ? AND owner_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "886c6ddd7d3284ec39f0230dd39520d58d033bc7ffe659dd0b1f0f0576cc6f9f"
+}

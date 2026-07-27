@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id, name, icon, owner_id, created_at FROM servers WHERE id = ?",
+  "query": "INSERT INTO servers VALUES (?,?,?,?,?) RETURNING *",
   "describe": {
     "columns": [
       {
@@ -26,19 +26,8 @@
         }
       },
       {
-        "name": "icon",
-        "ordinal": 2,
-        "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "servers",
-            "name": "icon"
-          }
-        }
-      },
-      {
         "name": "owner_id",
-        "ordinal": 3,
+        "ordinal": 2,
         "type_info": "Blob",
         "origin": {
           "Table": {
@@ -49,7 +38,7 @@
       },
       {
         "name": "created_at",
-        "ordinal": 4,
+        "ordinal": 3,
         "type_info": "Datetime",
         "origin": {
           "Table": {
@@ -57,18 +46,29 @@
             "name": "created_at"
           }
         }
+      },
+      {
+        "name": "icon",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "icon"
+          }
+        }
       }
     ],
     "parameters": {
-      "Right": 1
+      "Right": 5
     },
     "nullable": [
       false,
       false,
-      true,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "b79587a510f3a0aef5060135174eaf372b45dc210d95311dd0030eb7cafa5cb2"
+  "hash": "3c3e1e7a15c109cf3ffffbe979e371eccf400954473e807f3938042681707db5"
 }
