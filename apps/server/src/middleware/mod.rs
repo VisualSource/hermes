@@ -1,8 +1,7 @@
 use actix_web::{
-    Error, HttpMessage, HttpRequest, HttpResponse, ResponseError,
+    Error, HttpMessage, HttpResponse, ResponseError,
     body::MessageBody,
     dev::{ServiceRequest, ServiceResponse},
-    error::ErrorUnauthorized,
     http::{StatusCode, header},
     middleware::Next,
 };
@@ -26,7 +25,7 @@ impl ResponseError for AuthError {
         let detail = self.to_string();
 
         HttpResponse::Unauthorized().json(ApplicationError::new(
-            401,
+            StatusCode::UNAUTHORIZED,
             "unauthorized",
             "header",
             Vec::default(),

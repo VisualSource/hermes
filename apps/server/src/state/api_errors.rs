@@ -34,7 +34,7 @@ impl InnerError {
     }
 }
 
-#[derive(Debug, serde::Serialize, Clone, ToResponse)]
+#[derive(Debug, serde::Serialize, Clone, ToResponse, ToSchema)]
 #[response(description = "Error response object containing reason for error")]
 pub struct ApplicationError {
     pub code: u16,
@@ -85,23 +85,23 @@ impl std::fmt::Display for ApplicationError {
     }
 }
 
-pub fn from_sqlx_error(err: sqlx::Error) -> actix_web::Error {
-    match err {
-        sqlx::Error::Database(database_error) => {
-            actix_web::error::ErrorBadRequest(ApplicationError::new(
-                400u16,
-                "bad request",
+impl From<sqlx::Error> for ApplicationError {
+    fn from(err: sqlx::Error) -> Self {
+        match err {
+            sqlx::Error::Database(database_error) => ApplicationError::new(
+                StatusCode::BAD_REQUEST,
+                "Bad Request",
                 "request",
                 vec![ErrorDetail::new(400, "query", database_error.to_string())],
                 None,
-            ))
+            ),
+            _ => ApplicationError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal Server Error",
+                "server",
+                Vec::default(),
+                Some(InnerError::new(err.to_string())),
+            ),
         }
-        _ => actix_web::error::ErrorInternalServerError(ApplicationError::new(
-            500u16,
-            "Interal Server Error",
-            "server",
-            Vec::default(),
-            Some(InnerError::new(err.to_string())),
-        )),
     }
 }

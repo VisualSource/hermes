@@ -1,5 +1,7 @@
 use utoipa_actix_web::service_config::ServiceConfig;
 
+use crate::routes::api::server::list_servers;
+
 pub mod account;
 pub mod channel;
 pub mod message;
@@ -18,14 +20,6 @@ pub fn configure_v1(cfg: &mut ServiceConfig) {
         .service(server::delete_server)
         .service(server::post_server)
         .service(server::patch_server)
-        // Served but not documented (no `#[utoipa::path]`, so no `OpenApiFactory`
-        // impl). Register through the raw-config passthrough.
-        .map(|c| {
-            c.service(account::add_encypt_key)
-                .service(account::delete_encypt_key)
-                .service(account::get_encypt_key)
-                .service(account::get_encypt_keys)
-                .service(account::get_user)
-                .service(account::update_user)
-        });
+        .service(server::list_members)
+        .service(list_servers);
 }

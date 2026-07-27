@@ -27,7 +27,7 @@ impl AuthPageError {
     fn get_body(&self) -> ApplicationError {
         match &self {
             Self::Login(err) => ApplicationError::new(
-                500,
+                StatusCode::INTERNAL_SERVER_ERROR,
                 "Internal Server Error",
                 "server",
                 Vec::default(),

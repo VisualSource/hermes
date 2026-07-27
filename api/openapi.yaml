@@ -6,6 +6,31 @@ info:
     name: ''
   version: 0.1.0
 paths:
+  /api/v1/server:
+    post:
+      tags:
+      - server
+      description: create a server
+      operationId: post_server
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServerPost'
+        required: true
+      responses:
+        '200':
+          description: created server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Server'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
   /api/v1/server/{server}:
     get:
       tags:
@@ -26,26 +51,161 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Server'
-    post:
-      tags:
-      - server
-      description: create a server
-      operationId: post_server
-      responses: {}
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
     delete:
       tags:
       - server
       description: delete a server
       operationId: delete_server
-      responses: {}
+      parameters:
+      - name: server
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '201':
+          description: server deleted
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
     patch:
       tags:
       - server
       description: update a server
       operationId: patch_server
-      responses: {}
+      parameters:
+      - name: server
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServerPatch'
+        required: true
+      responses:
+        '201':
+          description: updated server properties
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+  /api/v1/server/{server}/members:
+    get:
+      tags:
+      - server
+      - members
+      description: server members list
+      operationId: list_members
+      parameters:
+      - name: server
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: list of members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServerMember'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+  /api/v1/servers:
+    get:
+      tags:
+      - server
+      - user
+      description: list servers that the current user is in
+      operationId: list_servers
+      responses:
+        '200':
+          description: created server
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Server'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
 components:
   schemas:
+    ApplicationError:
+      type: object
+      required:
+      - code
+      - message
+      - target
+      - details
+      properties:
+        code:
+          type: integer
+          format: int32
+          minimum: 0
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        innererror:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/InnerError'
+        message:
+          type: string
+        target:
+          type: string
+    ErrorDetail:
+      type: object
+      required:
+      - code
+      - target
+      - message
+      properties:
+        code:
+          type: integer
+          format: int32
+          minimum: 0
+        message:
+          type: string
+        target:
+          type: string
+    InnerError:
+      type: object
+      required:
+      - trace
+      properties:
+        trace:
+          type: array
+          items:
+            type: string
     Server:
       type: object
       required:
@@ -69,3 +229,40 @@ components:
         owner_id:
           type: string
           format: uuid
+    ServerMember:
+      type: object
+      required:
+      - id
+      - server_id
+      - user_id
+      properties:
+        id:
+          type: string
+        server_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+    ServerPatch:
+      type: object
+      properties:
+        icon:
+          type:
+          - string
+          - 'null'
+        name:
+          type:
+          - string
+          - 'null'
+    ServerPost:
+      type: object
+      required:
+      - name
+      properties:
+        icon:
+          type:
+          - string
+          - 'null'
+        name:
+          type: string
