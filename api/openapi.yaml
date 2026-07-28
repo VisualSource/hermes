@@ -6,6 +6,137 @@ info:
     name: ''
   version: 0.1.0
 paths:
+  /api/v1/channel:
+    post:
+      tags:
+      - channel
+      operationId: create_channel
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChannelPayload'
+        required: true
+      responses:
+        '200':
+          description: new channel
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Channel'
+        '400':
+          description: invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+  /api/v1/channel/{channel}:
+    get:
+      tags:
+      - channel
+      operationId: get_channel
+      parameters:
+      - name: channel
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: accepted changes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Channel'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+    delete:
+      tags:
+      - channel
+      operationId: delete_channel
+      parameters:
+      - name: channel
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '201':
+          description: accepted deletion
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+    patch:
+      tags:
+      - channel
+      operationId: patch_channel
+      parameters:
+      - name: channel
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchChannelPayload'
+        required: true
+      responses:
+        '201':
+          description: accepted changes
+        '400':
+          description: invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
   /api/v1/server:
     post:
       tags:
@@ -25,6 +156,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Server'
+        '400':
+          description: invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
         '500':
           description: internal server error
           content:
@@ -51,6 +194,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Server'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
         '500':
           description: internal server error
           content:
@@ -72,6 +221,12 @@ paths:
       responses:
         '201':
           description: server deleted
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
         '500':
           description: internal server error
           content:
@@ -99,6 +254,52 @@ paths:
       responses:
         '201':
           description: updated server properties
+        '400':
+          description: invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+  /api/v1/server/{server}/channels:
+    get:
+      tags:
+      - server
+      - channels
+      operationId: list_channels
+      parameters:
+      - name: server
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: list of channels
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServerMember'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
         '500':
           description: internal server error
           content:
@@ -128,6 +329,232 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ServerMember'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+  /api/v1/server/{server}/role:
+    put:
+      tags:
+      - server
+      - role
+      description: add role to user
+      operationId: add_role_to_user
+      parameters:
+      - name: server
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleQuery'
+        required: true
+      responses:
+        '201':
+          description: adding accepted
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+    post:
+      tags:
+      - server
+      - role
+      description: create a role
+      operationId: create_role
+      parameters:
+      - name: server
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRolePayload'
+        required: true
+      responses:
+        '200':
+          description: role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+    delete:
+      tags:
+      - server
+      - role
+      description: remove role from user
+      operationId: remove_role_from_user
+      parameters:
+      - name: server
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRolePayload'
+        required: true
+      responses:
+        '201':
+          description: remove accepted
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+  /api/v1/server/{server}/role/{role}:
+    get:
+      tags:
+      - server
+      - role
+      description: get role
+      operationId: get_role
+      parameters:
+      - name: server
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: role
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+    delete:
+      tags:
+      - server
+      - role
+      description: delete role
+      operationId: delete_role
+      parameters:
+      - name: server
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: role
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '201':
+          description: role
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+    patch:
+      tags:
+      - server
+      - role
+      description: update a role
+      operationId: patch_role
+      parameters:
+      - name: server
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: role
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchRolePayload'
+        required: true
+      responses:
+        '201':
+          description: role
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
         '500':
           description: internal server error
           content:
@@ -150,6 +577,12 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Server'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
         '500':
           description: internal server error
           content:
@@ -182,6 +615,68 @@ components:
           type: string
         target:
           type: string
+    Channel:
+      type: object
+      required:
+      - id
+      - kind
+      - name
+      properties:
+        category:
+          type:
+          - string
+          - 'null'
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/ChannelKind'
+        name:
+          type: string
+        server_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+    ChannelKind:
+      type: string
+      enum:
+      - text
+      - voice
+      - dm
+    CreateChannelPayload:
+      type: object
+      required:
+      - name
+      - kind
+      - server_id
+      properties:
+        category:
+          type:
+          - string
+          - 'null'
+        kind:
+          $ref: '#/components/schemas/ChannelKind'
+        name:
+          type: string
+        server_id:
+          type: string
+          format: uuid
+    CreateRolePayload:
+      type: object
+      required:
+      - name
+      properties:
+        bg_color:
+          type:
+          - string
+          - 'null'
+        fg_color:
+          type:
+          - string
+          - 'null'
+        name:
+          type: string
     ErrorDetail:
       type: object
       required:
@@ -206,6 +701,71 @@ components:
           type: array
           items:
             type: string
+    PatchChannelPayload:
+      type: object
+      properties:
+        category:
+          type:
+          - string
+          - 'null'
+        name:
+          type:
+          - string
+          - 'null'
+    PatchRolePayload:
+      type: object
+      properties:
+        bg_color:
+          type:
+          - string
+          - 'null'
+        fg_color:
+          type:
+          - string
+          - 'null'
+        name:
+          type:
+          - string
+          - 'null'
+    Role:
+      type: object
+      required:
+      - id
+      - server_id
+      - name
+      - mask
+      properties:
+        bg_color:
+          type:
+          - string
+          - 'null'
+        fg_color:
+          type:
+          - string
+          - 'null'
+        id:
+          type: string
+          format: uuid
+        mask:
+          type: integer
+          format: int64
+        name:
+          type: string
+        server_id:
+          type: string
+          format: uuid
+    RoleQuery:
+      type: object
+      required:
+      - role_id
+      - target
+      properties:
+        role_id:
+          type: string
+          format: uuid
+        target:
+          type: string
+          format: uuid
     Server:
       type: object
       required:

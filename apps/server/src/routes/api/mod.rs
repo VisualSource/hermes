@@ -1,12 +1,10 @@
 use utoipa_actix_web::service_config::ServiceConfig;
 
-use crate::routes::api::server::list_servers;
-
 pub mod account;
 pub mod channel;
 pub mod message;
+pub mod roles;
 pub mod server;
-
 /// Register all `/api/v1` handlers. Documented handlers (those with
 /// `#[utoipa::path]`) are collected into the OpenAPI doc when this runs under a
 /// `UtoipaApp`; under a plain actix config the collected paths are dropped.
@@ -21,5 +19,16 @@ pub fn configure_v1(cfg: &mut ServiceConfig) {
         .service(server::post_server)
         .service(server::patch_server)
         .service(server::list_members)
-        .service(list_servers);
+        .service(server::list_channels)
+        .service(server::list_servers)
+        .service(channel::create_channel)
+        .service(channel::delete_channel)
+        .service(channel::get_channel)
+        .service(channel::patch_channel)
+        .service(roles::add_role_to_user)
+        .service(roles::create_role)
+        .service(roles::delete_role)
+        .service(roles::get_role)
+        .service(roles::patch_role)
+        .service(roles::remove_role_from_user);
 }

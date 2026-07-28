@@ -7,7 +7,10 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    models::server::{Server, ServerMember},
+    models::{
+        channel::Channel,
+        server::{Server, ServerMember},
+    },
     state::{
         api_errors::{ApplicationError, ErrorDetail},
         oauth::jwt::Claims,
@@ -19,6 +22,7 @@ use crate::{
     description = "fetch a server",
     responses(
         (status = 200, description = "single server info", body = Server),
+        (status = 401, description = "unauthorized", body = ApplicationError),
         (status = 500, description = "internal server error", body = ApplicationError)
     )
 )]
@@ -41,6 +45,7 @@ pub async fn get_server(
     description = "delete a server",
     responses(
         (status = 201, description = "server deleted"),
+        (status = 401, description = "unauthorized", body = ApplicationError),
         (status = 500, description = "internal server error", body = ApplicationError)
     )
 )]
@@ -65,7 +70,7 @@ pub async fn delete_server(
 
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 struct ServerPost {
-    #[validate(length(min = 3, max = 255))]
+    #[validate(length(min = 3, max = 255), non_control_character)]
     name: String,
     #[validate(url)]
     icon: Option<String>,
@@ -76,6 +81,8 @@ struct ServerPost {
     description = "create a server",
     responses(
         (status = 200, description = "created server", body = Server),
+        (status = 400, description = "invalid payload", body = ApplicationError),
+        (status = 401, description = "unauthorized", body = ApplicationError),
         (status = 500, description = "internal server error", body = ApplicationError)
     )
 )]
@@ -105,7 +112,7 @@ pub async fn post_server(
 
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 struct ServerPatch {
-    #[validate(length(min = 3, max = 255))]
+    #[validate(length(min = 3, max = 255), non_control_character)]
     name: Option<String>,
     #[validate(url)]
     icon: Option<String>,
@@ -116,13 +123,15 @@ struct ServerPatch {
     description = "update a server",
     responses(
         (status = 201, description = "updated server properties"),
+        (status = 400, description = "invalid payload", body = ApplicationError),
+        (status = 401, description = "unauthorized", body = ApplicationError),
         (status = 500, description = "internal server error", body = ApplicationError)
     )
 )]
 #[patch("/server/{server}")]
 pub async fn patch_server(
     db: web::Data<SqlitePool>,
-    body: Validated<web::Json<ServerPatch>>,
+    Validated(web::Json(body)): Validated<web::Json<ServerPatch>>,
     server: web::Path<Uuid>,
     user: web::ReqData<Claims>,
 ) -> Result<impl Responder, ApplicationError> {
@@ -183,6 +192,7 @@ pub async fn patch_server(
     description="list servers that the current user is in",
     responses(
         (status = 200, description = "created server", body = Vec<Server>),
+        (status = 401, description = "unauthorized", body = ApplicationError),
         (status = 500, description = "internal server error", body = ApplicationError)
     )
 )]
@@ -201,6 +211,7 @@ pub async fn list_servers(
     description= "server members list",
     responses(
         (status = 200, description = "list of members", body = Vec<ServerMember>),
+        (status = 401, description = "unauthorized", body = ApplicationError),
         (status = 500, description = "internal server error", body = ApplicationError)
     )
 )]
@@ -221,6 +232,35 @@ pub async fn list_members(
     .await?;
 
     Ok(web::Json(members))
+}
+
+#[utoipa::path(
+    tags = ["server","channels"],
+    responses(
+        (status = 200, description = "list of channels", body = Vec<ServerMember>),
+        (status = 401, description = "unauthorized", body = ApplicationError),
+        (status = 500, description = "internal server error", body = ApplicationError)
+    )
+)]
+#[get("/server/{server}/channels")]
+pub async fn list_channels(
+    db: web::Data<SqlitePool>,
+    params: web::Path<uuid::Uuid>,
+    user: web::ReqData<Claims>,
+) -> Result<web::Json<Vec<Channel>>, ApplicationError> {
+    let server_id = params.into_inner();
+
+    //TODO: validate user can fetch
+
+    let channels = query_as!(
+        Channel,
+        "SELECT * FROM channels WHERE server_id = ?",
+        &server_id
+    )
+    .fetch_all(db.get_ref())
+    .await?;
+
+    Ok(web::Json(channels))
 }
 
 /*

@@ -11,7 +11,7 @@ pub enum ChannelKind {
     Dm,
 }
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
 pub struct Channel {
     pub id: Uuid,
     pub kind: ChannelKind,

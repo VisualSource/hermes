@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS roles (
     id BLOB NOT NULL PRIMARY KEY,
     server_id BLOB NOT NULL,
     name TEXT NOT NULL,
+    fg_color TEXT,
+    bg_color TEXT,
     mask BIGINT NOT NULL,
 
     FOREIGN KEY(server_id)
