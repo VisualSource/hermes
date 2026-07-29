@@ -21,23 +21,23 @@ pub struct Channel {
 }
 
 /// link info for a channel(dm)
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
 pub struct DmParticipant {
-    id: String,
-    channel_id: Uuid,
-    user_a_id: Uuid,
-    user_b_id: Uuid,
+    pub id: Uuid,
+    pub channel_id: Uuid,
+    pub user_a_id: Uuid,
+    pub user_b_id: Uuid,
 }
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow, utoipa::ToSchema)]
 pub struct Message {
-    id: Uuid,
-    channel_id: Uuid,
-    user_id: Option<Uuid>,
-    content: String,
+    pub id: Uuid,
+    pub channel_id: Uuid,
+    pub user_id: Option<Uuid>,
+    pub content: String,
     #[serde(with = "time::serde::rfc3339")]
-    created_at: time::OffsetDateTime,
+    pub created_at: time::OffsetDateTime,
     #[serde(with = "time::serde::rfc3339::option")]
-    edited_at: Option<time::OffsetDateTime>,
+    pub edited_at: Option<time::OffsetDateTime>,
     #[serde(with = "time::serde::rfc3339::option")]
-    delete_at: Option<time::OffsetDateTime>,
+    pub deleted_at: Option<time::OffsetDateTime>,
 }

@@ -69,7 +69,7 @@ pub async fn delete_server(
 }
 
 #[derive(Debug, Deserialize, Validate, ToSchema)]
-struct ServerPost {
+struct PostServerPayload {
     #[validate(length(min = 3, max = 255), non_control_character)]
     name: String,
     #[validate(url)]
@@ -79,6 +79,7 @@ struct ServerPost {
 #[utoipa::path(
     tag = "server", 
     description = "create a server",
+    request_body = PostServerPayload,
     responses(
         (status = 200, description = "created server", body = Server),
         (status = 400, description = "invalid payload", body = ApplicationError),
@@ -90,7 +91,7 @@ struct ServerPost {
 pub async fn post_server(
     db: web::Data<SqlitePool>,
     user: web::ReqData<Claims>,
-    body: web::Json<ServerPost>,
+    body: Validated<web::Json<PostServerPayload>>,
 ) -> Result<impl Responder, ApplicationError> {
     let server_id = uuid::Uuid::now_v7();
     let now = time::OffsetDateTime::now_utc();
@@ -111,7 +112,7 @@ pub async fn post_server(
 }
 
 #[derive(Debug, Deserialize, Validate, ToSchema)]
-struct ServerPatch {
+struct PatchServerPayload {
     #[validate(length(min = 3, max = 255), non_control_character)]
     name: Option<String>,
     #[validate(url)]
@@ -121,6 +122,7 @@ struct ServerPatch {
 #[utoipa::path(
     tag = "server", 
     description = "update a server",
+    request_body = PatchServerPayload,
     responses(
         (status = 201, description = "updated server properties"),
         (status = 400, description = "invalid payload", body = ApplicationError),
@@ -131,7 +133,7 @@ struct ServerPatch {
 #[patch("/server/{server}")]
 pub async fn patch_server(
     db: web::Data<SqlitePool>,
-    Validated(web::Json(body)): Validated<web::Json<ServerPatch>>,
+    Validated(web::Json(body)): Validated<web::Json<PatchServerPayload>>,
     server: web::Path<Uuid>,
     user: web::ReqData<Claims>,
 ) -> Result<impl Responder, ApplicationError> {

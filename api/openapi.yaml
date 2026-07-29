@@ -137,6 +137,249 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApplicationError'
+  /api/v1/channel/{channel}/message:
+    post:
+      tags:
+      - channel
+      - message
+      operationId: create_message
+      parameters:
+      - name: channel
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostMessagePayload'
+        required: true
+      responses:
+        '200':
+          description: new message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '429':
+          description: too many request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+  /api/v1/channel/{channel}/message/{message}:
+    get:
+      tags:
+      - channel
+      - message
+      operationId: get_message
+      parameters:
+      - name: channel
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: message
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '429':
+          description: too many request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+    delete:
+      tags:
+      - channel
+      - message
+      operationId: delete_message
+      parameters:
+      - name: channel
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: message
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '201':
+          description: accepted deletion
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '429':
+          description: too many request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+    patch:
+      tags:
+      - channel
+      - message
+      operationId: patch_message
+      parameters:
+      - name: channel
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: message
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchMessagePayload'
+        required: true
+      responses:
+        '201':
+          description: accepted update message
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '429':
+          description: too many request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+  /api/v1/channel/{channel}/messages:
+    get:
+      tags:
+      - channel
+      - message
+      operationId: list_messages
+      parameters:
+      - name: channel
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: accepted deletion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageQueryResult'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '429':
+          description: too many request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+  /api/v1/dm-channels:
+    get:
+      tags:
+      - dm
+      - channel
+      operationId: get_dms
+      responses:
+        '200':
+          description: new channel
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DmParticipant'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '429':
+          description: too many request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
   /api/v1/server:
     post:
       tags:
@@ -147,7 +390,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ServerPost'
+              $ref: '#/components/schemas/PostServerPayload'
         required: true
       responses:
         '200':
@@ -249,7 +492,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ServerPatch'
+              $ref: '#/components/schemas/PatchServerPayload'
         required: true
       responses:
         '201':
@@ -677,6 +920,27 @@ components:
           - 'null'
         name:
           type: string
+    DmParticipant:
+      type: object
+      description: link info for a channel(dm)
+      required:
+      - id
+      - channel_id
+      - user_a_id
+      - user_b_id
+      properties:
+        channel_id:
+          type: string
+          format: uuid
+        id:
+          type: string
+          format: uuid
+        user_a_id:
+          type: string
+          format: uuid
+        user_b_id:
+          type: string
+          format: uuid
     ErrorDetail:
       type: object
       required:
@@ -701,6 +965,57 @@ components:
           type: array
           items:
             type: string
+    Message:
+      type: object
+      required:
+      - id
+      - channel_id
+      - content
+      - created_at
+      properties:
+        channel_id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        edited_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+    MessageQueryResult:
+      type: object
+      required:
+      - results
+      - count
+      properties:
+        count:
+          type: integer
+          minimum: 0
+        cursor:
+          type:
+          - string
+          - 'null'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
     PatchChannelPayload:
       type: object
       properties:
@@ -712,6 +1027,13 @@ components:
           type:
           - string
           - 'null'
+    PatchMessagePayload:
+      type: object
+      required:
+      - content
+      properties:
+        content:
+          type: string
     PatchRolePayload:
       type: object
       properties:
@@ -727,6 +1049,35 @@ components:
           type:
           - string
           - 'null'
+    PatchServerPayload:
+      type: object
+      properties:
+        icon:
+          type:
+          - string
+          - 'null'
+        name:
+          type:
+          - string
+          - 'null'
+    PostMessagePayload:
+      type: object
+      required:
+      - content
+      properties:
+        content:
+          type: string
+    PostServerPayload:
+      type: object
+      required:
+      - name
+      properties:
+        icon:
+          type:
+          - string
+          - 'null'
+        name:
+          type: string
     Role:
       type: object
       required:
@@ -804,25 +1155,3 @@ components:
         user_id:
           type: string
           format: uuid
-    ServerPatch:
-      type: object
-      properties:
-        icon:
-          type:
-          - string
-          - 'null'
-        name:
-          type:
-          - string
-          - 'null'
-    ServerPost:
-      type: object
-      required:
-      - name
-      properties:
-        icon:
-          type:
-          - string
-          - 'null'
-        name:
-          type: string

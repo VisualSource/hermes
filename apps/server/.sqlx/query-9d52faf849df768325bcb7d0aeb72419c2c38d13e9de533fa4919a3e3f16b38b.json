@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT * FROM dm_participants WHERE user_a_id = ? OR user_b_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "dm_participants",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "channel_id",
+        "ordinal": 1,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "dm_participants",
+            "name": "channel_id"
+          }
+        }
+      },
+      {
+        "name": "user_a_id",
+        "ordinal": 2,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "dm_participants",
+            "name": "user_a_id"
+          }
+        }
+      },
+      {
+        "name": "user_b_id",
+        "ordinal": 3,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "dm_participants",
+            "name": "user_b_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "9d52faf849df768325bcb7d0aeb72419c2c38d13e9de533fa4919a3e3f16b38b"
+}

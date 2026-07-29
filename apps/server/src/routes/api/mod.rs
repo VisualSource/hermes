@@ -2,6 +2,7 @@ use utoipa_actix_web::service_config::ServiceConfig;
 
 pub mod account;
 pub mod channel;
+pub mod dm;
 pub mod message;
 pub mod roles;
 pub mod server;
@@ -30,5 +31,11 @@ pub fn configure_v1(cfg: &mut ServiceConfig) {
         .service(roles::delete_role)
         .service(roles::get_role)
         .service(roles::patch_role)
-        .service(roles::remove_role_from_user);
+        .service(roles::remove_role_from_user)
+        .service(dm::get_dms)
+        .service(message::create_message)
+        .service(message::delete_message)
+        .service(message::get_message)
+        .service(message::list_messages)
+        .service(message::patch_message);
 }

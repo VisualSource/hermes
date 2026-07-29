@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS messages (
     id BLOB NOT NULL PRIMARY KEY,
     channel_id BLOB NOT NULL,
     user_id BLOB,
-    content TEXT,
+    content TEXT NOT NULL,
 
     created_at DATETIME NOT NULL,
     edited_at DATETIME,
@@ -113,7 +113,7 @@ CREATE TABLE IF NOT EXISTS messages (
             ON DELETE CASCADE
             ON UPDATE CASCADE
 );
-CREATE INDEX IF NOT EXISTS idx_messages_channel_ts ON messages(channel_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_channel_ts ON messages(channel_id, id, created_at);
 
 CREATE TABLE IF NOT EXISTS invites (
     id BLOB NOT NULL PRIMARY KEY,

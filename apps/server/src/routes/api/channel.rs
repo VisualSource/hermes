@@ -25,6 +25,7 @@ struct CreateChannelPayload {
 
 #[utoipa::path(
     tag = "channel",
+    request_body = CreateChannelPayload,
     responses(
         (status = 200, description = "new channel", body = Channel),
         (status = 400, description = "invalid payload", body = ApplicationError),
@@ -66,6 +67,7 @@ struct PatchChannelPayload {
 
 #[utoipa::path(
     tag = "channel",
+    request_body = PatchChannelPayload,
     responses(
         (status = 201, description = "accepted changes"),
         (status = 400, description = "invalid payload", body = ApplicationError),
