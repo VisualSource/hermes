@@ -6,42 +6,6 @@ info:
     name: ''
   version: 0.1.0
 paths:
-  /api/v1/channel:
-    post:
-      tags:
-      - channel
-      operationId: create_channel
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateChannelPayload'
-        required: true
-      responses:
-        '200':
-          description: new channel
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Channel'
-        '400':
-          description: invalid payload
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApplicationError'
-        '401':
-          description: unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApplicationError'
-        '500':
-          description: internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApplicationError'
   /api/v1/channel/{channel}:
     get:
       tags:
@@ -380,6 +344,150 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApplicationError'
+  /api/v1/friend-request:
+    get:
+      tags:
+      - friend-requests
+      operationId: list_friend_requests
+      responses:
+        '200':
+          description: new channel
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FriendRequest'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '429':
+          description: too many request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+    post:
+      tags:
+      - friend-requests
+      operationId: create_friend_request
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFriendRequestPayload'
+        required: true
+      responses:
+        '200':
+          description: new channel
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FriendRequest'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '429':
+          description: too many request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+  /api/v1/friend-request/{id}:
+    put:
+      tags:
+      - friend-requests
+      operationId: put_friend_request
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PutFriendRequest'
+        required: true
+      responses:
+        '201':
+          description: action accepted
+        '400':
+          description: bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '429':
+          description: too many request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+    delete:
+      tags:
+      - friend-requests
+      operationId: delete_friend_request
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '202':
+          description: new channel
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '429':
+          description: too many request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
   /api/v1/server:
     post:
       tags:
@@ -515,6 +623,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApplicationError'
+  /api/v1/server/{server}/channel:
+    post:
+      tags:
+      - channel
+      operationId: create_channel
+      parameters:
+      - name: server
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChannelPayload'
+        required: true
+      responses:
+        '200':
+          description: new channel
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Channel'
+        '400':
+          description: invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
   /api/v1/server/{server}/channels:
     get:
       tags:
@@ -539,6 +690,84 @@ paths:
                   $ref: '#/components/schemas/ServerMember'
         '401':
           description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+  /api/v1/server/{server}/invite:
+    post:
+      tags:
+      - server
+      - invite
+      operationId: create_invite
+      parameters:
+      - name: server
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvitePayload'
+        required: true
+      responses:
+        '200':
+          description: created server invite
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invite'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '429':
+          description: too many request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+  /api/v1/server/{server}/invite-revoke:
+    delete:
+      tags:
+      - server
+      - invite
+      operationId: revoke_invite
+      parameters:
+      - name: server
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '201':
+          description: accepted revoked
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '429':
+          description: too many request
           content:
             application/json:
               schema:
@@ -602,7 +831,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RoleQuery'
+              $ref: '#/components/schemas/PutRolePayload'
         required: true
       responses:
         '201':
@@ -674,7 +903,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateRolePayload'
+              $ref: '#/components/schemas/PutRolePayload'
         required: true
       responses:
         '201':
@@ -892,7 +1121,6 @@ components:
       required:
       - name
       - kind
-      - server_id
       properties:
         category:
           type:
@@ -902,9 +1130,22 @@ components:
           $ref: '#/components/schemas/ChannelKind'
         name:
           type: string
-        server_id:
+    CreateFriendRequestPayload:
+      type: object
+      required:
+      - user
+      properties:
+        user:
           type: string
           format: uuid
+    CreateInvitePayload:
+      type: object
+      properties:
+        max_uses:
+          type:
+          - integer
+          - 'null'
+          format: int64
     CreateRolePayload:
       type: object
       required:
@@ -924,15 +1165,11 @@ components:
       type: object
       description: link info for a channel(dm)
       required:
-      - id
       - channel_id
       - user_a_id
       - user_b_id
       properties:
         channel_id:
-          type: string
-          format: uuid
-        id:
           type: string
           format: uuid
         user_a_id:
@@ -956,6 +1193,25 @@ components:
           type: string
         target:
           type: string
+    FriendRequest:
+      type: object
+      required:
+      - id
+      - from_user
+      - to_user
+      - rejected
+      properties:
+        from_user:
+          type: string
+          format: uuid
+        id:
+          type: string
+          format: uuid
+        rejected:
+          type: boolean
+        to_user:
+          type: string
+          format: uuid
     InnerError:
       type: object
       required:
@@ -965,6 +1221,38 @@ components:
           type: array
           items:
             type: string
+    Invite:
+      type: object
+      required:
+      - id
+      - server_id
+      - max_uses
+      - uses
+      - revoked
+      properties:
+        created_by:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        expires_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        id:
+          type: string
+        max_uses:
+          type: integer
+          format: int64
+        revoked:
+          type: boolean
+        server_id:
+          type: string
+          format: uuid
+        uses:
+          type: integer
+          format: int64
     Message:
       type: object
       required:
@@ -1078,6 +1366,30 @@ components:
           - 'null'
         name:
           type: string
+    PutFriendRequest:
+      type: object
+      required:
+      - action
+      properties:
+        action:
+          $ref: '#/components/schemas/RequestAction'
+    PutRolePayload:
+      type: object
+      required:
+      - role_id
+      - target
+      properties:
+        role_id:
+          type: string
+          format: uuid
+        target:
+          type: string
+          format: uuid
+    RequestAction:
+      type: string
+      enum:
+      - reject
+      - accept
     Role:
       type: object
       required:
@@ -1103,18 +1415,6 @@ components:
         name:
           type: string
         server_id:
-          type: string
-          format: uuid
-    RoleQuery:
-      type: object
-      required:
-      - role_id
-      - target
-      properties:
-        role_id:
-          type: string
-          format: uuid
-        target:
           type: string
           format: uuid
     Server:
