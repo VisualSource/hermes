@@ -1,7 +1,7 @@
 setup:
     ☐ oauth
         ✔ csrf @done(26-07-16 00:00)
-            [] optimization: have shared.ts's onFormSubmit read the hidden
+            ✔ optimization: have shared.ts's onFormSubmit read the hidden @done(26-07-31 16:00)
                CSRF field and send it as X-CSRF-Token header. The middleware
                (actix-csrf-middleware 0.7, lib.rs:897-916) checks the header
                first and skips body reading entirely when present, avoiding
@@ -31,14 +31,14 @@ setup:
     ✔ rate limiter @done(26-03-03 17:12)
     
 api:
-   [] getMessages
-   [] uploadFile
-   [] getChannels
-   [] getChannel
-   [] getServer
-   [] getServers
-   [] getUsers
-   [] getUser
+   ✔ getMessages @done(26-07-31 15:59)
+   ✘ uploadFile @cancelled(26-07-31 15:59)
+   ✔ getChannels @done(26-07-31 16:00)
+   ✔ getChannel @done(26-07-31 15:59)
+   ☐ getServer
+   ✔ getServers @done(26-07-31 15:59)
+   ✔ getUsers @done(26-07-31 15:59)
+   ✔ getUser @done(26-07-31 15:59)
 
 
 websocket:
