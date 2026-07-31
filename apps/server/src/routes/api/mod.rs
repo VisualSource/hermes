@@ -3,6 +3,7 @@ use utoipa_actix_web::service_config::ServiceConfig;
 pub mod account;
 pub mod channel;
 pub mod dm;
+mod invite;
 pub mod message;
 pub mod roles;
 pub mod server;
@@ -33,9 +34,15 @@ pub fn configure_v1(cfg: &mut ServiceConfig) {
         .service(roles::patch_role)
         .service(roles::remove_role_from_user)
         .service(dm::get_dms)
+        .service(dm::create_friend_request)
+        .service(dm::delete_friend_request)
+        .service(dm::list_friend_requests)
+        .service(dm::put_friend_request)
         .service(message::create_message)
         .service(message::delete_message)
         .service(message::get_message)
         .service(message::list_messages)
-        .service(message::patch_message);
+        .service(message::patch_message)
+        .service(invite::create_invite)
+        .service(invite::revoke_invite);
 }

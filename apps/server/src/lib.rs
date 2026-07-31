@@ -7,6 +7,9 @@ pub mod models;
 pub mod routes;
 pub mod state;
 
+#[cfg(test)]
+pub mod test_support;
+
 /// Base OpenAPI document. Carries the spec metadata (info/components/tags);
 /// the paths are collected automatically from `#[utoipa::path]` handlers as
 /// they are mounted (see [`openapi`]).

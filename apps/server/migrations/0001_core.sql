@@ -72,11 +72,14 @@ CREATE TABLE IF NOT EXISTS channels (
 );
 CREATE INDEX IF NOT EXISTS idx_channels_server ON channels(server_id);
 
+-- this is basically just a friends table 
 CREATE TABLE IF NOT EXISTS dm_participants (
-    id BLOB NOT NULL PRIMARY KEY,
-    channel_id BLOB NOT NULL,
+    channel_id BLOB NOT NULL UNIQUE,
     user_a_id BLOB NOT NULL,
     user_b_id BLOB NOT NULL,
+
+    PRIMARY KEY(user_a_id,user_b_id),
+    CHECK(user_a_id < user_b_id),
 
     FOREIGN KEY(channel_id)
         REFERENCES channels(id)
@@ -92,6 +95,7 @@ CREATE TABLE IF NOT EXISTS dm_participants (
             ON DELETE RESTRICT
             ON UPDATE CASCADE
 );
+CREATE INDEX IF NOT EXISTS idx_dm_participants_b ON dm_participants(user_b_id);
 
 CREATE TABLE IF NOT EXISTS messages (
     id BLOB NOT NULL PRIMARY KEY,
@@ -116,7 +120,7 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE INDEX IF NOT EXISTS idx_messages_channel_ts ON messages(channel_id, id, created_at);
 
 CREATE TABLE IF NOT EXISTS invites (
-    id BLOB NOT NULL PRIMARY KEY,
+    id TEXT NOT NULL PRIMARY KEY,
     server_id BLOB NOT NULL,
     created_by BLOB,
     expires_at DATETIME,
@@ -134,3 +138,19 @@ CREATE TABLE IF NOT EXISTS invites (
             ON DELETE SET NULL
             ON UPDATE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS friend_requests (
+    id BLOB NOT NULL PRIMARY KEY,
+    from_user BLOB NOT NULL,
+    to_user BLOB NOT NULL,
+    rejected BOOLEAN NOT NULL DEFAULT FALSE,
+
+    FOREIGN KEY(from_user)
+        REFERENCES users(id)
+            ON DELETE RESTRICT
+            ON UPDATE CASCADE,
+    FOREIGN KEY(to_user )
+        REFERENCES users(id)
+            ON DELETE RESTRICT
+            ON UPDATE CASCADE
+)

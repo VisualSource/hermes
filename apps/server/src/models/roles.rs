@@ -12,9 +12,11 @@ pub struct Role {
     pub mask: i64,
 }
 
-/// a single record that links a user to a role
+/// a single record that links a role to a `server_members` row — note
+/// `member_id` is a `server_members.id`, not a `users.id`.
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct RoleMember {
-    role_id: String,
-    member_id: Uuid,
+    pub role_id: Uuid,
+    pub member_id: Uuid,
 }
+

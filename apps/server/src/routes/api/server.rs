@@ -1,7 +1,7 @@
 use actix_web::{HttpResponse, Responder, delete, get, http::StatusCode, patch, post, web};
 use actix_web_validation::Validated;
 use serde::Deserialize;
-use sqlx::{SqlitePool, query, query_as};
+use sqlx::{QueryBuilder, Sqlite, SqlitePool, query, query_as};
 use utoipa::ToSchema;
 use uuid::Uuid;
 use validator::Validate;
@@ -137,52 +137,33 @@ pub async fn patch_server(
     server: web::Path<Uuid>,
     user: web::ReqData<Claims>,
 ) -> Result<impl Responder, ApplicationError> {
+    if body.name.is_none() || body.icon.is_none() {
+        return Err(ApplicationError::new(
+            StatusCode::BAD_REQUEST,
+            "bad request",
+            "body",
+            vec![ErrorDetail::new(4001, "body", "no values to update")],
+            None,
+        ));
+    }
+
     let server_id = server.into_inner();
 
-    // allow non owner to update server?
-    match (&body.icon, &body.name) {
-        (None, None) => {
-            return Err(ApplicationError::new(
-                StatusCode::BAD_REQUEST,
-                "bad request",
-                "body",
-                vec![ErrorDetail::new(4001, "body", "no body are where set")],
-                None,
-            )
-            .into());
-        }
-        (Some(icon), None) => {
-            query!(
-                "UPDATE servers SET icon = ? WHERE id = ? AND owner_id = ?",
-                icon,
-                server_id,
-                user.sub
-            )
-            .execute(db.get_ref())
-            .await?;
-        }
-        (None, Some(name)) => {
-            query!(
-                "UPDATE servers SET name = ? WHERE id = ? AND owner_id = ?",
-                name,
-                server_id,
-                user.sub
-            )
-            .execute(db.get_ref())
-            .await?;
-        }
-        (Some(icon), Some(name)) => {
-            query!(
-                "UPDATE servers SET name = ?, icon = ? WHERE id = ? AND owner_id = ?",
-                name,
-                icon,
-                server_id,
-                user.sub
-            )
-            .execute(db.get_ref())
-            .await?;
-        }
+    let mut builder = QueryBuilder::<Sqlite>::new("UPDATE servers SET ");
+    let mut separated = builder.separated(", ");
+
+    if let Some(name) = body.name {
+        separated.push("name = ").push_bind_unseparated(name);
     }
+    if let Some(icon) = body.icon {
+        separated.push("icon = ").push_bind_unseparated(icon);
+    }
+
+    builder.push("WHERE id = ").push_bind(server_id);
+
+    let query = builder.build();
+
+    query.execute(db.get_ref()).await?;
 
     // TODO: notify connected clients of changes?
 
@@ -265,15 +246,169 @@ pub async fn list_channels(
     Ok(web::Json(channels))
 }
 
-/*
- * create server
- * delete server
- * update server
- * get server
- *
- * list servers by user
- * list server members
- *
- *
- *
- */
+#[cfg(test)]
+mod tests {
+    use actix_web::http::StatusCode;
+    use actix_web::test;
+    use serde_json::json;
+
+    use crate::test_support::TestCtx;
+
+    use super::*;
+
+    #[actix_web::test]
+    pub async fn get_server() {
+        let ctx = TestCtx::new().await;
+        let user = ctx.seed_user("test").await;
+        let server = ctx.seed_server(user).await;
+
+        let req = test::TestRequest::get()
+            .uri(&format!("/api/v1/server/{server}"))
+            .set_payload(Vec::default());
+
+        let resp = ctx.as_user(user).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let srv: Server = test::read_body_json(resp).await;
+
+        assert_eq!(srv.owner_id, user);
+        assert_eq!(srv.name, "test-server");
+    }
+
+    #[actix_web::test]
+    pub async fn delete_server() {
+        let ctx = TestCtx::new().await;
+        let user = ctx.seed_user("test").await;
+        let server = ctx.seed_server(user).await;
+
+        let req = test::TestRequest::delete()
+            .uri(&format!("/api/v1/server/{server}"))
+            .set_payload(Vec::default());
+
+        let resp = ctx.as_user(user).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::ACCEPTED);
+
+        let server_r = sqlx::query("SELECT * FROM servers WHERE id = ?")
+            .bind(server)
+            .fetch_optional(&ctx.pool)
+            .await
+            .expect("failed to query");
+
+        assert!(server_r.is_none());
+    }
+
+    #[actix_web::test]
+    pub async fn create_server() {
+        let ctx = TestCtx::new().await;
+        let user = ctx.seed_user("test").await;
+
+        let req = test::TestRequest::post()
+            .uri(&format!("/api/v1/server"))
+            .set_json(json!({"name":"example-server", "icon": "data:image/jpeg;base64,"}));
+
+        let resp = ctx.as_user(user).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let srv: Server = test::read_body_json(resp).await;
+
+        assert_eq!(srv.owner_id, user);
+        assert_eq!(srv.name, "example-server");
+
+        assert_eq!(srv.icon, Some("data:image/jpeg;base64,".to_string()));
+    }
+
+    #[actix_web::test]
+    pub async fn patch_server() {
+        let ctx = TestCtx::new().await;
+        let user = ctx.seed_user("test").await;
+        let server = ctx.seed_server(user).await;
+
+        let req = test::TestRequest::patch()
+            .uri(&format!("/api/v1/server/{server}"))
+            .set_json(json!({"name":"example-server", "icon": "data:image/jpeg;base64,AAAA"}));
+
+        let resp = ctx.as_user(user).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::ACCEPTED);
+
+        let srv = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE id = ?")
+            .bind(server)
+            .fetch_one(&ctx.pool)
+            .await
+            .expect("failed to query");
+
+        assert_eq!(srv.owner_id, user);
+        assert_eq!(srv.name, "example-server");
+
+        assert_eq!(srv.icon, Some("data:image/jpeg;base64,AAAA".to_string()));
+    }
+
+    #[actix_web::test]
+    pub async fn list_servers() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server_a = ctx.seed_server(owner).await;
+        let server_b = ctx.seed_server(owner).await;
+
+        let user = ctx.seed_user("test").await;
+        ctx.seed_member(server_a, user).await;
+        ctx.seed_member(server_b, user).await;
+
+        let req = test::TestRequest::get()
+            .uri(&format!("/api/v1/servers"))
+            .set_payload(Vec::default());
+
+        let resp = ctx.as_user(user).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let srv: Vec<Server> = test::read_body_json(resp).await;
+
+        assert_eq!(srv.len(), 2);
+    }
+    #[actix_web::test]
+    pub async fn list_server_members() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+
+        let user = ctx.seed_user("test").await;
+        ctx.seed_member(server, user).await;
+
+        let req = test::TestRequest::get()
+            .uri(&format!("/api/v1/server/{server}/members"))
+            .set_payload(Vec::default());
+
+        let resp = ctx.as_user(user).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let srv: Vec<ServerMember> = test::read_body_json(resp).await;
+
+        assert_eq!(srv.len(), 2);
+    }
+    #[actix_web::test]
+    pub async fn list_server_channels() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+
+        ctx.seed_channel(Some(server), "text", "a").await;
+        ctx.seed_channel(Some(server), "voice", "b").await;
+
+        let req = test::TestRequest::get()
+            .uri(&format!("/api/v1/server/{server}/channels"))
+            .set_payload(Vec::default());
+
+        let resp = ctx.as_user(owner).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let srv: Vec<Channel> = test::read_body_json(resp).await;
+
+        assert_eq!(srv.len(), 2);
+    }
+}

@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT * FROM messages WHERE (created_at,id) < (?,?) AND channel_id = ? AND deleted_at = NULL ORDER BY created_at DESC, id DESC LIMIT 51",
+  "query": "SELECT * FROM messages WHERE created_at < ? AND channel_id = ? AND deleted_at IS NULL ORDER BY created_at DESC, id DESC LIMIT 51",
   "describe": {
     "columns": [
       {
@@ -82,7 +82,7 @@
       }
     ],
     "parameters": {
-      "Right": 3
+      "Right": 2
     },
     "nullable": [
       false,
@@ -94,5 +94,5 @@
       true
     ]
   },
-  "hash": "3c275621fee64aeb8ec3d828d7df71fa62e3d312fb6d0b1fb45575f1798a2e21"
+  "hash": "952ce5dbad7f1cac2eec93885f94b1a588bcae3a3b31cbc99da6fedbe786e466"
 }

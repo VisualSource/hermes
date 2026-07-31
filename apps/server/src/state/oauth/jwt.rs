@@ -249,19 +249,9 @@ pub fn validate_refresh_token(token: &str) -> Result<TokenData<RefreshClaims>, J
 
 #[cfg(test)]
 mod tests {
-    use ed25519_dalek::pkcs8::EncodePrivateKey;
-    use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
-
-    fn setup_test_key() {
-        unsafe {
-            std::env::set_var("SERVER_ORIGIN", "http://localhost:5000");
-        }
-        // Deterministic Ed25519 keypair — never use in production. OnceLock
-        // makes the actual init a no-op after the first test sets it.
-        let signing = ed25519_dalek::SigningKey::from_bytes(&[42u8; 32]);
-        let pem = signing.to_pkcs8_pem(LineEnding::LF).expect("to_pkcs8_pem");
-        let _ = super::init_keys_from_pem(&pem);
-    }
+    // `SERVER_ORIGIN` and the key `OnceLock` are process-global, so every test
+    // in the binary has to agree on them — see `test_support::init_test_env`.
+    use crate::test_support::{TEST_ORIGIN, init_test_env as setup_test_key};
 
     #[test]
     fn test_create_and_validate_jwt() {
@@ -278,7 +268,7 @@ mod tests {
         let decoded = super::validate_jwt(&jwt).expect("failed to validate jwt");
         assert_eq!(decoded.claims.sub, user_id);
         assert_eq!(decoded.claims.client_id, super::OAUTH_CLIENT_ID);
-        assert_eq!(decoded.claims.aud, "http://localhost:5000/api");
+        assert_eq!(decoded.claims.aud, format!("{TEST_ORIGIN}/api"));
         assert_eq!(
             decoded.claims.scope.as_deref(),
             Some("profile offline_access")

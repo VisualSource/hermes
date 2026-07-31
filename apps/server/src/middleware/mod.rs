@@ -43,7 +43,7 @@ pub async fn require_jwt(
         .get(header::AUTHORIZATION)
         .and_then(|h| h.to_str().ok())
         .and_then(|h| h.strip_prefix("Bearer "))
-        .filter(|t| t.is_empty())
+        .filter(|t| !t.is_empty())
         .map(str::to_owned)
         .ok_or(AuthError::Missing)?;
 

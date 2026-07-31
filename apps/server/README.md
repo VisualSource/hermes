@@ -79,7 +79,7 @@ cargo run
 
 ```sh
 cargo run                                        # boot server on :7433
-cargo test                                       # unit tests (JWT + PKCE)
+cargo test                                       # unit + route tests
 cargo test <pattern>                             # single test
 sqlx migrate run                                 # apply pending migrations
 sqlx migrate add <name>                          # scaffold a new migration
@@ -87,6 +87,40 @@ cargo sqlx prepare -- --lib                      # regenerate .sqlx offline data
 ```
 
 Logging is configured in [log4rs.yaml](log4rs.yaml).
+
+## Tests
+
+Route tests live in a `#[cfg(test)] mod test` next to the handlers they cover, and share the harness in [src/test_support.rs](src/test_support.rs).
+
+`TestCtx::new()` gives each test its own in-memory SQLite database with the real migrations applied — nothing is mocked, so handlers hit the same schema and the same compile-time-checked queries as production. The only things the harness leaves out of the app are the pieces `main.rs` wires up that would fight the tests: rate limiting (the default governor's 5-request burst would fail every third test), CORS, sessions, and TLS.
+
+```rust
+let ctx = TestCtx::new().await;
+let user = ctx.seed_user("alice").await;
+let server = ctx.seed_server(user).await;
+
+let req = test::TestRequest::post()
+    .uri(&format!("/api/v1/server/{server}/invite"))
+    .set_json(json!({ "max_uses": 5 }));
+
+let resp = ctx.as_user(user).call(req).await;
+assert_eq!(resp.status(), StatusCode::OK);
+
+let invite: Invite = test::read_body_json(resp).await;
+```
+
+`call` mounts the whole `/api/v1` route set via `routes::api::configure_v1`, so tests exercise real URI matching and extractors. It takes the `TestRequest` itself rather than `.to_request()` — actix doesn't re-export `actix_http::Request` publicly, so the harness converts internally.
+
+Two auth modes:
+
+- `ctx.as_user(id)` injects `Claims` straight into request extensions — the same slot `require_jwt` fills. Use for handler behaviour.
+- `ctx.authenticated()` mounts the real `require_jwt` middleware; the test sets its own `Authorization` header (`ctx.token(id)` mints a valid one). Use for the auth boundary — omit the header to assert the 401.
+
+Fixtures (`seed_user`, `seed_server`, `seed_member`, `seed_channel`, `seed_message`, `seed_invite`) deliberately use runtime `sqlx::query` rather than the `query!` macro, so adding or changing one never requires a `cargo sqlx prepare`.
+
+`SERVER_ORIGIN` and the JWT key `OnceLock` are process-global, so every test in the binary shares `test_support::init_test_env()` — don't set them per-test.
+
+> Note: `cargo test` compiles the `query!` macros against the schema at `DATABASE_URL`, not against `migrations/`. If a migration is edited after it was applied, the dev DB and the migration files drift, and the *generated* decode types come from the stale DB — which shows up as a 500 at runtime, not a compile error. When migrations change, recreate the DB rather than relying on `CREATE TABLE IF NOT EXISTS` to catch up.
 
 ## OAuth surface
 

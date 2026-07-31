@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO role_members (role_id, member_id) SELECT r.id, sm.id FROM roles r JOIN server_members sm ON sm.server_id = r.server_id WHERE r.id = ? AND r.server_id = ? AND sm.user_id = ? ON CONFLICT(role_id, member_id) DO UPDATE SET member_id = excluded.member_id RETURNING member_id",
+  "describe": {
+    "columns": [
+      {
+        "name": "member_id",
+        "ordinal": 0,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "role_members",
+            "name": "member_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "fd7b4ec8f36b155d53844436bc387d17f0df9f1cdbe521e0b2bd0ac17ae04b88"
+}
