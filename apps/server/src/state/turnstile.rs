@@ -1,3 +1,5 @@
+//! Implements cloudflare turnstile validation
+
 use std::env;
 
 use serde::Deserialize;
@@ -29,6 +31,31 @@ pub enum TurnstileResponse {
 }
 
 impl TurnstileResponse {
+    pub fn get_errors(&self) -> &Vec<String> {
+        match self {
+            Self::Error { error_codes, .. } => error_codes,
+            Self::Ok { error_codes, .. } => error_codes,
+        }
+    }
+    pub fn is_success(&self) -> bool {
+        match self {
+            Self::Error { success, .. } => *success,
+            Self::Ok { success, .. } => *success,
+        }
+    }
+
+    pub fn is_hostname(&self, expected_hostname: &str) -> bool {
+        match self {
+            Self::Error { .. } => false,
+            Self::Ok { hostname, .. } => hostname == expected_hostname,
+        }
+    }
+    pub fn is_action(&self, expected_action: &str) -> bool {
+        match self {
+            Self::Error { .. } => false,
+            Self::Ok { action, .. } => action == expected_action,
+        }
+    }
     pub fn is_err(&self) -> bool {
         match self {
             TurnstileResponse::Error { .. } => true,
@@ -45,11 +72,14 @@ pub enum TurnstileError {
     Request(#[from] reqwest::Error),
     #[error("verification failed for client")]
     Verify(TurnstileResponse),
+    #[error("the action does not match what was expected")]
+    ActionMismatch,
 }
 
 pub async fn validate_token(
-    remote_ip: String,
-    token: String,
+    remote_ip: &str,
+    token: &str,
+    action: &str,
 ) -> Result<TurnstileResponse, TurnstileError> {
     let secret = env::var("CLOUDFLARE_TURNSTILE_API_KEY")?;
 
@@ -67,6 +97,10 @@ pub async fn validate_token(
 
     if data.is_err() {
         return Err(TurnstileError::Verify(data));
+    }
+
+    if !data.is_action(action) {
+        return Err(TurnstileError::ActionMismatch);
     }
 
     Ok(data)

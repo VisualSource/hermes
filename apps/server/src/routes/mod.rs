@@ -1,7 +1,6 @@
 pub mod api;
 pub mod auth;
 mod error;
-pub mod static_files;
 pub mod websocket;
 use actix_web::{HttpResponse, get};
 use base64::Engine;
@@ -68,6 +67,9 @@ pub async fn jwks() -> HttpResponse {
 
     HttpResponse::Ok()
         // JWKS responses are cacheable; verifiers refresh on unknown kid.
-        .insert_header((actix_web::http::header::CACHE_CONTROL, "public, max-age=3600"))
+        .insert_header((
+            actix_web::http::header::CACHE_CONTROL,
+            "public, max-age=3600",
+        ))
         .json(body)
 }

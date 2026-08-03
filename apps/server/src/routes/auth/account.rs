@@ -4,7 +4,7 @@ use crate::{
     state::{
         api_errors::{ApplicationError, ErrorDetail, InnerError},
         password::{hash_password, verify_password},
-        recaptcha::{self, RecaptchaError},
+        turnstile,
     },
 };
 use actix_csrf_middleware::{CsrfToken, DEFAULT_CSRF_TOKEN_FIELD};
@@ -15,9 +15,11 @@ use actix_web::{
     post, web,
 };
 
+use actix_web_validation::Validated;
 use sqlx::SqlitePool;
 use std::{env, io::Read};
 use utoipa::ToSchema;
+use validator::Validate;
 
 #[utoipa::path(
     tag="oauth", 
@@ -83,53 +85,19 @@ pub async fn signup(csrf: CsrfToken) -> std::io::Result<impl Responder> {
         .body(content))
 }
 
-#[derive(Debug, serde::Deserialize, ToSchema)]
+#[derive(Debug, serde::Deserialize, ToSchema, Validate)]
 struct LoginRequest {
+    #[validate(length(min = 4, max = 255))]
     username: String,
+    #[validate(length(min = 8, max = 384))]
     password: String,
-    recaptcha: String,
-}
-
-impl LoginRequest {
-    fn verify_payload(&self) -> Result<(), AuthPageError> {
-        let mut errors = Vec::<ErrorDetail>::new();
-
-        let psd_len = self.password.len();
-        let usr_len = self.username.len();
-
-        if psd_len < 8 {
-            errors.push(ErrorDetail::new(0, "password", "password is too short"));
-        }
-
-        if psd_len > 384 {
-            errors.push(ErrorDetail::new(1, "password", "password is too long"));
-        }
-
-        if usr_len < 4 {
-            errors.push(ErrorDetail::new(2, "username", "username is too short"));
-        }
-
-        if usr_len > 255 {
-            errors.push(ErrorDetail::new(2, "username", "username is too long"));
-        }
-
-        if errors.len() > 0 {
-            return Err(AuthPageError::Request(ApplicationError::new(
-                StatusCode::BAD_REQUEST.as_u16(),
-                "one or more field failed to validate",
-                "body",
-                errors,
-                None,
-            )));
-        }
-
-        Ok(())
-    }
+    #[validate(length(max = 2048))]
+    cf_token: String,
 }
 
 #[utoipa::path(
     tag="oauth",
-    description = "login page submition endpoint",
+    description = "login page submission endpoint",
     request_body(
         content(
             ("application/x-www-form-urlencoded",)
@@ -147,25 +115,44 @@ impl LoginRequest {
 #[post("/login")]
 pub async fn login_post(
     req: HttpRequest,
-    form: web::Form<LoginRequest>,
+    Validated(form): Validated<web::Form<LoginRequest>>,
     db: web::Data<SqlitePool>,
 ) -> Result<impl Responder, AuthPageError> {
-    form.verify_payload()?;
+    let info = req.connection_info();
+    let remote_ip = info.realip_remote_addr().ok_or_else(|| {
+        AuthPageError::Request(ApplicationError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "internal server error",
+            "server",
+            Vec::default(),
+            Some(InnerError::new("failed to fetch remote ip".to_string())),
+        ))
+    })?;
 
-    if let Err(err) = recaptcha::get_recaptcha_assessment(&form.recaptcha, "login").await {
-        match err {
-            RecaptchaError::FailedAssessment => return Err(AuthPageError::Recaptcha),
-            RecaptchaError::MissingEnv(err) => {
-                log::error!("{}", err);
-                return Err(AuthPageError::Request(ApplicationError::new(
-                    StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
-                    "internal server error",
-                    "server",
-                    Vec::default(),
-                    Some(InnerError::new(err.to_string())),
-                )));
-            }
-        }
+    let result = turnstile::validate_token(remote_ip, &form.cf_token, "login")
+        .await
+        .map_err(|err| {
+            AuthPageError::Request(ApplicationError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal server error",
+                "server",
+                Vec::default(),
+                Some(InnerError::new(err.to_string())),
+            ))
+        })?;
+    if !result.is_success() {
+        let errs = result
+            .get_errors()
+            .iter()
+            .map(|reason| ErrorDetail::new(4001, "request", reason))
+            .collect::<Vec<ErrorDetail>>();
+        return Err(AuthPageError::Request(ApplicationError::new(
+            StatusCode::FORBIDDEN,
+            "turnstile error",
+            "request",
+            errs,
+            None,
+        )));
     }
 
     let user = match models::user::User::find_by_username(&form.username, &db).await {
@@ -215,72 +202,60 @@ pub async fn login_post(
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[derive(Debug, serde::Deserialize, ToSchema)]
+#[derive(Debug, serde::Deserialize, ToSchema, Validate)]
 struct SignupFormRequest {
+    #[validate(length(min = 4, max = 255))]
     username: String,
+    #[validate(length(min = 8, max = 255))]
     password: String,
+    #[validate(email)]
     email: String,
-    recaptcha: String,
-}
-
-impl SignupFormRequest {
-    fn verify_fields(&self) -> Result<(), AuthPageError> {
-        let mut errors = Vec::with_capacity(5);
-        let usr_len = self.username.len();
-        let psd_len = self.password.len();
-
-        if usr_len < 4 {
-            errors.push(ErrorDetail::new(401, "username", "username is too short"));
-        }
-        if usr_len > 255 {
-            errors.push(ErrorDetail::new(402, "username", "username is too long"));
-        }
-
-        if psd_len < 8 {
-            errors.push(ErrorDetail::new(403, "password", "password is too short"));
-        }
-
-        if psd_len > 384 {
-            errors.push(ErrorDetail::new(403, "password", "password is too long"));
-        }
-
-        if errors.len() > 0 {
-            return Err(AuthPageError::Request(ApplicationError::new(
-                StatusCode::BAD_REQUEST.as_u16(),
-                "one or more fields failed validation",
-                "body",
-                errors,
-                None,
-            )));
-        }
-
-        Ok(())
-    }
+    #[validate(length(max = 2048))]
+    cf_token: String,
 }
 
 #[utoipa::path(description = "Signup endpoint")]
 #[post("/signup")]
 pub async fn signup_post(
     req: HttpRequest,
-    form: web::Form<SignupFormRequest>,
+    form: Validated<web::Form<SignupFormRequest>>,
     db: web::Data<SqlitePool>,
 ) -> Result<HttpResponse, AuthPageError> {
-    form.verify_fields()?;
+    let info = req.connection_info();
+    let remote_ip = info.realip_remote_addr().ok_or_else(|| {
+        AuthPageError::Request(ApplicationError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "internal server error",
+            "server",
+            Vec::default(),
+            Some(InnerError::new("failed to fetch remote ip".to_string())),
+        ))
+    })?;
 
-    if let Err(err) = recaptcha::get_recaptcha_assessment(&form.recaptcha, "signup").await {
-        match err {
-            RecaptchaError::FailedAssessment => return Err(AuthPageError::Recaptcha),
-            RecaptchaError::MissingEnv(err) => {
-                log::error!("{}", err);
-                return Err(AuthPageError::Request(ApplicationError::new(
-                    StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
-                    "internal server error",
-                    "server",
-                    Vec::default(),
-                    Some(InnerError::new(err.to_string())),
-                )));
-            }
-        }
+    let result = turnstile::validate_token(remote_ip, &form.cf_token, "signup")
+        .await
+        .map_err(|err| {
+            AuthPageError::Request(ApplicationError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal server error",
+                "server",
+                Vec::default(),
+                Some(InnerError::new(err.to_string())),
+            ))
+        })?;
+    if !result.is_success() {
+        let errs = result
+            .get_errors()
+            .iter()
+            .map(|reason| ErrorDetail::new(4001, "request", reason))
+            .collect::<Vec<ErrorDetail>>();
+        return Err(AuthPageError::Request(ApplicationError::new(
+            StatusCode::FORBIDDEN,
+            "turnstile error",
+            "request",
+            errs,
+            None,
+        )));
     }
 
     match models::user::User::user_already_exists(&form.username, &form.email, &db).await {

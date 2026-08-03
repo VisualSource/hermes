@@ -199,6 +199,7 @@ struct MessageQueryResult {
 
 #[utoipa::path(
     tags = ["channel","message"],
+    description = "fetch a cursor paginated list of messages sorted by newest",
     responses(
         (status = 200, description = "accepted deletion", body = MessageQueryResult),
         (status = 401, description = "unauthorized", body = ApplicationError),
@@ -546,7 +547,11 @@ mod tests {
 
         let page = list(&ctx, user, channel, None).await;
 
-        assert_eq!(page.results.len(), 50, "page size is 50, not the 51 fetched");
+        assert_eq!(
+            page.results.len(),
+            50,
+            "page size is 50, not the 51 fetched"
+        );
         assert_eq!(page.count, 50);
 
         let returned: Vec<Uuid> = page.results.iter().map(|m| m.id).collect();
@@ -638,10 +643,9 @@ mod tests {
         for (case, cursor, code) in cases {
             let resp = ctx
                 .as_user(user)
-                .call(
-                    test::TestRequest::get()
-                        .uri(&format!("/api/v1/channel/{channel}/messages?cursor={cursor}")),
-                )
+                .call(test::TestRequest::get().uri(&format!(
+                    "/api/v1/channel/{channel}/messages?cursor={cursor}"
+                )))
                 .await;
 
             assert_eq!(resp.status(), StatusCode::BAD_REQUEST, "case: {case}");

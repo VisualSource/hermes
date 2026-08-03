@@ -8,7 +8,13 @@ use validator::Validate;
 
 use crate::{
     models::channel::{Channel, ChannelKind},
-    state::{api_errors::ApplicationError, oauth::jwt::Claims},
+    state::{
+        api_errors::ApplicationError,
+        oauth::jwt::Claims,
+        permission::{
+            PERM_CHANNEL, PERM_CREATE, PERM_DELETE, PERM_READ, PERM_WRITE, has_permissions,
+        },
+    },
 };
 
 #[derive(Debug, Deserialize, Validate, ToSchema)]
@@ -23,6 +29,7 @@ struct CreateChannelPayload {
 
 #[utoipa::path(
     tag = "channel",
+    description = "create a channel on the given server",
     request_body = CreateChannelPayload,
     responses(
         (status = 200, description = "new channel", body = Channel),
@@ -35,11 +42,19 @@ struct CreateChannelPayload {
 pub async fn create_channel(
     db: web::Data<SqlitePool>,
     Validated(web::Json(body)): Validated<web::Json<CreateChannelPayload>>,
-    user: web::ReqData<Claims>,
+    claims: web::ReqData<Claims>,
     params: web::Path<Uuid>,
 ) -> Result<web::Json<Channel>, ApplicationError> {
-    //TODO: validate user can make channel on given server
     let server_id = params.into_inner();
+    if !has_permissions(claims.sub, server_id, PERM_CREATE | PERM_CHANNEL).await? {
+        return Err(ApplicationError::new(
+            StatusCode::FORBIDDEN,
+            "user does not have required permissions",
+            "user",
+            Vec::default(),
+            None,
+        ));
+    }
 
     let id = uuid::Uuid::now_v7();
     let channel = query_as!(
@@ -67,6 +82,7 @@ struct PatchChannelPayload {
 
 #[utoipa::path(
     tag = "channel",
+    description = "update a channel attached to the given server",
     request_body = PatchChannelPayload,
     responses(
         (status = 201, description = "accepted changes"),
@@ -75,15 +91,24 @@ struct PatchChannelPayload {
         (status = 500, description = "internal server error", body = ApplicationError)
     )
 )]
-#[patch("/channel/{channel}")]
+#[patch("/server/{server}/channel/{channel}")]
 pub async fn patch_channel(
     db: web::Data<SqlitePool>,
-    params: web::Path<Uuid>,
-    user: web::ReqData<Claims>,
+    params: web::Path<(Uuid, Uuid)>,
+    claims: web::ReqData<Claims>,
     Validated(web::Json(body)): Validated<web::Json<PatchChannelPayload>>,
 ) -> Result<HttpResponse, ApplicationError> {
-    let channel_id = params.into_inner();
-    // TODO: validate user can modify channel
+    let (server_id, channel_id) = params.into_inner();
+
+    if !has_permissions(claims.sub, server_id, PERM_WRITE | PERM_CHANNEL).await? {
+        return Err(ApplicationError::new(
+            StatusCode::FORBIDDEN,
+            "user does not have required permissions",
+            "user",
+            Vec::default(),
+            None,
+        ));
+    }
 
     match (body.name, body.category) {
         (None, None) => {
@@ -130,21 +155,30 @@ pub async fn patch_channel(
 
 #[utoipa::path(
     tag = "channel",
+    description = "fetch a channel attached to the given server",
     responses(
         (status = 200, description = "accepted changes", body = Channel),
         (status = 401, description = "unauthorized", body = ApplicationError),
         (status = 500, description = "internal server error", body = ApplicationError)
     )
 )]
-#[get("/channel/{channel}")]
+#[get("/server/{server}/channel/{channel}")]
 pub async fn get_channel(
     db: web::Data<SqlitePool>,
-    params: web::Path<Uuid>,
-    user: web::ReqData<Claims>,
+    params: web::Path<(Uuid, Uuid)>,
+    claims: web::ReqData<Claims>,
 ) -> Result<web::Json<Channel>, ApplicationError> {
-    let channel_id = params.into_inner();
+    let (server_id, channel_id) = params.into_inner();
 
-    // TODO: validate user can fetch channel
+    if !has_permissions(claims.sub, server_id, PERM_READ | PERM_CHANNEL).await? {
+        return Err(ApplicationError::new(
+            StatusCode::FORBIDDEN,
+            "user does not have required permissions",
+            "user",
+            Vec::default(),
+            None,
+        ));
+    }
 
     let channel = query_as!(Channel, "SELECT * FROM channels WHERE id = ?", &channel_id)
         .fetch_one(db.get_ref())
@@ -154,22 +188,31 @@ pub async fn get_channel(
 }
 
 #[utoipa::path(
-    tag = "channel",
+    tag = "channel", 
+    description = "delete a channel attached to the given server",
     responses(
         (status = 201, description = "accepted deletion"),
         (status = 401, description = "unauthorized", body = ApplicationError),
         (status = 500, description = "internal server error", body = ApplicationError)
     )
 )]
-#[delete("/channel/{channel}")]
+#[delete("/server/{server}/channel/{channel}")]
 pub async fn delete_channel(
     db: web::Data<SqlitePool>,
-    params: web::Path<Uuid>,
-    user: web::ReqData<Claims>,
+    params: web::Path<(Uuid, Uuid)>,
+    claims: web::ReqData<Claims>,
 ) -> Result<impl Responder, ApplicationError> {
-    let channel_id = params.into_inner();
+    let (server_id, channel_id) = params.into_inner();
 
-    //TOOD: validate user can delete channel
+    if !has_permissions(claims.sub, server_id, PERM_DELETE | PERM_CHANNEL).await? {
+        return Err(ApplicationError::new(
+            StatusCode::FORBIDDEN,
+            "user does not have required permissions",
+            "user",
+            Vec::default(),
+            None,
+        ));
+    }
 
     query!("DELETE FROM channels WHERE id = ?", &channel_id)
         .execute(db.get_ref())
@@ -217,7 +260,7 @@ mod test {
         let channel = ctx.seed_channel(Some(server), "text", "name").await;
 
         let req = test::TestRequest::patch()
-            .uri(&format!("/api/v1/channel/{channel}"))
+            .uri(&format!("/api/v1/server/{server}/channel/{channel}"))
             .set_json(json!({ "name":"new-name" }));
 
         let resp = ctx.as_user(user).call(req).await;
@@ -241,7 +284,7 @@ mod test {
         let channel = ctx.seed_channel(Some(server), "text", "name").await;
 
         let req = test::TestRequest::patch()
-            .uri(&format!("/api/v1/channel/{channel}"))
+            .uri(&format!("/api/v1/server/{server}/channel/{channel}"))
             .set_json(json!({ "category": "Example" }));
 
         let resp = ctx.as_user(user).call(req).await;
@@ -265,7 +308,7 @@ mod test {
         let channel = ctx.seed_channel(Some(server), "text", "name").await;
 
         let req = test::TestRequest::patch()
-            .uri(&format!("/api/v1/channel/{channel}"))
+            .uri(&format!("/api/v1/server/{server}/channel/{channel}"))
             .set_json(json!({ "category": "Example", "name":"new-name"  }));
 
         let resp = ctx.as_user(user).call(req).await;
@@ -290,7 +333,7 @@ mod test {
         let channel = ctx.seed_channel(Some(server), "text", "name").await;
 
         let req = test::TestRequest::patch()
-            .uri(&format!("/api/v1/channel/{channel}"))
+            .uri(&format!("/api/v1/server/{server}/channel/{channel}"))
             .set_json(json!({}));
 
         let resp = ctx.as_user(user).call(req).await;
@@ -306,7 +349,7 @@ mod test {
         let channel = ctx.seed_channel(Some(server), "text", "name").await;
 
         let req = test::TestRequest::get()
-            .uri(&format!("/api/v1/channel/{channel}"))
+            .uri(&format!("/api/v1/server/{server}/channel/{channel}"))
             .set_json(json!({"name":"example", "kind":"text" }));
 
         let resp = ctx.as_user(user).call(req).await;
@@ -329,7 +372,7 @@ mod test {
         let channel = ctx.seed_channel(Some(server), "text", "name").await;
 
         let req = test::TestRequest::delete()
-            .uri(&format!("/api/v1/channel/{channel}"))
+            .uri(&format!("/api/v1/server/{server}/channel/{channel}"))
             .set_payload(Vec::default());
 
         let resp = ctx.as_user(user).call(req).await;

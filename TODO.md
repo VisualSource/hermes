@@ -24,18 +24,18 @@ Target: **v1 ship to friends** — self-hosted single-instance Discord-like clon
 
 ## Phase 1 — Schema foundation (~1 day)
 
-- [ ] Migration `001_core.sql` adding: `servers`, `server_members`, `channels(kind text|voice|dm, category text nullable, server_id nullable)`, `dm_participants`, `messages(edited_at, deleted_at)`, `roles`, `role_members`, `invites(expires_at, max_uses, uses)`
-- [ ] Regenerate sqlx offline query cache
+- [x] Migration `001_core.sql` adding: `servers`, `server_members`, `channels(kind text|voice|dm, category text nullable, server_id nullable)`, `dm_participants`, `messages(edited_at, deleted_at)`, `roles`, `role_members`, `invites(expires_at, max_uses, uses)`
+- [x] Regenerate sqlx offline query cache
 
 ## Phase 2 — Fill the NotImplemented REST stubs (~4-5 days)
 
-- [ ] `servers` CRUD in [apps/server/src/routes/api/channel.rs](apps/server/src/routes/api/channel.rs) (owner check on write)
-- [ ] `channels` CRUD (kind text/voice, category string, scoped to server)
-- [ ] `roles` CRUD + assign/unassign; store perms as bitmask; server-side helper `has_perm(user, server, PERM)`
-- [ ] `messages`: `POST /channel/{id}/messages`, `PATCH` (edit), `DELETE` (soft), `GET` cursor-paginated on `(ts, id)`, page size 50
-- [ ] `dms`: `POST /dm` (find-or-create peer DM), reuse messages table
-- [ ] `invites`: create/list/revoke + `POST /invites/{code}/accept`
-- [ ] Update [api/openapi.yaml](api/openapi.yaml) + regenerate client with `pnpm openapi-ts`
+- [x] `servers` CRUD in [apps/server/src/routes/api/channel.rs](apps/server/src/routes/api/channel.rs) (owner check on write)
+- [x] `channels` CRUD (kind text/voice, category string, scoped to server)
+- [x] `roles` CRUD + assign/unassign; store perms as bitmask; server-side helper `has_perm(user, server, PERM)`
+- [X] `messages`: `POST /channel/{id}/messages`, `PATCH` (edit), `DELETE` (soft), `GET` cursor-paginated on `(ts, id)`, page size 50
+- [x] `dms`: `POST /dm` (find-or-create peer DM), reuse messages table
+- [x] `invites`: create/list/revoke + `POST /invites/{code}/accept`
+- [x] Update [api/openapi.yaml](api/openapi.yaml) + regenerate client with `pnpm openapi-ts`
 
 ## Phase 3 — WS text fanout + presence (~3-4 days)
 

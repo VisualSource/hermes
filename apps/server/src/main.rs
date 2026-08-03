@@ -1,17 +1,18 @@
+use actix_cors::Cors;
 use actix_csrf_middleware::{CsrfMiddleware, CsrfMiddlewareConfig};
+use actix_files::Files;
 use actix_governor::{Governor, GovernorConfigBuilder};
 use actix_identity::IdentityMiddleware;
 use actix_session::SessionMiddleware;
-use actix_cors::Cors;
 use actix_web::{
     App, HttpServer,
     middleware::{Logger, NormalizePath, TrailingSlash, from_fn},
     web::{self},
 };
 use hermes_server::{db, middleware, models, routes, state};
-use utoipa_actix_web::service_config::ServiceConfig;
 use std::io::ErrorKind;
 use std::time::Duration;
+use utoipa_actix_web::service_config::ServiceConfig;
 
 /// Verify security-critical env vars before we start listening. Any of these
 /// missing or too weak means we refuse to boot, rather than fail late with
@@ -39,8 +40,8 @@ fn validate_env() -> Result<(), String> {
 }
 
 fn load_session_key() -> Result<actix_web::cookie::Key, String> {
-    let raw = std::env::var("SESSION_SECRET")
-        .map_err(|_| "SESSION_SECRET is not set".to_string())?;
+    let raw =
+        std::env::var("SESSION_SECRET").map_err(|_| "SESSION_SECRET is not set".to_string())?;
     // Accept either raw bytes (>=64 chars), base64, or hex. Simplest: require
     // raw string of at least 64 bytes.
     if raw.as_bytes().len() < 64 {
@@ -69,8 +70,8 @@ async fn main() -> std::io::Result<()> {
     // Load Ed25519 signing key + derived public key + kid into a process-wide
     // OnceLock. This is the single source of truth for JWT signing/verification
     // and for the /.well-known/jwks.json endpoint.
-    let key_path = std::env::var("JWT_PRIVATE_KEY_PATH")
-        .expect("JWT_PRIVATE_KEY_PATH validated above");
+    let key_path =
+        std::env::var("JWT_PRIVATE_KEY_PATH").expect("JWT_PRIVATE_KEY_PATH validated above");
     if let Err(err) = state::oauth::jwt::init_keys_from_path(&key_path) {
         log::error!("failed to load JWT signing key from {}: {}", key_path, err);
         return Err(std::io::Error::new(ErrorKind::Other, err.to_string()));
@@ -97,15 +98,14 @@ async fn main() -> std::io::Result<()> {
         .map_err(|err| std::io::Error::new(ErrorKind::Other, err))?;
     let pool = web::Data::new(db);
 
-    let session_key = load_session_key()
-        .map_err(|err| std::io::Error::new(ErrorKind::Other, err))?;
+    let session_key =
+        load_session_key().map_err(|err| std::io::Error::new(ErrorKind::Other, err))?;
 
     // Reuse SESSION_SECRET (already validated as >= 64 bytes) as the CSRF
     // double-submit-cookie signing key. Applied only to the /login and /signup
     // scope; the OAuth endpoints have PKCE + first-party redirect_uri
     // whitelisting instead.
-    let csrf_secret = std::env::var("SESSION_SECRET")
-        .expect("SESSION_SECRET validated above");
+    let csrf_secret = std::env::var("SESSION_SECRET").expect("SESSION_SECRET validated above");
     let csrf_config = CsrfMiddlewareConfig::double_submit_cookie(csrf_secret.as_bytes());
 
     // Periodic cleanup: expire old grants + prune expired refresh tokens.
@@ -145,6 +145,7 @@ async fn main() -> std::io::Result<()> {
             ))
             .service(routes::oauth_server_details)
             .service(routes::jwks)
+            .service(Files::new("/static", "./public/static").use_etag(true))
             .service(
                 web::scope("/auth")
                     .wrap(Governor::new(&auth_governor))
@@ -156,9 +157,7 @@ async fn main() -> std::io::Result<()> {
                     .service(
                         web::scope("/v1")
                             .wrap(from_fn(middleware::require_jwt))
-                            .configure(|c| {
-                                routes::api::configure_v1(&mut ServiceConfig::new(c))
-                            }),
+                            .configure(|c| routes::api::configure_v1(&mut ServiceConfig::new(c))),
                     ),
             )
             // Login/signup are at the root path (`/login`, `/signup`) because
@@ -170,7 +169,6 @@ async fn main() -> std::io::Result<()> {
                     .wrap(CsrfMiddleware::new(csrf_config.clone()))
                     .service(routes::auth::get_account_routes()),
             )
-            .service(routes::static_files::get_static_files())
     })
     .bind(("0.0.0.0", 7433))?
     .run()

@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, delete, post, web};
+use actix_web::{HttpResponse, delete, http::StatusCode, post, web};
 use actix_web_validation::Validated;
 use nanoid::nanoid;
 use serde::Deserialize;
@@ -10,7 +10,11 @@ use validator::Validate;
 
 use crate::{
     models::invite::Invite,
-    state::{api_errors::ApplicationError, oauth::jwt::Claims},
+    state::{
+        api_errors::ApplicationError,
+        oauth::jwt::Claims,
+        permission::{PERM_CREATE, PERM_DELETE, PERM_INVITE, has_permissions},
+    },
 };
 
 #[derive(Debug, Deserialize, Validate, ToSchema)]
@@ -36,9 +40,17 @@ pub async fn create_invite(
     params: web::Path<Uuid>,
     body: Validated<web::Json<CreateInvitePayload>>,
 ) -> Result<web::Json<Invite>, ApplicationError> {
-    //TODO: validate user can create invite
-
     let server_id = params.into_inner();
+    if !has_permissions(claims.sub, server_id, PERM_CREATE | PERM_INVITE).await? {
+        return Err(ApplicationError::new(
+            StatusCode::FORBIDDEN,
+            "user does not have required permissions",
+            "user",
+            Vec::default(),
+            None,
+        ));
+    }
+
     let id = nanoid!();
 
     let expires_at = time::OffsetDateTime::now_utc().checked_add(SignedDuration::hours(1));
@@ -81,8 +93,17 @@ pub async fn revoke_invite(
     params: web::Path<Uuid>,
     Validated(web::Query(query)): Validated<web::Query<DeleteInviteQuery>>,
 ) -> Result<HttpResponse, ApplicationError> {
-    //TODO: validate user can revoke invite
     let server_id = params.into_inner();
+
+    if !has_permissions(claims.sub, server_id, PERM_DELETE | PERM_INVITE).await? {
+        return Err(ApplicationError::new(
+            StatusCode::FORBIDDEN,
+            "user does not have required permissions",
+            "user",
+            Vec::default(),
+            None,
+        ));
+    }
 
     query!(
         "UPDATE invites SET revoked = TRUE WHERE server_id = ? AND id = ?",

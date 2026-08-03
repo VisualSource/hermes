@@ -67,6 +67,8 @@ CLOUDFLARE_TURNSTILE_SITE_KEY
 CLOUDFLARE_TURNSTILE_API_KEY
 ```
 
+See https://developers.cloudflare.com/turnstile/troubleshooting/testing/ for testing keys
+
 Startup validation checks `SERVER_ORIGIN`, `JWT_PRIVATE_KEY_PATH`, and `SESSION_SECRET` (length included). Missing values print a clear error and exit before the HTTP listener binds.
 
 ### 4. Run

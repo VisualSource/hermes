@@ -6,9 +6,6 @@ use crate::state::api_errors::{ApplicationError, InnerError};
 //TODO: impl better error object => https://docs.oasis-open.org/odata/odata-json-format/v4.0/errata02/os/odata-json-format-v4.0-errata02-os-complete.html#_Toc403940655
 #[derive(Debug, Error)]
 pub enum AuthPageError {
-    #[error("invalid user")]
-    Recaptcha,
-
     #[error(transparent)]
     MailBoxError(#[from] actix::MailboxError),
     #[error(transparent)]
@@ -34,14 +31,6 @@ impl AuthPageError {
                 Some(InnerError::new(err.to_string())),
             ),
             Self::Request(error) => error.clone(),
-
-            Self::Recaptcha => ApplicationError::new(
-                self.status_code().as_u16(),
-                "Unable to complate operation",
-                "user",
-                Vec::default(),
-                None,
-            ),
 
             Self::DbError(err) => ApplicationError::new(
                 self.status_code().as_u16(),
@@ -79,7 +68,6 @@ impl error::ResponseError for AuthPageError {
             Self::Request(r) => {
                 StatusCode::from_u16(r.code).expect("failed to convert u16 to status code")
             }
-            Self::Recaptcha => StatusCode::FORBIDDEN,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

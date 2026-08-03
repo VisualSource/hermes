@@ -11,6 +11,7 @@ use crate::{
     state::{
         api_errors::{ApplicationError, ErrorDetail},
         oauth::jwt::Claims,
+        permission::{PERM_CREATE, PERM_DELETE, PERM_ROLE, PERM_WRITE, has_permissions},
     },
 };
 
@@ -43,11 +44,19 @@ pub async fn create_role(
     db: web::Data<SqlitePool>,
     params: web::Path<Uuid>,
     Validated(web::Json(body)): Validated<web::Json<CreateRolePayload>>,
-    user: web::ReqData<Claims>,
+    claims: web::ReqData<Claims>,
 ) -> Result<web::Json<Role>, ApplicationError> {
-    //TODO: validate user can create role
-
     let server_id = params.into_inner();
+    if !has_permissions(claims.sub, server_id, PERM_CREATE | PERM_ROLE).await? {
+        return Err(ApplicationError::new(
+            StatusCode::FORBIDDEN,
+            "user does not have required permissions",
+            "user",
+            Vec::default(),
+            None,
+        ));
+    }
+
     let id = Uuid::now_v7();
 
     let mask = 0;
@@ -81,10 +90,19 @@ pub async fn create_role(
 pub async fn delete_role(
     db: web::Data<SqlitePool>,
     params: web::Path<(Uuid, Uuid)>,
-    user: web::ReqData<Claims>,
+    claims: web::ReqData<Claims>,
 ) -> Result<impl Responder, ApplicationError> {
-    //TODO: validate user can delete role
     let (server_id, role_id) = params.into_inner();
+
+    if !has_permissions(claims.sub, server_id, PERM_DELETE | PERM_ROLE).await? {
+        return Err(ApplicationError::new(
+            StatusCode::FORBIDDEN,
+            "user does not have required permissions",
+            "user",
+            Vec::default(),
+            None,
+        ));
+    }
 
     query!(
         "DELETE FROM roles WHERE id = ? AND server_id = ?",
@@ -122,7 +140,7 @@ pub async fn patch_role(
     db: web::Data<SqlitePool>,
     params: web::Path<(Uuid, Uuid)>,
     Validated(web::Json(body)): Validated<web::Json<PatchRolePayload>>,
-    user: web::ReqData<Claims>,
+    claims: web::ReqData<Claims>,
 ) -> Result<impl Responder, ApplicationError> {
     if body.name.is_none() && body.bg_color.is_none() && body.fg_color.is_none() {
         return Err(ApplicationError::new(
@@ -133,8 +151,17 @@ pub async fn patch_role(
             None,
         ));
     }
-    //TODO: validate user can update this role
+
     let (server_id, role_id) = params.into_inner();
+    if !has_permissions(claims.sub, server_id, PERM_WRITE | PERM_ROLE).await? {
+        return Err(ApplicationError::new(
+            StatusCode::FORBIDDEN,
+            "user does not have required permissions",
+            "user",
+            Vec::default(),
+            None,
+        ));
+    }
 
     let mut builder = QueryBuilder::<Sqlite>::new("UPDATE roles SET ");
     let mut separated = builder.separated(", ");
@@ -178,10 +205,19 @@ pub async fn patch_role(
 pub async fn get_role(
     db: web::Data<SqlitePool>,
     params: web::Path<(Uuid, Uuid)>,
-    user: web::ReqData<Claims>,
+    claims: web::ReqData<Claims>,
 ) -> Result<web::Json<Role>, ApplicationError> {
-    //TODO: validate user
     let (server_id, role_id) = params.into_inner();
+
+    if !has_permissions(claims.sub, server_id, PERM_DELETE | PERM_ROLE).await? {
+        return Err(ApplicationError::new(
+            StatusCode::FORBIDDEN,
+            "user does not have required permissions",
+            "user",
+            Vec::default(),
+            None,
+        ));
+    }
 
     let role = query_as!(
         Role,
@@ -216,10 +252,19 @@ pub async fn add_role_to_user(
     db: web::Data<SqlitePool>,
     params: web::Path<Uuid>,
     Validated(web::Json(body)): Validated<web::Json<PutRolePayload>>,
-    user: web::ReqData<Claims>,
+    claims: web::ReqData<Claims>,
 ) -> Result<impl Responder, ApplicationError> {
-    //TODO: validate user can add role
     let server_id = params.into_inner();
+
+    if !has_permissions(claims.sub, server_id, PERM_WRITE | PERM_ROLE).await? {
+        return Err(ApplicationError::new(
+            StatusCode::FORBIDDEN,
+            "user does not have required permissions",
+            "user",
+            Vec::default(),
+            None,
+        ));
+    }
 
     // `target` is a user id, but `role_members.member_id` points at
     // `server_members.id` — resolve one to the other here. The joins also do
@@ -285,10 +330,19 @@ pub async fn remove_role_from_user(
     db: web::Data<SqlitePool>,
     params: web::Path<Uuid>,
     Validated(web::Json(body)): Validated<web::Json<PutRolePayload>>,
-    user: web::ReqData<Claims>,
+    claims: web::ReqData<Claims>,
 ) -> Result<impl Responder, ApplicationError> {
-    //TODO: validate user can remove role
     let server_id = params.into_inner();
+
+    if !has_permissions(claims.sub, server_id, PERM_DELETE | PERM_ROLE).await? {
+        return Err(ApplicationError::new(
+            StatusCode::FORBIDDEN,
+            "user does not have required permissions",
+            "user",
+            Vec::default(),
+            None,
+        ));
+    }
 
     // Same user-id -> member-id resolution as `add_role_to_user`, and the
     // `server_id` filter keeps one server from stripping another's roles.
@@ -434,11 +488,12 @@ mod test {
 
         assert_eq!(resp.status(), StatusCode::ACCEPTED);
 
-        let result = sqlx::query_as::<_, RoleMember>("SELECT * FROM role_members WHERE role_id = ?")
-            .bind(&role)
-            .fetch_one(&ctx.pool)
-            .await
-            .expect("failed to get role member");
+        let result =
+            sqlx::query_as::<_, RoleMember>("SELECT * FROM role_members WHERE role_id = ?")
+                .bind(&role)
+                .fetch_one(&ctx.pool)
+                .await
+                .expect("failed to get role member");
 
         assert_eq!(result.role_id, role);
         assert_eq!(
@@ -469,13 +524,14 @@ mod test {
             assert_eq!(resp.status(), StatusCode::ACCEPTED, "attempt {attempt}");
         }
 
-        let links: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM role_members WHERE role_id = ? AND member_id = ?")
-                .bind(&role)
-                .bind(&member)
-                .fetch_one(&ctx.pool)
-                .await
-                .expect("count role members");
+        let links: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM role_members WHERE role_id = ? AND member_id = ?",
+        )
+        .bind(&role)
+        .bind(&member)
+        .fetch_one(&ctx.pool)
+        .await
+        .expect("count role members");
 
         assert_eq!(links, 1);
     }

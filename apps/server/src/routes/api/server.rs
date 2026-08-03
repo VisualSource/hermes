@@ -14,6 +14,7 @@ use crate::{
     state::{
         api_errors::{ApplicationError, ErrorDetail},
         oauth::jwt::Claims,
+        permission::{PERM_SERVER, PERM_WRITE, has_permissions},
     },
 };
 
@@ -33,6 +34,7 @@ pub async fn get_server(
     user: web::ReqData<Claims>,
 ) -> Result<web::Json<Server>, ApplicationError> {
     let server_id = server.into_inner();
+
     let server = query_as!(Server, "SELECT * FROM servers WHERE id = ?", server_id)
         .fetch_one(db.get_ref())
         .await?;
@@ -135,7 +137,7 @@ pub async fn patch_server(
     db: web::Data<SqlitePool>,
     Validated(web::Json(body)): Validated<web::Json<PatchServerPayload>>,
     server: web::Path<Uuid>,
-    user: web::ReqData<Claims>,
+    claims: web::ReqData<Claims>,
 ) -> Result<impl Responder, ApplicationError> {
     if body.name.is_none() || body.icon.is_none() {
         return Err(ApplicationError::new(
@@ -146,8 +148,16 @@ pub async fn patch_server(
             None,
         ));
     }
-
     let server_id = server.into_inner();
+    if !has_permissions(claims.sub, server_id, PERM_WRITE | PERM_SERVER).await? {
+        return Err(ApplicationError::new(
+            StatusCode::FORBIDDEN,
+            "user does not have required permissions",
+            "user",
+            Vec::default(),
+            None,
+        ));
+    }
 
     let mut builder = QueryBuilder::<Sqlite>::new("UPDATE servers SET ");
     let mut separated = builder.separated(", ");
@@ -202,7 +212,7 @@ pub async fn list_servers(
 pub async fn list_members(
     db: web::Data<SqlitePool>,
     params: web::Path<uuid::Uuid>,
-    user: web::ReqData<Claims>,
+    claims: web::ReqData<Claims>,
 ) -> Result<web::Json<Vec<ServerMember>>, ApplicationError> {
     let server_id = params.into_inner();
 
@@ -229,11 +239,11 @@ pub async fn list_members(
 pub async fn list_channels(
     db: web::Data<SqlitePool>,
     params: web::Path<uuid::Uuid>,
-    user: web::ReqData<Claims>,
+    cliams: web::ReqData<Claims>,
 ) -> Result<web::Json<Vec<Channel>>, ApplicationError> {
     let server_id = params.into_inner();
 
-    //TODO: validate user can fetch
+    //TODO: fetch channels that user can see based on roles
 
     let channels = query_as!(
         Channel,
