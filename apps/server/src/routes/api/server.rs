@@ -14,7 +14,7 @@ use crate::{
     state::{
         api_errors::{ApplicationError, ErrorDetail},
         oauth::jwt::Claims,
-        permission::{PERM_SERVER, PERM_WRITE, has_permissions},
+        permission::{MANAGE_SERVER, required_permissions},
     },
 };
 
@@ -59,6 +59,8 @@ pub async fn delete_server(
 ) -> Result<impl Responder, ApplicationError> {
     let server_id = params.into_inner();
 
+    required_permissions(&db, user.sub, server_id, MANAGE_SERVER).await?;
+
     query!(
         "DELETE FROM servers WHERE id = ? AND owner_id = ?",
         server_id,
@@ -98,6 +100,8 @@ pub async fn post_server(
     let server_id = uuid::Uuid::now_v7();
     let now = time::OffsetDateTime::now_utc();
 
+    let mut tx = db.begin().await?;
+
     let server = query_as!(
         Server,
         "INSERT INTO servers VALUES (?,?,?,?,?) RETURNING *",
@@ -107,8 +111,21 @@ pub async fn post_server(
         now,
         body.icon
     )
-    .fetch_one(db.get_ref())
+    .fetch_one(&mut *tx)
     .await?;
+
+    let member_id = Uuid::now_v7();
+
+    query!(
+        "INSERT INTO server_members VALUES (?,?,?)",
+        member_id,
+        server_id,
+        user.sub
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
 
     Ok(web::Json(server))
 }
@@ -149,15 +166,7 @@ pub async fn patch_server(
         ));
     }
     let server_id = server.into_inner();
-    if !has_permissions(claims.sub, server_id, PERM_WRITE | PERM_SERVER).await? {
-        return Err(ApplicationError::new(
-            StatusCode::FORBIDDEN,
-            "user does not have required permissions",
-            "user",
-            Vec::default(),
-            None,
-        ));
-    }
+    required_permissions(&db, claims.sub, server_id, MANAGE_SERVER).await?;
 
     let mut builder = QueryBuilder::<Sqlite>::new("UPDATE servers SET ");
     let mut separated = builder.separated(", ");

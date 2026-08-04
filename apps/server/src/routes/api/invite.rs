@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, delete, http::StatusCode, post, web};
+use actix_web::{HttpResponse, delete, post, web};
 use actix_web_validation::Validated;
 use nanoid::nanoid;
 use serde::Deserialize;
@@ -13,7 +13,7 @@ use crate::{
     state::{
         api_errors::ApplicationError,
         oauth::jwt::Claims,
-        permission::{PERM_CREATE, PERM_DELETE, PERM_INVITE, has_permissions},
+        permission::{CREATE_INVITE, MANAGE_INVITES, required_permissions},
     },
 };
 
@@ -41,15 +41,8 @@ pub async fn create_invite(
     body: Validated<web::Json<CreateInvitePayload>>,
 ) -> Result<web::Json<Invite>, ApplicationError> {
     let server_id = params.into_inner();
-    if !has_permissions(claims.sub, server_id, PERM_CREATE | PERM_INVITE).await? {
-        return Err(ApplicationError::new(
-            StatusCode::FORBIDDEN,
-            "user does not have required permissions",
-            "user",
-            Vec::default(),
-            None,
-        ));
-    }
+
+    required_permissions(&db, claims.sub, server_id, CREATE_INVITE).await?;
 
     let id = nanoid!();
 
@@ -95,15 +88,7 @@ pub async fn revoke_invite(
 ) -> Result<HttpResponse, ApplicationError> {
     let server_id = params.into_inner();
 
-    if !has_permissions(claims.sub, server_id, PERM_DELETE | PERM_INVITE).await? {
-        return Err(ApplicationError::new(
-            StatusCode::FORBIDDEN,
-            "user does not have required permissions",
-            "user",
-            Vec::default(),
-            None,
-        ));
-    }
+    required_permissions(&db, claims.sub, server_id, MANAGE_INVITES).await?;
 
     query!(
         "UPDATE invites SET revoked = TRUE WHERE server_id = ? AND id = ?",

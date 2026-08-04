@@ -35,7 +35,7 @@ Target: **v1 ship to friends** — self-hosted single-instance Discord-like clon
 - [X] `messages`: `POST /channel/{id}/messages`, `PATCH` (edit), `DELETE` (soft), `GET` cursor-paginated on `(ts, id)`, page size 50
 - [x] `dms`: `POST /dm` (find-or-create peer DM), reuse messages table
 - [x] `invites`: create/list/revoke + `POST /invites/{code}/accept`
-- [x] Update [api/openapi.yaml](api/openapi.yaml) + regenerate client with `pnpm openapi-ts`
+- [ ] Update [api/openapi.yaml](api/openapi.yaml) + regenerate client with `pnpm openapi-ts`
 
 ## Phase 3 — WS text fanout + presence (~3-4 days)
 

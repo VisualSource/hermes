@@ -11,9 +11,7 @@ use crate::{
     state::{
         api_errors::ApplicationError,
         oauth::jwt::Claims,
-        permission::{
-            PERM_CHANNEL, PERM_CREATE, PERM_DELETE, PERM_READ, PERM_WRITE, has_permissions,
-        },
+        permission::{MANAGE_CHANNELS, VIEW_CHANNELS, has_permissions, required_permissions},
     },
 };
 
@@ -46,15 +44,8 @@ pub async fn create_channel(
     params: web::Path<Uuid>,
 ) -> Result<web::Json<Channel>, ApplicationError> {
     let server_id = params.into_inner();
-    if !has_permissions(claims.sub, server_id, PERM_CREATE | PERM_CHANNEL).await? {
-        return Err(ApplicationError::new(
-            StatusCode::FORBIDDEN,
-            "user does not have required permissions",
-            "user",
-            Vec::default(),
-            None,
-        ));
-    }
+
+    required_permissions(&db, claims.sub, server_id, MANAGE_CHANNELS).await?;
 
     let id = uuid::Uuid::now_v7();
     let channel = query_as!(
@@ -100,15 +91,7 @@ pub async fn patch_channel(
 ) -> Result<HttpResponse, ApplicationError> {
     let (server_id, channel_id) = params.into_inner();
 
-    if !has_permissions(claims.sub, server_id, PERM_WRITE | PERM_CHANNEL).await? {
-        return Err(ApplicationError::new(
-            StatusCode::FORBIDDEN,
-            "user does not have required permissions",
-            "user",
-            Vec::default(),
-            None,
-        ));
-    }
+    required_permissions(&db, claims.sub, server_id, MANAGE_CHANNELS).await?;
 
     match (body.name, body.category) {
         (None, None) => {
@@ -170,15 +153,7 @@ pub async fn get_channel(
 ) -> Result<web::Json<Channel>, ApplicationError> {
     let (server_id, channel_id) = params.into_inner();
 
-    if !has_permissions(claims.sub, server_id, PERM_READ | PERM_CHANNEL).await? {
-        return Err(ApplicationError::new(
-            StatusCode::FORBIDDEN,
-            "user does not have required permissions",
-            "user",
-            Vec::default(),
-            None,
-        ));
-    }
+    required_permissions(&db, claims.sub, server_id, VIEW_CHANNELS).await?;
 
     let channel = query_as!(Channel, "SELECT * FROM channels WHERE id = ?", &channel_id)
         .fetch_one(db.get_ref())
@@ -204,15 +179,7 @@ pub async fn delete_channel(
 ) -> Result<impl Responder, ApplicationError> {
     let (server_id, channel_id) = params.into_inner();
 
-    if !has_permissions(claims.sub, server_id, PERM_DELETE | PERM_CHANNEL).await? {
-        return Err(ApplicationError::new(
-            StatusCode::FORBIDDEN,
-            "user does not have required permissions",
-            "user",
-            Vec::default(),
-            None,
-        ));
-    }
+    required_permissions(&db, claims.sub, server_id, MANAGE_CHANNELS).await?;
 
     query!("DELETE FROM channels WHERE id = ?", &channel_id)
         .execute(db.get_ref())

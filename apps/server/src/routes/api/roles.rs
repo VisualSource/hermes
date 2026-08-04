@@ -11,7 +11,9 @@ use crate::{
     state::{
         api_errors::{ApplicationError, ErrorDetail},
         oauth::jwt::Claims,
-        permission::{PERM_CREATE, PERM_DELETE, PERM_ROLE, PERM_WRITE, has_permissions},
+        permission::{
+            ADD_ROLE, MANAGE_ROLES, REMOVE_ROLE, effective_permissions, required_permissions,
+        },
     },
 };
 
@@ -27,6 +29,8 @@ struct CreateRolePayload {
     // #123456
     #[validate(length(equal = 7))]
     bg_color: Option<String>,
+
+    mask: Option<u64>,
 }
 
 #[utoipa::path(
@@ -47,7 +51,9 @@ pub async fn create_role(
     claims: web::ReqData<Claims>,
 ) -> Result<web::Json<Role>, ApplicationError> {
     let server_id = params.into_inner();
-    if !has_permissions(claims.sub, server_id, PERM_CREATE | PERM_ROLE).await? {
+
+    let caller = effective_permissions(&db, claims.sub, server_id).await?;
+    if caller & MANAGE_ROLES != MANAGE_ROLES {
         return Err(ApplicationError::new(
             StatusCode::FORBIDDEN,
             "user does not have required permissions",
@@ -57,9 +63,18 @@ pub async fn create_role(
         ));
     }
 
-    let id = Uuid::now_v7();
+    let mask = body.mask.unwrap_or_default();
+    if mask & !caller != 0 {
+        return Err(ApplicationError::new(
+            StatusCode::FORBIDDEN,
+            "user can not set permissions they do no have",
+            "user",
+            Vec::default(),
+            None,
+        ));
+    }
 
-    let mask = 0;
+    let id = Uuid::now_v7();
 
     let role = query_as!(
         Role,
@@ -69,7 +84,7 @@ pub async fn create_role(
         body.name,
         body.fg_color,
         body.bg_color,
-        mask
+        mask as i64
     )
     .fetch_one(db.get_ref())
     .await?;
@@ -94,15 +109,7 @@ pub async fn delete_role(
 ) -> Result<impl Responder, ApplicationError> {
     let (server_id, role_id) = params.into_inner();
 
-    if !has_permissions(claims.sub, server_id, PERM_DELETE | PERM_ROLE).await? {
-        return Err(ApplicationError::new(
-            StatusCode::FORBIDDEN,
-            "user does not have required permissions",
-            "user",
-            Vec::default(),
-            None,
-        ));
-    }
+    required_permissions(&db, claims.sub, server_id, MANAGE_ROLES).await?;
 
     query!(
         "DELETE FROM roles WHERE id = ? AND server_id = ?",
@@ -123,6 +130,8 @@ struct PatchRolePayload {
     bg_color: Option<String>,
     #[validate(length(equal = 7))]
     fg_color: Option<String>,
+
+    mask: Option<u64>,
 }
 
 #[utoipa::path(
@@ -142,7 +151,11 @@ pub async fn patch_role(
     Validated(web::Json(body)): Validated<web::Json<PatchRolePayload>>,
     claims: web::ReqData<Claims>,
 ) -> Result<impl Responder, ApplicationError> {
-    if body.name.is_none() && body.bg_color.is_none() && body.fg_color.is_none() {
+    if body.mask.is_none()
+        && body.name.is_none()
+        && body.bg_color.is_none()
+        && body.fg_color.is_none()
+    {
         return Err(ApplicationError::new(
             StatusCode::BAD_REQUEST,
             "patch body is empty",
@@ -153,7 +166,8 @@ pub async fn patch_role(
     }
 
     let (server_id, role_id) = params.into_inner();
-    if !has_permissions(claims.sub, server_id, PERM_WRITE | PERM_ROLE).await? {
+    let caller = effective_permissions(&db, claims.sub, server_id).await?;
+    if caller & MANAGE_ROLES != MANAGE_ROLES {
         return Err(ApplicationError::new(
             StatusCode::FORBIDDEN,
             "user does not have required permissions",
@@ -180,6 +194,20 @@ pub async fn patch_role(
         separated
             .push("bg_color = ")
             .push_bind_unseparated(Some(bg));
+    }
+
+    if let Some(mask) = body.mask {
+        if mask & !caller != 0 {
+            return Err(ApplicationError::new(
+                StatusCode::FORBIDDEN,
+                "user can not set permissions they do no have",
+                "user",
+                Vec::default(),
+                None,
+            ));
+        }
+
+        separated.push("mask = ").push_bind_unseparated(mask as i64);
     }
 
     builder.push(" WHERE id = ").push_bind(role_id);
@@ -209,15 +237,7 @@ pub async fn get_role(
 ) -> Result<web::Json<Role>, ApplicationError> {
     let (server_id, role_id) = params.into_inner();
 
-    if !has_permissions(claims.sub, server_id, PERM_DELETE | PERM_ROLE).await? {
-        return Err(ApplicationError::new(
-            StatusCode::FORBIDDEN,
-            "user does not have required permissions",
-            "user",
-            Vec::default(),
-            None,
-        ));
-    }
+    required_permissions(&db, claims.sub, server_id, MANAGE_ROLES).await?;
 
     let role = query_as!(
         Role,
@@ -256,15 +276,7 @@ pub async fn add_role_to_user(
 ) -> Result<impl Responder, ApplicationError> {
     let server_id = params.into_inner();
 
-    if !has_permissions(claims.sub, server_id, PERM_WRITE | PERM_ROLE).await? {
-        return Err(ApplicationError::new(
-            StatusCode::FORBIDDEN,
-            "user does not have required permissions",
-            "user",
-            Vec::default(),
-            None,
-        ));
-    }
+    required_permissions(&db, claims.sub, server_id, ADD_ROLE).await?;
 
     // `target` is a user id, but `role_members.member_id` points at
     // `server_members.id` — resolve one to the other here. The joins also do
@@ -334,15 +346,7 @@ pub async fn remove_role_from_user(
 ) -> Result<impl Responder, ApplicationError> {
     let server_id = params.into_inner();
 
-    if !has_permissions(claims.sub, server_id, PERM_DELETE | PERM_ROLE).await? {
-        return Err(ApplicationError::new(
-            StatusCode::FORBIDDEN,
-            "user does not have required permissions",
-            "user",
-            Vec::default(),
-            None,
-        ));
-    }
+    required_permissions(&db, claims.sub, server_id, REMOVE_ROLE).await?;
 
     // Same user-id -> member-id resolution as `add_role_to_user`, and the
     // `server_id` filter keeps one server from stripping another's roles.
