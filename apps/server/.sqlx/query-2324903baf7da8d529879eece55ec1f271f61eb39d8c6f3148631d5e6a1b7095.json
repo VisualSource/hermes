@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO friend_requests (id,from_user,to_user) VALUES (?,?,?) RETURNING *",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "friend_requests",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "from_user",
+        "ordinal": 1,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "friend_requests",
+            "name": "from_user"
+          }
+        }
+      },
+      {
+        "name": "to_user",
+        "ordinal": 2,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "friend_requests",
+            "name": "to_user"
+          }
+        }
+      },
+      {
+        "name": "rejected",
+        "ordinal": 3,
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "friend_requests",
+            "name": "rejected"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "2324903baf7da8d529879eece55ec1f271f61eb39d8c6f3148631d5e6a1b7095"
+}

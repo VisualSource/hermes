@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM role_members WHERE member_id = ? AND role_id IN (SELECT id FROM roles WHERE server_id = ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "ec3cc2d5b9bb733f925abe3b37abec0895d8c5feea31f76b09589bbfc17bab2c"
+}

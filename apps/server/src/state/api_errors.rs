@@ -79,6 +79,32 @@ impl ApplicationError {
     }
 }
 
+impl ApplicationError {
+    /// A row addressed by id isn't there.
+    ///
+    /// Pair this with `fetch_optional` wherever a handler looks a row up by id:
+    /// `fetch_one` raises `RowNotFound`, which the `sqlx::Error` conversion
+    /// below can only map to a 500, so a caller asking for something that
+    /// doesn't exist reads as a server fault.
+    ///
+    /// "Missing" and "outside the scope you named" are deliberately the same
+    /// answer — queries here are scoped by server or by user, and telling the
+    /// two apart would let a caller probe for ids they can't otherwise see.
+    pub fn not_found(resource: &str) -> Self {
+        Self::new(
+            StatusCode::NOT_FOUND,
+            format!("no such {resource}"),
+            "path",
+            vec![ErrorDetail::new(
+                4004,
+                resource,
+                "unknown id, or not visible in this scope",
+            )],
+            None,
+        )
+    }
+}
+
 impl std::fmt::Display for ApplicationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "application error: {} | {}", self.code, self.message)
@@ -93,6 +119,13 @@ impl From<sqlx::Error> for ApplicationError {
                 "Bad Request",
                 "request",
                 vec![ErrorDetail::new(400, "query", database_error.to_string())],
+                None,
+            ),
+            sqlx::Error::RowNotFound => ApplicationError::new(
+                StatusCode::NOT_FOUND,
+                "Not found",
+                "request",
+                Vec::default(),
                 None,
             ),
             _ => ApplicationError::new(

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE invites SET uses = uses + 1 WHERE id = ? AND NOT revoked AND uses < max_uses",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "a8842e3ef014cb78e388524fb119907f17025103da25a91aa20ddb6a0a0720a3"
+}

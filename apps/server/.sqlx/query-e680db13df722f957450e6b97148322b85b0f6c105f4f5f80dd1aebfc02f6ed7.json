@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM friend_requests WHERE id = ? AND to_user = ? RETURNING *",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "friend_requests",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "from_user",
+        "ordinal": 1,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "friend_requests",
+            "name": "from_user"
+          }
+        }
+      },
+      {
+        "name": "to_user",
+        "ordinal": 2,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "friend_requests",
+            "name": "to_user"
+          }
+        }
+      },
+      {
+        "name": "rejected",
+        "ordinal": 3,
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "friend_requests",
+            "name": "rejected"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "e680db13df722f957450e6b97148322b85b0f6c105f4f5f80dd1aebfc02f6ed7"
+}

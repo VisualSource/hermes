@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT s.owner_id, sm.id AS \"member_id\", r.mask AS \"mask!\" FROM servers s \n        LEFT JOIN server_members sm ON sm.server_id = s.id AND sm.user_id = ? \n        LEFT JOIN role_members rm ON rm.member_id = sm.id \n        LEFT JOIN roles r ON r.id = rm.role_id AND r.server_id = s.id WHERE s.id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "owner_id",
+        "ordinal": 0,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "owner_id"
+          }
+        }
+      },
+      {
+        "name": "member_id",
+        "ordinal": 1,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "server_members",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "mask!",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "roles",
+            "name": "mask"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "ec966b62c2569029e0853291c6d117b335aa73f361aa3c3a5b961814566dcd41"
+}

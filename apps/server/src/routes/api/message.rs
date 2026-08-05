@@ -71,6 +71,7 @@ pub async fn create_message(
     responses(
         (status = 200, description = "message", body = Message),
         (status = 401, description = "unauthorized", body = ApplicationError),
+        (status = 404, description = "no such message in this channel", body = ApplicationError),
         (status = 429, description = "too many request", body = ApplicationError),
         (status = 500, description = "internal server error", body = ApplicationError)
     )
@@ -90,8 +91,9 @@ pub async fn get_message(
         message_id,
         channel_id
     )
-    .fetch_one(db.get_ref())
-    .await?;
+    .fetch_optional(db.get_ref())
+    .await?
+    .ok_or_else(|| ApplicationError::not_found("message"))?;
 
     Ok(web::Json(message))
 }
@@ -165,17 +167,7 @@ pub async fn delete_message(
     .await?;
 
     if r.rows_affected() != 1 {
-        return Err(ApplicationError::new(
-            StatusCode::NOT_FOUND,
-            "no message was found with given id",
-            "url",
-            vec![ErrorDetail::new(
-                4001,
-                "message",
-                "no message with given id",
-            )],
-            None,
-        ));
+        return Err(ApplicationError::not_found("message"));
     }
 
     Ok(HttpResponse::Accepted().finish())
@@ -414,6 +406,28 @@ mod tests {
         assert_eq!(srv.id, msg);
         assert_eq!(srv.user_id, Some(user));
         assert_eq!(srv.channel_id, channel);
+    }
+
+    /// Unknown id and "exists, but in another channel" are the same 404 — the
+    /// query is scoped by `channel_id`, and both used to be a 500.
+    #[actix_web::test]
+    async fn get_message_for_an_unknown_or_foreign_message_is_not_found() {
+        let ctx = TestCtx::new().await;
+        let user = ctx.seed_user("test").await;
+        let channel = ctx.seed_channel(None, "text", "example").await;
+        let other_channel = ctx.seed_channel(None, "text", "other").await;
+
+        let elsewhere = ctx.seed_message(other_channel, user, "not here").await;
+
+        for message in [Uuid::now_v7(), elsewhere] {
+            let req = test::TestRequest::get()
+                .uri(&format!("/api/v1/channel/{channel}/message/{message}"))
+                .set_payload(Vec::default());
+
+            let resp = ctx.as_user(user).call(req).await;
+
+            assert_eq!(resp.status(), StatusCode::NOT_FOUND, "message={message}");
+        }
     }
 
     #[actix_web::test]

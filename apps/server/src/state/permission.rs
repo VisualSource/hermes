@@ -9,12 +9,13 @@ pub const SEND_MESSAGES: u64 = 1 << 1;
 pub const MANAGE_MESSAGES: u64 = 1 << 2;
 pub const MANAGE_CHANNELS: u64 = 1 << 3;
 pub const MANAGE_ROLES: u64 = 1 << 4;
+
 pub const MANAGE_SERVER: u64 = 1 << 5;
 pub const CREATE_INVITE: u64 = 1 << 6;
 pub const MANAGE_INVITES: u64 = 1 << 7;
 pub const ADD_ROLE: u64 = 1 << 8;
 pub const REMOVE_ROLE: u64 = 1 << 9;
-
+pub const MANAGE_USERS: u64 = 1 << 10;
 pub const ALL_PERMS: u64 = u64::MAX;
 pub const BASE_PERMS: u64 = VIEW_CHANNELS | SEND_MESSAGES;
 
@@ -59,8 +60,8 @@ pub async fn effective_permissions(
         LEFT JOIN server_members sm ON sm.server_id = s.id AND sm.user_id = ? 
         LEFT JOIN role_members rm ON rm.member_id = sm.id 
         LEFT JOIN roles r ON r.id = rm.role_id AND r.server_id = s.id WHERE s.id = ?"#,
-        server,
-        user
+        user,
+        server
     )
     .fetch_all(db)
     .await?;

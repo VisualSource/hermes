@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT * FROM friend_requests WHERE from_user = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "friend_requests",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "from_user",
+        "ordinal": 1,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "friend_requests",
+            "name": "from_user"
+          }
+        }
+      },
+      {
+        "name": "to_user",
+        "ordinal": 2,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "friend_requests",
+            "name": "to_user"
+          }
+        }
+      },
+      {
+        "name": "rejected",
+        "ordinal": 3,
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "friend_requests",
+            "name": "rejected"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "85a8889c4458391b9ec81e1f78330ac0a490b705064f690b2ac28e2f3ea5a93c"
+}

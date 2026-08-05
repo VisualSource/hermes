@@ -28,7 +28,9 @@ struct CreateInvitePayload {
     request_body = CreateInvitePayload,
     responses(
         (status = 200, description = "created server invite", body = Invite),
+        (status = 400, description = "invalid payload", body = ApplicationError),
         (status = 401, description = "unauthorized", body = ApplicationError),
+        (status = 403, description = "missing CREATE_INVITE", body = ApplicationError),
         (status = 429, description = "too many request", body = ApplicationError),
         (status = 500, description = "internal server error", body = ApplicationError)
     )
@@ -74,7 +76,9 @@ struct DeleteInviteQuery {
     tags = ["server","invite"],
     responses(
         (status = 201, description = "accepted revoked"),
+        (status = 400, description = "malformed invite id", body = ApplicationError),
         (status = 401, description = "unauthorized", body = ApplicationError),
+        (status = 403, description = "missing MANAGE_INVITES", body = ApplicationError),
         (status = 429, description = "too many request", body = ApplicationError),
         (status = 500, description = "internal server error", body = ApplicationError)
     )
@@ -172,8 +176,10 @@ mod test {
         }
     }
 
-    /// The `invites.server_id` FK has nothing to point at, so sqlx surfaces a
-    /// database error — which `ApplicationError` maps to 400, not 404.
+    /// The `CREATE_INVITE` check runs before the insert, and nobody holds
+    /// permissions on a server that doesn't exist — so this is a 403, not the
+    /// 400 the `invites.server_id` FK violation would otherwise produce. That
+    /// also keeps the endpoint from confirming which server ids are real.
     #[actix_web::test]
     async fn create_invite_for_unknown_server_is_rejected() {
         let ctx = TestCtx::new().await;
@@ -184,7 +190,13 @@ mod test {
             .set_json(json!({}));
 
         let resp = ctx.as_user(user).call(req).await;
-        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+
+        let invites: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM invites")
+            .fetch_one(&ctx.pool)
+            .await
+            .expect("count invites");
+        assert_eq!(invites, 0);
     }
 
     #[actix_web::test]
@@ -268,5 +280,161 @@ mod test {
             .await
             .expect("read back invite");
         assert!(!revoked, "invite belongs to another server");
+    }
+
+    // -- permission gates --------------------------------------------------
+    //
+    // Every test above acts as the server owner, who short-circuits to
+    // `ALL_PERMS` — so none of them would notice if the `required_permissions`
+    // calls disappeared. These drive both gates through a non-owner.
+
+    async fn is_revoked(ctx: &TestCtx, invite: &str) -> bool {
+        sqlx::query_scalar("SELECT revoked FROM invites WHERE id = ?")
+            .bind(invite)
+            .fetch_one(&ctx.pool)
+            .await
+            .expect("read back invite")
+    }
+
+    async fn count_invites(ctx: &TestCtx) -> i64 {
+        sqlx::query_scalar("SELECT COUNT(*) FROM invites")
+            .fetch_one(&ctx.pool)
+            .await
+            .expect("count invites")
+    }
+
+    #[actix_web::test]
+    async fn create_invite_requires_create_invite() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+
+        let user = ctx.seed_user("plain").await;
+        ctx.seed_member(server, user).await;
+
+        let req = test::TestRequest::post()
+            .uri(&format!("/api/v1/server/{server}/invite"))
+            .set_json(json!({}));
+
+        let resp = ctx.as_user(user).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        assert_eq!(count_invites(&ctx).await, 0);
+    }
+
+    /// Inviting isn't owner-only, and `created_by` comes from the token rather
+    /// than the server owner.
+    #[actix_web::test]
+    async fn create_invite_accepts_a_role_with_create_invite() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+
+        let inviter = ctx
+            .seed_member_with_role(server, "inviter", CREATE_INVITE)
+            .await;
+
+        let req = test::TestRequest::post()
+            .uri(&format!("/api/v1/server/{server}/invite"))
+            .set_json(json!({}));
+
+        let resp = ctx.as_user(inviter).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let invite: Invite = test::read_body_json(resp).await;
+        assert_eq!(invite.created_by, Some(inviter));
+        assert_eq!(invite.server_id, server);
+    }
+
+    #[actix_web::test]
+    async fn create_invite_rejects_a_non_member() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+
+        let outsider = ctx.seed_user("outsider").await;
+
+        let req = test::TestRequest::post()
+            .uri(&format!("/api/v1/server/{server}/invite"))
+            .set_json(json!({}));
+
+        let resp = ctx.as_user(outsider).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        assert_eq!(count_invites(&ctx).await, 0);
+    }
+
+    /// Revoking is gated on `MANAGE_INVITES`, a different bit from
+    /// `CREATE_INVITE` — handing someone the ability to invite people must not
+    /// also let them tear down everyone else's invites.
+    #[actix_web::test]
+    async fn revoke_invite_rejects_create_invite_alone() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+
+        let invite_id = nanoid!();
+        ctx.seed_invite(&invite_id, server, owner).await;
+
+        let inviter = ctx
+            .seed_member_with_role(server, "inviter", CREATE_INVITE)
+            .await;
+
+        let req = test::TestRequest::delete().uri(&format!(
+            "/api/v1/server/{server}/invite-revoke?id={invite_id}"
+        ));
+
+        let resp = ctx.as_user(inviter).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        assert!(!is_revoked(&ctx, &invite_id).await);
+    }
+
+    #[actix_web::test]
+    async fn revoke_invite_accepts_a_role_with_manage_invites() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+
+        let invite_id = nanoid!();
+        ctx.seed_invite(&invite_id, server, owner).await;
+
+        let moderator = ctx
+            .seed_member_with_role(server, "moderator", MANAGE_INVITES)
+            .await;
+
+        let req = test::TestRequest::delete().uri(&format!(
+            "/api/v1/server/{server}/invite-revoke?id={invite_id}"
+        ));
+
+        let resp = ctx.as_user(moderator).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::ACCEPTED);
+        assert!(is_revoked(&ctx, &invite_id).await);
+    }
+
+    /// The invite id is a bare nanoid with no server in it, so the only thing
+    /// stopping an outsider from revoking a server's invites is the permission
+    /// check — a non-member resolves to zero permissions.
+    #[actix_web::test]
+    async fn revoke_invite_rejects_a_non_member() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+
+        let invite_id = nanoid!();
+        ctx.seed_invite(&invite_id, server, owner).await;
+
+        let outsider = ctx.seed_user("outsider").await;
+
+        let req = test::TestRequest::delete().uri(&format!(
+            "/api/v1/server/{server}/invite-revoke?id={invite_id}"
+        ));
+
+        let resp = ctx.as_user(outsider).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        assert!(!is_revoked(&ctx, &invite_id).await);
     }
 }

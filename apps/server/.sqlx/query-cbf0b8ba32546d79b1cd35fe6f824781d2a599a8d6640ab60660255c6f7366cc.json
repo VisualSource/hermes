@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT mask FROM roles WHERE id = ? AND server_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "mask",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "roles",
+            "name": "mask"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "cbf0b8ba32546d79b1cd35fe6f824781d2a599a8d6640ab60660255c6f7366cc"
+}

@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT * FROM channels WHERE id = ?",
+  "query": "SELECT * FROM channels WHERE id = ? AND server_id = ?",
   "describe": {
     "columns": [
       {
@@ -60,7 +60,7 @@
       }
     ],
     "parameters": {
-      "Right": 1
+      "Right": 2
     },
     "nullable": [
       false,
@@ -70,5 +70,5 @@
       true
     ]
   },
-  "hash": "2b8b9f2521bc308a9e968ea4a564ab9f8688b930eab6cbd3e4fe062c5cb63965"
+  "hash": "be201ee793ac98e58e09ef677a4632215186c6b7500781f83a9492995afb7bb1"
 }

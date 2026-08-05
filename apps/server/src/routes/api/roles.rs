@@ -226,6 +226,8 @@ pub async fn patch_role(
     responses(
         (status = 200, description = "role", body = Role),
         (status = 401, description = "unauthorized", body = ApplicationError),
+        (status = 403, description = "missing MANAGE_ROLES", body = ApplicationError),
+        (status = 404, description = "no such role in this server", body = ApplicationError),
         (status = 500, description = "internal server error", body = ApplicationError)
     )
 )]
@@ -245,8 +247,9 @@ pub async fn get_role(
         role_id,
         &server_id
     )
-    .fetch_one(db.get_ref())
-    .await?;
+    .fetch_optional(db.get_ref())
+    .await?
+    .ok_or_else(|| ApplicationError::not_found("role"))?;
 
     Ok(web::Json(role))
 }
@@ -264,6 +267,8 @@ struct PutRolePayload {
     responses(
         (status = 201, description = "adding accepted"),
         (status = 401, description = "unauthorized", body = ApplicationError),
+        (status = 403, description = "missing ADD_ROLE, or the role grants permissions the caller lacks", body = ApplicationError),
+        (status = 404, description = "no such role or member in this server", body = ApplicationError),
         (status = 500, description = "internal server error", body = ApplicationError)
     )
 )]
@@ -276,7 +281,46 @@ pub async fn add_role_to_user(
 ) -> Result<impl Responder, ApplicationError> {
     let server_id = params.into_inner();
 
-    required_permissions(&db, claims.sub, server_id, ADD_ROLE).await?;
+    let caller = effective_permissions(&db, claims.sub, server_id).await?;
+    if caller & ADD_ROLE != ADD_ROLE {
+        return Err(ApplicationError::new(
+            StatusCode::FORBIDDEN,
+            "user does not have required permissions",
+            "user",
+            Vec::default(),
+            None,
+        ));
+    }
+
+    let mut tx = db.begin().await?;
+
+    // Granting is the third way to confer permissions, next to creating and
+    // editing a role, so it honours the same rule those two do: nobody hands
+    // out more than they hold. Without this check `ADD_ROLE` on its own would
+    // be enough to grant yourself any role that already exists in the server —
+    // a `MANAGE_SERVER` one included — which turns the weakest role-related
+    // permission into full control of the server.
+    //
+    // The read shares a transaction with the insert below so a concurrent
+    // `patch_role` can't widen the mask in between.
+    let mask = query_scalar!(
+        "SELECT mask FROM roles WHERE id = ? AND server_id = ?",
+        body.role_id,
+        server_id
+    )
+    .fetch_optional(&mut *tx)
+    .await?
+    .ok_or_else(role_member_not_found)?;
+
+    if mask as u64 & !caller != 0 {
+        return Err(ApplicationError::new(
+            StatusCode::FORBIDDEN,
+            "user can not grant permissions they do no have",
+            "user",
+            Vec::default(),
+            None,
+        ));
+    }
 
     // `target` is a user id, but `role_members.member_id` points at
     // `server_members.id` — resolve one to the other here. The joins also do
@@ -300,12 +344,14 @@ pub async fn add_role_to_user(
         server_id,
         body.target
     )
-    .fetch_optional(db.get_ref())
+    .fetch_optional(&mut *tx)
     .await?;
 
     if linked.is_none() {
         return Err(role_member_not_found());
     }
+
+    tx.commit().await?;
 
     Ok(HttpResponse::Accepted().finish())
 }
@@ -373,6 +419,7 @@ mod test {
     use serde_json::json;
 
     use crate::models::roles::RoleMember;
+    use crate::state::permission::{CREATE_INVITE, MANAGE_SERVER};
     use crate::test_support::TestCtx;
 
     use super::*;
@@ -667,5 +714,358 @@ mod test {
             survivor.is_some(),
             "deleting through server A must not touch server B's link"
         );
+    }
+
+    // -- permission gates --------------------------------------------------
+    //
+    // Every test above acts as the server owner, who short-circuits to
+    // `ALL_PERMS`. That makes the gates unreachable — and, worse, makes the
+    // `mask & !caller` escalation checks in `create_role`/`patch_role` dead
+    // code under test, since `!ALL_PERMS` is zero. These drive both through a
+    // non-owner.
+
+    async fn role_mask(ctx: &TestCtx, role: Uuid) -> i64 {
+        sqlx::query_scalar("SELECT mask FROM roles WHERE id = ?")
+            .bind(role)
+            .fetch_one(&ctx.pool)
+            .await
+            .expect("read role mask")
+    }
+
+    async fn count_roles(ctx: &TestCtx) -> i64 {
+        sqlx::query_scalar("SELECT COUNT(*) FROM roles")
+            .fetch_one(&ctx.pool)
+            .await
+            .expect("count roles")
+    }
+
+    #[actix_web::test]
+    async fn create_role_requires_manage_roles() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+
+        let user = ctx.seed_user("plain").await;
+        ctx.seed_member(server, user).await;
+
+        let req = test::TestRequest::post()
+            .uri(&format!("/api/v1/server/{server}/role"))
+            .set_json(json!({ "name": "role_name" }));
+
+        let resp = ctx.as_user(user).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        assert_eq!(count_roles(&ctx).await, 0);
+    }
+
+    /// The escalation guard: `MANAGE_ROLES` lets you mint roles, but only out
+    /// of permissions you already hold. Otherwise any role manager could write
+    /// themselves a `MANAGE_SERVER` role and take the server.
+    #[actix_web::test]
+    async fn create_role_rejects_granting_permissions_the_caller_lacks() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+
+        let moderator = ctx.seed_member_with_role(server, "moderator", MANAGE_ROLES).await;
+        let before = count_roles(&ctx).await;
+
+        let req = test::TestRequest::post()
+            .uri(&format!("/api/v1/server/{server}/role"))
+            .set_json(json!({ "name": "escalated", "mask": MANAGE_ROLES | MANAGE_SERVER }));
+
+        let resp = ctx.as_user(moderator).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        assert_eq!(
+            count_roles(&ctx).await,
+            before,
+            "the role must not be created at all"
+        );
+    }
+
+    /// The other half of the guard — permissions the caller *does* hold are
+    /// grantable, so the check isn't just refusing every non-owner.
+    #[actix_web::test]
+    async fn create_role_allows_granting_permissions_the_caller_holds() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+
+        let moderator = ctx
+            .seed_member_with_role(server, "moderator", MANAGE_ROLES | CREATE_INVITE)
+            .await;
+
+        let req = test::TestRequest::post()
+            .uri(&format!("/api/v1/server/{server}/role"))
+            .set_json(json!({ "name": "inviter", "mask": CREATE_INVITE }));
+
+        let resp = ctx.as_user(moderator).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let role: Role = test::read_body_json(resp).await;
+        assert_eq!(role.mask, CREATE_INVITE as i64);
+    }
+
+    /// Unknown id and "exists, but in another server" are the same 404 — the
+    /// query is scoped by `server_id`, and both used to be a 500.
+    #[actix_web::test]
+    async fn get_role_for_an_unknown_or_foreign_role_is_not_found() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+        let other_server = ctx.seed_server(owner).await;
+        let foreign_role = ctx.seed_role(other_server, "elsewhere").await;
+
+        for role in [Uuid::now_v7(), foreign_role] {
+            let req = test::TestRequest::get()
+                .uri(&format!("/api/v1/server/{server}/role/{role}"))
+                .set_payload(Vec::default());
+
+            let resp = ctx.as_user(owner).call(req).await;
+
+            assert_eq!(resp.status(), StatusCode::NOT_FOUND, "role={role}");
+        }
+    }
+
+    #[actix_web::test]
+    async fn get_role_requires_manage_roles() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+        let role = ctx.seed_role(server, "example").await;
+
+        let user = ctx.seed_user("plain").await;
+        ctx.seed_member(server, user).await;
+
+        let req = test::TestRequest::get()
+            .uri(&format!("/api/v1/server/{server}/role/{role}"))
+            .set_payload(Vec::default());
+
+        let resp = ctx.as_user(user).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[actix_web::test]
+    async fn delete_role_requires_manage_roles() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+        let role = ctx.seed_role(server, "example").await;
+
+        let user = ctx.seed_user("plain").await;
+        ctx.seed_member(server, user).await;
+
+        let req = test::TestRequest::delete()
+            .uri(&format!("/api/v1/server/{server}/role/{role}"))
+            .set_payload(Vec::default());
+
+        let resp = ctx.as_user(user).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+
+        let survivor = sqlx::query_as::<_, Role>("SELECT * FROM roles WHERE id = ?")
+            .bind(&role)
+            .fetch_optional(&ctx.pool)
+            .await
+            .expect("failed to get role");
+
+        assert!(survivor.is_some());
+    }
+
+    #[actix_web::test]
+    async fn patch_role_requires_manage_roles() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+        let role = ctx.seed_role(server, "example").await;
+
+        let user = ctx.seed_user("plain").await;
+        ctx.seed_member(server, user).await;
+
+        let req = test::TestRequest::patch()
+            .uri(&format!("/api/v1/server/{server}/role/{role}"))
+            .set_json(json!({ "name": "renamed" }));
+
+        let resp = ctx.as_user(user).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+
+        let result = sqlx::query_as::<_, Role>("SELECT * FROM roles WHERE id = ?")
+            .bind(&role)
+            .fetch_one(&ctx.pool)
+            .await
+            .expect("failed to get role");
+
+        assert_eq!(result.name, "example");
+    }
+
+    /// Same escalation guard as `create_role`, on the edit path — a role
+    /// manager must not be able to widen an existing role past their own
+    /// permissions, and the mask must be left untouched when they try.
+    #[actix_web::test]
+    async fn patch_role_rejects_granting_permissions_the_caller_lacks() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+        let role = ctx.seed_role_with_mask(server, "example", CREATE_INVITE).await;
+
+        let moderator = ctx.seed_member_with_role(server, "moderator", MANAGE_ROLES).await;
+
+        let req = test::TestRequest::patch()
+            .uri(&format!("/api/v1/server/{server}/role/{role}"))
+            .set_json(json!({ "mask": MANAGE_SERVER }));
+
+        let resp = ctx.as_user(moderator).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        assert_eq!(role_mask(&ctx, role).await, CREATE_INVITE as i64);
+    }
+
+    /// Granting a role is gated on `ADD_ROLE`, which is a separate bit from
+    /// `MANAGE_ROLES` — holding only the latter must not let you hand roles out.
+    #[actix_web::test]
+    async fn put_role_requires_add_role() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+        let role = ctx.seed_role(server, "example").await;
+
+        let moderator = ctx.seed_member_with_role(server, "moderator", MANAGE_ROLES).await;
+
+        let target = ctx.seed_user("target").await;
+        ctx.seed_member(server, target).await;
+
+        let req = test::TestRequest::put()
+            .uri(&format!("/api/v1/server/{server}/role"))
+            .set_json(json!({ "role_id": role, "target": target }));
+
+        let resp = ctx.as_user(moderator).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+
+        let links: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM role_members WHERE role_id = ?")
+            .bind(&role)
+            .fetch_one(&ctx.pool)
+            .await
+            .expect("count role members");
+        assert_eq!(links, 0);
+    }
+
+    /// `ADD_ROLE` is the weakest role permission, and granting is the third way
+    /// to confer permissions — so it obeys the same rule `create_role` and
+    /// `patch_role` do. Before this was enforced, a member holding only
+    /// `ADD_ROLE` could grant themselves any existing role in the server and
+    /// walk away with `MANAGE_SERVER`.
+    #[actix_web::test]
+    async fn put_role_rejects_granting_permissions_the_caller_lacks() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+
+        // An admin role already exists, well above the grantor.
+        let admin_role = ctx
+            .seed_role_with_mask(server, "admin", MANAGE_SERVER)
+            .await;
+
+        let moderator = ctx.seed_member_with_role(server, "moderator", ADD_ROLE).await;
+
+        let req = test::TestRequest::put()
+            .uri(&format!("/api/v1/server/{server}/role"))
+            .set_json(json!({ "role_id": admin_role, "target": moderator }));
+
+        let resp = ctx.as_user(moderator).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+
+        let links: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM role_members WHERE role_id = ?")
+            .bind(&admin_role)
+            .fetch_one(&ctx.pool)
+            .await
+            .expect("count role members");
+        assert_eq!(links, 0);
+
+        let perms = effective_permissions(&ctx.pool, moderator, server)
+            .await
+            .expect("effective permissions");
+        assert_eq!(
+            perms & MANAGE_SERVER,
+            0,
+            "the grantor must not have escalated themselves"
+        );
+    }
+
+    /// The positive case — a role whose mask the caller fully holds is
+    /// grantable, so the guard isn't refusing every non-owner.
+    #[actix_web::test]
+    async fn put_role_allows_granting_permissions_the_caller_holds() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+
+        let inviter_role = ctx
+            .seed_role_with_mask(server, "inviter", CREATE_INVITE)
+            .await;
+
+        let moderator = ctx.seed_member_with_role(server, "moderator", ADD_ROLE | CREATE_INVITE).await;
+
+        let target = ctx.seed_user("target").await;
+        let member = ctx.seed_member(server, target).await;
+
+        let req = test::TestRequest::put()
+            .uri(&format!("/api/v1/server/{server}/role"))
+            .set_json(json!({ "role_id": inviter_role, "target": target }));
+
+        let resp = ctx.as_user(moderator).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::ACCEPTED);
+
+        let link = sqlx::query_as::<_, RoleMember>(
+            "SELECT * FROM role_members WHERE role_id = ? AND member_id = ?",
+        )
+        .bind(&inviter_role)
+        .bind(&member)
+        .fetch_optional(&ctx.pool)
+        .await
+        .expect("failed to get member role");
+
+        assert!(link.is_some());
+    }
+
+    /// Mirror of `put_role_requires_add_role` for `REMOVE_ROLE`, and the
+    /// existing link must survive the refusal.
+    #[actix_web::test]
+    async fn remove_role_requires_remove_role() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+        let role = ctx.seed_role(server, "example").await;
+
+        let moderator = ctx.seed_member_with_role(server, "moderator", MANAGE_ROLES | ADD_ROLE).await;
+
+        let target = ctx.seed_user("target").await;
+        let member = ctx.seed_member(server, target).await;
+        ctx.seed_role_member(role, member).await;
+
+        let req = test::TestRequest::delete()
+            .uri(&format!("/api/v1/server/{server}/role"))
+            .set_json(json!({ "role_id": role, "target": target }));
+
+        let resp = ctx.as_user(moderator).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+
+        let survivor = sqlx::query_as::<_, RoleMember>(
+            "SELECT * FROM role_members WHERE role_id = ? AND member_id = ?",
+        )
+        .bind(&role)
+        .bind(&member)
+        .fetch_optional(&ctx.pool)
+        .await
+        .expect("failed to get member role");
+
+        assert!(survivor.is_some());
     }
 }

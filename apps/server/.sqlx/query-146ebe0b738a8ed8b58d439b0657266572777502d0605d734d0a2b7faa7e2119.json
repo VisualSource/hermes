@@ -1,0 +1,98 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT * FROM invites WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "invites",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "server_id",
+        "ordinal": 1,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "invites",
+            "name": "server_id"
+          }
+        }
+      },
+      {
+        "name": "created_by",
+        "ordinal": 2,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "invites",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "name": "expires_at",
+        "ordinal": 3,
+        "type_info": "Datetime",
+        "origin": {
+          "Table": {
+            "table": "invites",
+            "name": "expires_at"
+          }
+        }
+      },
+      {
+        "name": "max_uses",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "invites",
+            "name": "max_uses"
+          }
+        }
+      },
+      {
+        "name": "uses",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "invites",
+            "name": "uses"
+          }
+        }
+      },
+      {
+        "name": "revoked",
+        "ordinal": 6,
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "invites",
+            "name": "revoked"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "146ebe0b738a8ed8b58d439b0657266572777502d0605d734d0a2b7faa7e2119"
+}

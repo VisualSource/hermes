@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM server_members WHERE user_id = ? AND server_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "1c777cbf49236190ba3c0e4ebd3cd1f91cd0fc32e4a2ac25bc649f1d009cbfbd"
+}

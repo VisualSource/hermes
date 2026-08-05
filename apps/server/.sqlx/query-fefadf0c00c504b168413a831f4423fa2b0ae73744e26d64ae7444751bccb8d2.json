@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE friend_requests SET rejected = TRUE WHERE id = ? AND to_user = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "fefadf0c00c504b168413a831f4423fa2b0ae73744e26d64ae7444751bccb8d2"
+}

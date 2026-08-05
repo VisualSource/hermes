@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM channels WHERE id = ? AND server_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "799a1cda1fc74ac3350542d0f6a49758b8abf6694a67fe9cf33e841b7b846b83"
+}

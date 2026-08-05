@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT owner_id FROM servers WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "owner_id",
+        "ordinal": 0,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "owner_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "66a7ebc74e09a2beb4b7a585be002e82c86441871a850554cb26464438c1a7dc"
+}

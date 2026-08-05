@@ -79,6 +79,26 @@ pub struct TestCtx {
     pub pool: SqlitePool,
 }
 
+/// The four columns `join_server` gates on. [`Default`] is a live invite —
+/// override one field to build the case under test.
+pub struct InviteState {
+    pub expires_at: Option<OffsetDateTime>,
+    pub max_uses: i64,
+    pub uses: i64,
+    pub revoked: bool,
+}
+
+impl Default for InviteState {
+    fn default() -> Self {
+        Self {
+            expires_at: Some(OffsetDateTime::now_utc() + time::Duration::hours(1)),
+            max_uses: 2,
+            uses: 0,
+            revoked: false,
+        }
+    }
+}
+
 impl TestCtx {
     /// Fresh in-memory database with migrations applied. Each call is fully
     /// isolated from every other, so tests can run in parallel.
@@ -134,14 +154,22 @@ impl TestCtx {
         id
     }
 
+    /// A role granting nothing. Members still get [`BASE_PERMS`] on top of it —
+    /// use [`Self::seed_role_with_mask`] when the test needs a real grant.
+    ///
+    /// [`BASE_PERMS`]: crate::state::permission::BASE_PERMS
     pub async fn seed_role(&self, server: Uuid, name: &str) -> Uuid {
+        self.seed_role_with_mask(server, name, 0).await
+    }
+
+    pub async fn seed_role_with_mask(&self, server: Uuid, name: &str, mask: u64) -> Uuid {
         let id = Uuid::now_v7();
 
         sqlx::query("INSERT INTO roles (id,server_id,name,mask) VALUES (?,?,?,?)")
             .bind(id)
             .bind(server)
             .bind(name)
-            .bind(0)
+            .bind(mask as i64)
             .execute(&self.pool)
             .await
             .expect("failed to seed role");
@@ -180,6 +208,22 @@ impl TestCtx {
             .expect("seed server member");
 
         id
+    }
+
+    /// A member of `server` holding one role with `mask`, returned as a
+    /// `users.id` ready for [`Self::as_user`].
+    ///
+    /// Most route tests seed the owner, who short-circuits to `ALL_PERMS` in
+    /// `effective_permissions` and so never exercises a permission gate. This
+    /// is the shorthand for the non-owner case that does. Remember the caller's
+    /// effective permissions are `BASE_PERMS | mask`.
+    pub async fn seed_member_with_role(&self, server: Uuid, name: &str, mask: u64) -> Uuid {
+        let user = self.seed_user(name).await;
+        let member = self.seed_member(server, user).await;
+        let role = self.seed_role_with_mask(server, name, mask).await;
+        self.seed_role_member(role, member).await;
+
+        user
     }
 
     /// `member` is a `server_members.id` (what [`Self::seed_member`] returns),
@@ -228,6 +272,21 @@ impl TestCtx {
         users
     }
 
+    /// A pending (not yet rejected) friend request from `from` to `to`.
+    pub async fn seed_friend_request(&self, from: Uuid, to: Uuid) -> Uuid {
+        let id = Uuid::now_v7();
+
+        sqlx::query("INSERT INTO friend_requests (id, from_user, to_user) VALUES (?,?,?)")
+            .bind(id)
+            .bind(from)
+            .bind(to)
+            .execute(&self.pool)
+            .await
+            .expect("seed friend request");
+
+        id
+    }
+
     pub async fn seed_message(&self, channel: Uuid, user: Uuid, content: &str) -> Uuid {
         self.seed_message_at(channel, user, content, OffsetDateTime::now_utc())
             .await
@@ -271,19 +330,44 @@ impl TestCtx {
     }
 
     /// Invite ids are 21-char nanoids; pass one the route's validator accepts.
+    ///
+    /// Live by default: expires in an hour, two uses, not revoked. Use
+    /// [`Self::seed_invite_with`] to build one the join route should turn away.
     pub async fn seed_invite(&self, id: &str, server: Uuid, created_by: Uuid) {
+        self.seed_invite_with(id, server, created_by, InviteState::default())
+            .await;
+    }
+
+    pub async fn seed_invite_with(
+        &self,
+        id: &str,
+        server: Uuid,
+        created_by: Uuid,
+        state: InviteState,
+    ) {
         sqlx::query(
-            "INSERT INTO invites (id, server_id, created_by, expires_at, max_uses) \
-             VALUES (?,?,?,?,?)",
+            "INSERT INTO invites (id, server_id, created_by, expires_at, max_uses, uses, revoked) \
+             VALUES (?,?,?,?,?,?,?)",
         )
         .bind(id)
         .bind(server)
         .bind(created_by)
-        .bind(OffsetDateTime::now_utc() + time::Duration::hours(1))
-        .bind(2i64)
+        .bind(state.expires_at)
+        .bind(state.max_uses)
+        .bind(state.uses)
+        .bind(state.revoked)
         .execute(&self.pool)
         .await
         .expect("seed invite");
+    }
+
+    /// Reads back the counter the join route increments.
+    pub async fn invite_uses(&self, id: &str) -> i64 {
+        sqlx::query_scalar("SELECT uses FROM invites WHERE id = ?")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await
+            .expect("read invite uses")
     }
 
     // -- auth --------------------------------------------------------------

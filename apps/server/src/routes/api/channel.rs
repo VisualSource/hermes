@@ -9,11 +9,31 @@ use validator::Validate;
 use crate::{
     models::channel::{Channel, ChannelKind},
     state::{
-        api_errors::ApplicationError,
+        api_errors::{ApplicationError, ErrorDetail},
         oauth::jwt::Claims,
-        permission::{MANAGE_CHANNELS, VIEW_CHANNELS, has_permissions, required_permissions},
+        permission::{MANAGE_CHANNELS, VIEW_CHANNELS, required_permissions},
     },
 };
+
+/// The channel id in the path doesn't belong to the server in the path.
+///
+/// `required_permissions` only proves the caller has rights on *that server*,
+/// so every query here must be scoped by `server_id` as well — otherwise owning
+/// any server at all would be enough to address another server's channels.
+/// Whether the channel exists elsewhere is deliberately not distinguished.
+fn channel_not_found() -> ApplicationError {
+    ApplicationError::new(
+        StatusCode::NOT_FOUND,
+        "no such channel in this server",
+        "path",
+        vec![ErrorDetail::new(
+            4004,
+            "channel",
+            "channel must belong to the server in the path",
+        )],
+        None,
+    )
+}
 
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 struct CreateChannelPayload {
@@ -33,6 +53,7 @@ struct CreateChannelPayload {
         (status = 200, description = "new channel", body = Channel),
         (status = 400, description = "invalid payload", body = ApplicationError),
         (status = 401, description = "unauthorized", body = ApplicationError),
+        (status = 403, description = "missing MANAGE_CHANNELS", body = ApplicationError),
         (status = 500, description = "internal server error", body = ApplicationError)
     )
 )]
@@ -79,6 +100,8 @@ struct PatchChannelPayload {
         (status = 201, description = "accepted changes"),
         (status = 400, description = "invalid payload", body = ApplicationError),
         (status = 401, description = "unauthorized", body = ApplicationError),
+        (status = 403, description = "missing MANAGE_CHANNELS", body = ApplicationError),
+        (status = 404, description = "no such channel in this server", body = ApplicationError),
         (status = 500, description = "internal server error", body = ApplicationError)
     )
 )]
@@ -93,7 +116,7 @@ pub async fn patch_channel(
 
     required_permissions(&db, claims.sub, server_id, MANAGE_CHANNELS).await?;
 
-    match (body.name, body.category) {
+    let result = match (body.name, body.category) {
         (None, None) => {
             return Err(ApplicationError::new(
                 StatusCode::BAD_REQUEST,
@@ -105,32 +128,39 @@ pub async fn patch_channel(
         }
         (Some(name), Some(category)) => {
             query!(
-                "UPDATE channels SET name = ?, category = ? WHERE id = ?",
+                "UPDATE channels SET name = ?, category = ? WHERE id = ? AND server_id = ?",
                 name,
                 category,
-                channel_id
+                channel_id,
+                server_id
             )
             .execute(db.get_ref())
-            .await?;
+            .await?
         }
         (Some(name), None) => {
             query!(
-                "UPDATE channels SET name = ? WHERE id = ?",
+                "UPDATE channels SET name = ? WHERE id = ? AND server_id = ?",
                 name,
-                &channel_id
+                &channel_id,
+                server_id
             )
             .execute(db.get_ref())
-            .await?;
+            .await?
         }
         (None, Some(category)) => {
             query!(
-                "UPDATE channels SET category = ? WHERE id = ?;",
+                "UPDATE channels SET category = ? WHERE id = ? AND server_id = ?",
                 category,
-                &channel_id
+                &channel_id,
+                server_id
             )
             .execute(db.get_ref())
-            .await?;
+            .await?
         }
+    };
+
+    if result.rows_affected() == 0 {
+        return Err(channel_not_found());
     }
 
     Ok(HttpResponse::Accepted().finish())
@@ -142,6 +172,8 @@ pub async fn patch_channel(
     responses(
         (status = 200, description = "accepted changes", body = Channel),
         (status = 401, description = "unauthorized", body = ApplicationError),
+        (status = 403, description = "missing VIEW_CHANNELS", body = ApplicationError),
+        (status = 404, description = "no such channel in this server", body = ApplicationError),
         (status = 500, description = "internal server error", body = ApplicationError)
     )
 )]
@@ -155,9 +187,15 @@ pub async fn get_channel(
 
     required_permissions(&db, claims.sub, server_id, VIEW_CHANNELS).await?;
 
-    let channel = query_as!(Channel, "SELECT * FROM channels WHERE id = ?", &channel_id)
-        .fetch_one(db.get_ref())
-        .await?;
+    let channel = query_as!(
+        Channel,
+        "SELECT * FROM channels WHERE id = ? AND server_id = ?",
+        &channel_id,
+        server_id
+    )
+    .fetch_optional(db.get_ref())
+    .await?
+    .ok_or_else(channel_not_found)?;
 
     Ok(web::Json(channel))
 }
@@ -168,6 +206,8 @@ pub async fn get_channel(
     responses(
         (status = 201, description = "accepted deletion"),
         (status = 401, description = "unauthorized", body = ApplicationError),
+        (status = 403, description = "missing MANAGE_CHANNELS", body = ApplicationError),
+        (status = 404, description = "no such channel in this server", body = ApplicationError),
         (status = 500, description = "internal server error", body = ApplicationError)
     )
 )]
@@ -181,9 +221,17 @@ pub async fn delete_channel(
 
     required_permissions(&db, claims.sub, server_id, MANAGE_CHANNELS).await?;
 
-    query!("DELETE FROM channels WHERE id = ?", &channel_id)
-        .execute(db.get_ref())
-        .await?;
+    let result = query!(
+        "DELETE FROM channels WHERE id = ? AND server_id = ?",
+        &channel_id,
+        server_id
+    )
+    .execute(db.get_ref())
+    .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(channel_not_found());
+    }
 
     Ok(HttpResponse::Accepted().finish())
 }
@@ -353,5 +401,218 @@ mod test {
             .expect("failed to get channel");
 
         assert!(result.is_none())
+    }
+
+    // -- permission gates --------------------------------------------------
+    //
+    // Every test above acts as the server owner, who short-circuits to
+    // `ALL_PERMS` — so none of them would notice if the `required_permissions`
+    // calls disappeared. These drive the gates through a non-owner.
+
+    async fn channel_named(ctx: &TestCtx, channel: Uuid) -> Option<String> {
+        sqlx::query_scalar("SELECT name FROM channels WHERE id = ?")
+            .bind(channel)
+            .fetch_optional(&ctx.pool)
+            .await
+            .expect("read channel name")
+    }
+
+    #[actix_web::test]
+    async fn create_channel_requires_manage_channels() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+
+        let user = ctx.seed_user("plain").await;
+        ctx.seed_member(server, user).await;
+
+        let req = test::TestRequest::post()
+            .uri(&format!("/api/v1/server/{server}/channel"))
+            .set_json(json!({"name":"example", "kind":"text" }));
+
+        let resp = ctx.as_user(user).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+
+        let channels: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM channels")
+            .fetch_one(&ctx.pool)
+            .await
+            .expect("count channels");
+        assert_eq!(channels, 0);
+    }
+
+    /// Creating channels isn't owner-only — a role carrying `MANAGE_CHANNELS`
+    /// is enough.
+    #[actix_web::test]
+    async fn create_channel_accepts_a_role_with_manage_channels() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+
+        let user = ctx.seed_member_with_role(server, "moderator", MANAGE_CHANNELS).await;
+
+        let req = test::TestRequest::post()
+            .uri(&format!("/api/v1/server/{server}/channel"))
+            .set_json(json!({"name":"example", "kind":"text" }));
+
+        let resp = ctx.as_user(user).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[actix_web::test]
+    async fn patch_channel_requires_manage_channels() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+        let channel = ctx.seed_channel(Some(server), "text", "name").await;
+
+        let user = ctx.seed_user("plain").await;
+        ctx.seed_member(server, user).await;
+
+        let req = test::TestRequest::patch()
+            .uri(&format!("/api/v1/server/{server}/channel/{channel}"))
+            .set_json(json!({ "name":"new-name" }));
+
+        let resp = ctx.as_user(user).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        assert_eq!(channel_named(&ctx, channel).await.as_deref(), Some("name"));
+    }
+
+    #[actix_web::test]
+    async fn delete_channel_requires_manage_channels() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+        let channel = ctx.seed_channel(Some(server), "text", "name").await;
+
+        let user = ctx.seed_user("plain").await;
+        ctx.seed_member(server, user).await;
+
+        let req = test::TestRequest::delete()
+            .uri(&format!("/api/v1/server/{server}/channel/{channel}"))
+            .set_payload(Vec::default());
+
+        let resp = ctx.as_user(user).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        assert!(channel_named(&ctx, channel).await.is_some());
+    }
+
+    /// `VIEW_CHANNELS` is part of `BASE_PERMS`, so plain membership is enough
+    /// to read a channel — no role required.
+    #[actix_web::test]
+    async fn get_channel_allows_a_plain_member() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+        let channel = ctx.seed_channel(Some(server), "text", "name").await;
+
+        let user = ctx.seed_user("plain").await;
+        ctx.seed_member(server, user).await;
+
+        let req = test::TestRequest::get()
+            .uri(&format!("/api/v1/server/{server}/channel/{channel}"))
+            .set_payload(Vec::default());
+
+        let resp = ctx.as_user(user).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    /// A non-member resolves to zero permissions, so `VIEW_CHANNELS` fails.
+    #[actix_web::test]
+    async fn get_channel_rejects_a_non_member() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+        let channel = ctx.seed_channel(Some(server), "text", "name").await;
+
+        let outsider = ctx.seed_user("outsider").await;
+
+        let req = test::TestRequest::get()
+            .uri(&format!("/api/v1/server/{server}/channel/{channel}"))
+            .set_payload(Vec::default());
+
+        let resp = ctx.as_user(outsider).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    }
+
+    // -- server scoping ----------------------------------------------------
+    //
+    // The permission check reads the server from the path, but the queries
+    // address the channel by id alone. Owning *any* server therefore must not
+    // become a licence to touch another server's channels.
+
+    #[actix_web::test]
+    async fn patch_channel_is_scoped_to_the_server_in_the_path() {
+        let ctx = TestCtx::new().await;
+        let attacker = ctx.seed_user("attacker").await;
+        let own_server = ctx.seed_server(attacker).await;
+
+        let victim = ctx.seed_user("victim").await;
+        let other_server = ctx.seed_server(victim).await;
+        let foreign = ctx.seed_channel(Some(other_server), "text", "name").await;
+
+        let req = test::TestRequest::patch()
+            .uri(&format!("/api/v1/server/{own_server}/channel/{foreign}"))
+            .set_json(json!({ "name":"pwned" }));
+
+        let resp = ctx.as_user(attacker).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+        assert_eq!(
+            channel_named(&ctx, foreign).await.as_deref(),
+            Some("name"),
+            "a channel in another server must not be renamed through this path"
+        );
+    }
+
+    #[actix_web::test]
+    async fn delete_channel_is_scoped_to_the_server_in_the_path() {
+        let ctx = TestCtx::new().await;
+        let attacker = ctx.seed_user("attacker").await;
+        let own_server = ctx.seed_server(attacker).await;
+
+        let victim = ctx.seed_user("victim").await;
+        let other_server = ctx.seed_server(victim).await;
+        let foreign = ctx.seed_channel(Some(other_server), "text", "name").await;
+
+        let req = test::TestRequest::delete()
+            .uri(&format!("/api/v1/server/{own_server}/channel/{foreign}"))
+            .set_payload(Vec::default());
+
+        let resp = ctx.as_user(attacker).call(req).await;
+
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+        assert!(
+            channel_named(&ctx, foreign).await.is_some(),
+            "a channel in another server must not be deleted through this path"
+        );
+    }
+
+    #[actix_web::test]
+    async fn get_channel_is_scoped_to_the_server_in_the_path() {
+        let ctx = TestCtx::new().await;
+        let attacker = ctx.seed_user("attacker").await;
+        let own_server = ctx.seed_server(attacker).await;
+
+        let victim = ctx.seed_user("victim").await;
+        let other_server = ctx.seed_server(victim).await;
+        let foreign = ctx.seed_channel(Some(other_server), "text", "secret").await;
+
+        let req = test::TestRequest::get()
+            .uri(&format!("/api/v1/server/{own_server}/channel/{foreign}"))
+            .set_payload(Vec::default());
+
+        let resp = ctx.as_user(attacker).call(req).await;
+
+        assert_eq!(
+            resp.status(),
+            StatusCode::NOT_FOUND,
+            "a channel in another server must not be readable through this path"
+        );
     }
 }
