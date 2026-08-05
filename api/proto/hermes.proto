@@ -13,13 +13,45 @@ message Envelope {
         RtcNewCandidate rtcIce = 11;
 
         // Client -> Server 1XX
-        VoiceChannelRequest voiceChannelRequest = 100;
+        VoiceChannelRequest voiceChannelRequest =  100;
+        bool                presenceEventRequest = 101;
+        MessageEventRequest messageEventRequest =  102;
+        string              typingEventRequest  =  103;
       
 
         // Server -> Client 2XX
         VoiceChannelUserEvent voiceChannelEvent = 200;
+        PresenceEvent         presenceEvent     = 201;
+        TypingEvent           typingEvent       = 202;
+        MessageEvent          messageEvent      = 203;
+     
     }
 }
+
+message TypingEvent {}
+
+message PresenceEvent {
+
+}
+
+message MessageEvent {
+    MessageEventType type = 1;
+}
+
+message MessageEventRequest {
+    string message_id = 1;
+    string channel_id = 2;
+    MessageEventType type = 3;
+}
+
+enum MessageEventType {
+    New = 0;
+    Edit = 1;
+    Delete = 2;
+}
+
+
+
 
 // Client -> Server 1XX
 enum VoiceChannelEventType {

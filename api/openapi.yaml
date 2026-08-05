@@ -6,101 +6,6 @@ info:
     name: ''
   version: 0.1.0
 paths:
-  /api/v1/channel/{channel}:
-    get:
-      tags:
-      - channel
-      operationId: get_channel
-      parameters:
-      - name: channel
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        '200':
-          description: accepted changes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Channel'
-        '401':
-          description: unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApplicationError'
-        '500':
-          description: internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApplicationError'
-    delete:
-      tags:
-      - channel
-      operationId: delete_channel
-      parameters:
-      - name: channel
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        '201':
-          description: accepted deletion
-        '401':
-          description: unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApplicationError'
-        '500':
-          description: internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApplicationError'
-    patch:
-      tags:
-      - channel
-      operationId: patch_channel
-      parameters:
-      - name: channel
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatchChannelPayload'
-        required: true
-      responses:
-        '201':
-          description: accepted changes
-        '400':
-          description: invalid payload
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApplicationError'
-        '401':
-          description: unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApplicationError'
-        '500':
-          description: internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApplicationError'
   /api/v1/channel/{channel}/message:
     post:
       tags:
@@ -173,6 +78,12 @@ paths:
                 $ref: '#/components/schemas/Message'
         '401':
           description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '404':
+          description: no such message in this channel
           content:
             application/json:
               schema:
@@ -278,6 +189,7 @@ paths:
       tags:
       - channel
       - message
+      description: fetch a cursor paginated list of messages sorted by newest
       operationId: list_messages
       parameters:
       - name: channel
@@ -444,6 +356,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApplicationError'
+        '404':
+          description: no such friend request addressed to the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
         '429':
           description: too many request
           content:
@@ -525,6 +443,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApplicationError'
+  /api/v1/server/join:
+    post:
+      tags:
+      - server
+      - invite
+      description: join a server by redeeming an invite code
+      operationId: join_server
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostJoinServerPayload'
+        required: true
+      responses:
+        '202':
+          description: joined the server, or was already a member
+        '400':
+          description: malformed invite code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '404':
+          description: no such invite
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '410':
+          description: invite has been revoked, expired, or is at max uses
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
   /api/v1/server/{server}:
     get:
       tags:
@@ -547,6 +511,12 @@ paths:
                 $ref: '#/components/schemas/Server'
         '401':
           description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '404':
+          description: no such server
           content:
             application/json:
               schema:
@@ -627,6 +597,7 @@ paths:
     post:
       tags:
       - channel
+      description: create a channel on the given server
       operationId: create_channel
       parameters:
       - name: server
@@ -656,6 +627,164 @@ paths:
                 $ref: '#/components/schemas/ApplicationError'
         '401':
           description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '403':
+          description: missing MANAGE_CHANNELS
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+  /api/v1/server/{server}/channel/{channel}:
+    get:
+      tags:
+      - channel
+      description: fetch a channel attached to the given server
+      operationId: get_channel
+      parameters:
+      - name: server
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: channel
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: accepted changes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Channel'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '403':
+          description: missing VIEW_CHANNELS
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '404':
+          description: no such channel in this server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+    delete:
+      tags:
+      - channel
+      description: delete a channel attached to the given server
+      operationId: delete_channel
+      parameters:
+      - name: server
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: channel
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '201':
+          description: accepted deletion
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '403':
+          description: missing MANAGE_CHANNELS
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '404':
+          description: no such channel in this server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+    patch:
+      tags:
+      - channel
+      description: update a channel attached to the given server
+      operationId: patch_channel
+      parameters:
+      - name: server
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: channel
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchChannelPayload'
+        required: true
+      responses:
+        '201':
+          description: accepted changes
+        '400':
+          description: invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '403':
+          description: missing MANAGE_CHANNELS
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '404':
+          description: no such channel in this server
           content:
             application/json:
               schema:
@@ -726,8 +855,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Invite'
+        '400':
+          description: invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
         '401':
           description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '403':
+          description: missing CREATE_INVITE
           content:
             application/json:
               schema:
@@ -760,14 +901,112 @@ paths:
       responses:
         '201':
           description: accepted revoked
+        '400':
+          description: malformed invite id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
         '401':
           description: unauthorized
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApplicationError'
+        '403':
+          description: missing MANAGE_INVITES
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
         '429':
           description: too many request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+  /api/v1/server/{server}/kick:
+    post:
+      tags:
+      - server
+      - users
+      operationId: kick_user_from_server
+      parameters:
+      - name: server
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostKickUserPayload'
+        required: true
+      responses:
+        '204':
+          description: kicked user from server
+        '400':
+          description: owner can not be kicked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '403':
+          description: missing MANAGE_USERS
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+  /api/v1/server/{server}/leave:
+    post:
+      tags:
+      - server
+      - users
+      operationId: leave_server
+      parameters:
+      - name: server
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: left server
+        '400':
+          description: owner can not leave their own server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '404':
+          description: no such server
           content:
             application/json:
               schema:
@@ -838,6 +1077,18 @@ paths:
           description: adding accepted
         '401':
           description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '403':
+          description: missing ADD_ROLE, or the role grants permissions the caller lacks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '404':
+          description: no such role or member in this server
           content:
             application/json:
               schema:
@@ -949,6 +1200,18 @@ paths:
                 $ref: '#/components/schemas/Role'
         '401':
           description: unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '403':
+          description: missing MANAGE_ROLES
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationError'
+        '404':
+          description: no such role in this server
           content:
             application/json:
               schema:
@@ -1159,6 +1422,12 @@ components:
           type:
           - string
           - 'null'
+        mask:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          minimum: 0
         name:
           type: string
     DmParticipant:
@@ -1333,6 +1602,12 @@ components:
           type:
           - string
           - 'null'
+        mask:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          minimum: 0
         name:
           type:
           - string
@@ -1348,6 +1623,21 @@ components:
           type:
           - string
           - 'null'
+    PostJoinServerPayload:
+      type: object
+      required:
+      - invite_code
+      properties:
+        invite_code:
+          type: string
+    PostKickUserPayload:
+      type: object
+      required:
+      - user
+      properties:
+        user:
+          type: string
+          format: uuid
     PostMessagePayload:
       type: object
       required:
