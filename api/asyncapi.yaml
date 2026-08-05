@@ -1,126 +1,725 @@
 # yaml-language-server: $schema=https://asyncapi.com/definitions/3.1.0/asyncapi.json
 asyncapi: 3.1.0
 info:
-  title: Hermes Websockets API
+  title: Hermes WebSocket API
   version: 0.1.0
   description: |
-    Hermes chat api websocket api definition
+    Signaling and realtime-event channel for Hermes.
+
+    **Perspective.** This document describes the **server** (`apps/server`).
+    `receive` operations are frames the server accepts from a client;
+    `send` operations are frames the server pushes to a client.
+
+    **Wire format.** Every application frame is a **binary** WebSocket frame
+    containing a protobuf-encoded `hermes.Envelope`
+    ([api/proto/hermes.proto](./proto/hermes.proto)). The envelope carries
+    `messageId` / `timestamp` / `version` plus exactly one `payload` member —
+    the `oneof` tag is what selects the message type below. The payload schemas
+    here are the proto3-JSON projection of those messages, provided for
+    documentation only; nothing on the wire is JSON.
+
+    **Liveness.** There is no application-level ping/pong. Liveness uses the
+    standard WebSocket control frames: the server answers a client `Ping` with
+    a `Pong`.
+
+    **Text frames** are echoed back verbatim and carry no application meaning.
+
+    **Relay model.** Voice is a peer mesh; the server never touches media. It
+    only fans out voice-channel membership changes and relays SDP / ICE between
+    peers, which is why the RTC messages appear in both directions with
+    different `target` semantics (see each message).
+
+    **Implementation status.** The proto contract below is the intended
+    behavior. As of this revision the server decodes inbound envelopes and logs
+    them; fan-out and relay of the `2XX` server → client messages is not wired
+    up yet, and `TypingEvent` / `PresenceEvent` are still empty messages.
+
+defaultContentType: application/x-protobuf
+
+servers:
+  local:
+    host: localhost:7433
+    protocol: ws
+    title: Local dev (direct)
+    summary: Actix server bound to 0.0.0.0:7433, no TLS.
+    security:
+      - $ref: '#/components/securitySchemes/bearerSubprotocol'
+  localTls:
+    host: localhost
+    protocol: wss
+    title: Local dev (Caddy TLS front)
+    summary: Caddy terminates TLS and proxies to the server.
+    description: |
+      Started with `pnpm dev:caddy`; see
+      [configs/dev/Caddyfile](../configs/dev/Caddyfile).
+    security:
+      - $ref: '#/components/securitySchemes/bearerSubprotocol'
+  production:
+    host: '{host}'
+    protocol: wss
+    title: Deployment
+    variables:
+      host:
+        default: hermes.example.com
+        description: Origin the client is configured with via `VITE_SERVER_URL`.
+    security:
+      - $ref: '#/components/securitySchemes/bearerSubprotocol'
+
 channels:
-  hermesServer:
-    address: /ws
+  hermes:
+    address: /api/ws
+    title: Hermes realtime channel
+    summary: Single bidirectional channel carrying every `hermes.Envelope`.
+    description: |
+      One connection per signed-in client. The handshake is rejected with
+      `401` unless a valid access token rides along on the subprotocol header
+      (see the `bearerSubprotocol` security scheme). The connection is
+      identified by the token's `sub` claim; that user id is what other clients
+      see as `userId` / `target`.
+    bindings:
+      ws:
+        bindingVersion: 0.1.0
+        method: GET
+        headers:
+          type: object
+          required:
+            - Sec-WebSocket-Protocol
+          properties:
+            Sec-WebSocket-Protocol:
+              type: string
+              pattern: '^bearer, .+$'
+              description: |
+                Exactly two comma-separated tokens: the literal `bearer`
+                followed by the JWT access token. Any other shape is a `401`.
+              examples:
+                - 'bearer, eyJhbGciOiJFZERTQSIsImtpZCI6Ii4uLiJ9...'
     messages:
-      ping:
-        $ref: '#/components/messages/ping'
-      pong:
-        $ref: '#/components/messages/pong'
+      # Client -> Server (proto field numbers 1X / 1XX)
+      voiceChannelRequest:
+        $ref: '#/components/messages/voiceChannelRequest'
+      rtcSignalRequest:
+        $ref: '#/components/messages/rtcSignalRequest'
+      rtcIceCandidateRequest:
+        $ref: '#/components/messages/rtcIceCandidateRequest'
+      messageEventRequest:
+        $ref: '#/components/messages/messageEventRequest'
+      typingEventRequest:
+        $ref: '#/components/messages/typingEventRequest'
+      presenceEventRequest:
+        $ref: '#/components/messages/presenceEventRequest'
+      # Server -> Client (proto field numbers 1X / 2XX)
+      voiceChannelEvent:
+        $ref: '#/components/messages/voiceChannelEvent'
+      rtcSignal:
+        $ref: '#/components/messages/rtcSignal'
+      rtcIceCandidate:
+        $ref: '#/components/messages/rtcIceCandidate'
+      messageEvent:
+        $ref: '#/components/messages/messageEvent'
+      typingEvent:
+        $ref: '#/components/messages/typingEvent'
+      presenceEvent:
+        $ref: '#/components/messages/presenceEvent'
+
 operations:
-  sendTextMessage:
-    action: send
-    channel:
-      $ref: '#/channels/hermesServer'
-  sendTyping:
-    action: send
-    channel:
-      $ref: '#/channels/hermesServer'
-  sendJoinRoom:
-    action: send
-    channel:
-      $ref: '#/channels/hermesServer'
-  sendLeaveRoom:
-    action: send
-    channel:
-      $ref: '#/channels/hermesServer'
-  
-  receiveJoinRoom:
+  # ---------------------------------------------------------------- inbound --
+  onVoiceChannelRequest:
     action: receive
-    channel: 
-      $ref: '#/channels/hermesServer
-
-  # start rtc
-  sendRtcOffer:
-    action: send
+    title: Join / leave a voice channel
     channel:
-      $ref: '#/channels/hermesServer'
-  sendRtcAnswer:
-    action: send
-    channel:
-      $ref: '#/channels/hermesServer
-  sendRtcNewIceCandidate:
-    action: send 
-    channel: 
-      $ref: '#/channels/hermesServer
-  receiveRtcOffer:
-    action: receive
-    channel: 
-      $ref: '#/channels/hermesServer
-  receiveRtcAnswer:
-    action: receive
-    channel: 
-      $ref: '#/channels/hermesServer
-  receiveRtcNewIceCandidate:
-    action: receive
-    channel: 
-      $ref: '#/channels/hermesServer
-
-
-  receivePing:
-    action: receive
-    channel:
-      $ref: '#/channels/hermesServer'
-    reply:
-      channel:
-        $ref: '#/channels/hermesServer'
-      messages:
-        - $ref: '#/channels/hermesServer/messages/pong'
+      $ref: '#/channels/hermes'
+    summary: Client asks to enter or exit a voice channel.
+    description: |
+      The server updates membership and fans the change out to every other
+      member of that channel as a `voiceChannelEvent`. The requester is
+      identified by the connection, not by the payload.
     messages:
-      - $ref: '#/channels/hermesServer/messages/ping'
-components:
-  messages:
-    ping:
-      summary: Ping server to determine whether connection is alive
-      description: >-
-        Client can ping server to determine whether connection is alive, server
-        responds with pong. This is an application level ping as opposed to
-        default ping in websockets standard which is server initiated
-      payload:
-        $ref: '#/components/schemas/ping'
-      correlationId:
-        location: $message.payload#/reqid
-    pong:
-      summary: Pong is a response to ping message
-      description: >-
-        Server pong response to a ping to determine whether connection is alive.
-        This is an application level pong as opposed to default pong in
-        websockets standard which is sent by client in response to a ping
-      payload:
-        $ref: '#/components/schemas/pong'
-      correlationId:
-        location: $message.payload#/reqid
-      description: >-
-        Server heartbeat sent if no subscription traffic within 1 second
-        (approximately)
-      payload:
-        $ref: '#/components/schemas/heartbeat'
-  schemas:
-    ping:
-      type: object
-      properties:
-        event:
-          type: string
-          const: ping
-        reqid:
-          $ref: '#/components/schemas/reqid'
-      required:
-        - event
-    pong:
-      type: object
-      properties:
-        event:
-          type: string
-          const: pong
-        reqid:
-          $ref: '#/components/schemas/reqid'
-    reqid:
-      type: integer
-      description: client originated ID reflected in response message.
+      - $ref: '#/channels/hermes/messages/voiceChannelRequest'
 
+  onRtcSignalRequest:
+    action: receive
+    title: Relay an SDP description to a peer
+    channel:
+      $ref: '#/channels/hermes'
+    summary: Offer / answer bound for one specific peer.
+    description: |
+      `target` is the **destination** user id. The server forwards the payload
+      to that user's connection as `rtcSignal`, rewriting `target` to the
+      **sender's** user id so the receiver knows who to answer.
+    messages:
+      - $ref: '#/channels/hermes/messages/rtcSignalRequest'
+
+  onRtcIceCandidateRequest:
+    action: receive
+    title: Relay an ICE candidate to a peer
+    channel:
+      $ref: '#/channels/hermes'
+    description: |
+      Trickle ICE. Same relay + `target` rewrite rule as `onRtcSignalRequest`.
+    messages:
+      - $ref: '#/channels/hermes/messages/rtcIceCandidateRequest'
+
+  onMessageEventRequest:
+    action: receive
+    title: Chat message lifecycle notice
+    channel:
+      $ref: '#/channels/hermes'
+    summary: Signals that a message was created / edited / deleted.
+    description: |
+      A pointer, not the content: message bodies travel over the REST API
+      (`/api/v1/*`). The server re-broadcasts to the channel's subscribers as
+      `messageEvent`, and clients use it to invalidate their cached queries.
+    messages:
+      - $ref: '#/channels/hermes/messages/messageEventRequest'
+
+  onTypingEventRequest:
+    action: receive
+    title: Typing indicator
+    channel:
+      $ref: '#/channels/hermes'
+    description: |
+      Payload is the channel id the user is typing in. Fanned out to that
+      channel's other members as `typingEvent`.
+    messages:
+      - $ref: '#/channels/hermes/messages/typingEventRequest'
+
+  onPresenceEventRequest:
+    action: receive
+    title: Presence subscribe
+    channel:
+      $ref: '#/channels/hermes'
+    description: |
+      Boolean toggle; the server answers with the current roster as
+      `presenceEvent` and keeps the connection subscribed while `true`.
+    messages:
+      - $ref: '#/channels/hermes/messages/presenceEventRequest'
+
+  # --------------------------------------------------------------- outbound --
+  sendVoiceChannelEvent:
+    action: send
+    title: Voice channel membership changed
+    channel:
+      $ref: '#/channels/hermes'
+    description: |
+      Sent to every other member of the channel when a user joins or leaves.
+      On `Join`, existing members are expected to create an offer for
+      `userId` and start negotiating; on `Leave`, to tear that peer connection
+      down.
+    messages:
+      - $ref: '#/channels/hermes/messages/voiceChannelEvent'
+
+  sendRtcSignal:
+    action: send
+    title: SDP description relayed from a peer
+    channel:
+      $ref: '#/channels/hermes'
+    description: |
+      `target` is the **originating** user id — the peer this description came
+      from, and the peer any reply should be addressed to.
+    messages:
+      - $ref: '#/channels/hermes/messages/rtcSignal'
+
+  sendRtcIceCandidate:
+    action: send
+    title: ICE candidate relayed from a peer
+    channel:
+      $ref: '#/channels/hermes'
+    description: |
+      `target` is the **originating** user id. Candidates may arrive before the
+      matching description; clients should buffer until the remote description
+      is set.
+    messages:
+      - $ref: '#/channels/hermes/messages/rtcIceCandidate'
+
+  sendMessageEvent:
+    action: send
+    title: Chat message lifecycle notice
+    channel:
+      $ref: '#/channels/hermes'
+    messages:
+      - $ref: '#/channels/hermes/messages/messageEvent'
+
+  sendTypingEvent:
+    action: send
+    title: Someone is typing
+    channel:
+      $ref: '#/channels/hermes'
+    messages:
+      - $ref: '#/channels/hermes/messages/typingEvent'
+
+  sendPresenceEvent:
+    action: send
+    title: Presence roster update
+    channel:
+      $ref: '#/channels/hermes'
+    messages:
+      - $ref: '#/channels/hermes/messages/presenceEvent'
+
+components:
+  securitySchemes:
+    bearerSubprotocol:
+      type: httpApiKey
+      name: Sec-WebSocket-Protocol
+      in: header
+      description: |
+        The access token rides on the WebSocket subprotocol header rather than
+        the query string, so it never lands in access logs, `Referer`, or proxy
+        caches:
+
+        ```
+        Sec-WebSocket-Protocol: bearer, <jwt>
+        ```
+
+        Browsers send this automatically from
+        `new WebSocket(url, ["bearer", token])`. The server validates the JWT
+        (Ed25519, verifiable against `/.well-known/jwks.json`) and echoes
+        `Sec-WebSocket-Protocol: bearer` on the 101 response, as RFC 6455
+        §4.2.2 requires. A missing header, a wrong shape, or an invalid token
+        fails the handshake with `401` before the upgrade.
+
+  messages:
+    # ------------------------------------------------------ client -> server --
+    voiceChannelRequest:
+      name: voiceChannelRequest
+      title: Voice channel join/leave request
+      contentType: application/x-protobuf
+      correlationId:
+        $ref: '#/components/correlationIds/envelopeMessageId'
+      externalDocs:
+        description: hermes.Envelope.voiceChannelRequest (field 100)
+        url: ./proto/hermes.proto
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EnvelopeHeader'
+          - type: object
+            required:
+              - voiceChannelRequest
+            properties:
+              voiceChannelRequest:
+                $ref: '#/components/schemas/VoiceChannelRequest'
+
+    rtcSignalRequest:
+      name: rtcSignalRequest
+      title: Outbound SDP description
+      contentType: application/x-protobuf
+      correlationId:
+        $ref: '#/components/correlationIds/envelopeMessageId'
+      externalDocs:
+        description: hermes.Envelope.rtc (field 10)
+        url: ./proto/hermes.proto
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EnvelopeHeader'
+          - type: object
+            required:
+              - rtc
+            properties:
+              rtc:
+                allOf:
+                  - $ref: '#/components/schemas/RtcEvent'
+                  - properties:
+                      target:
+                        description: User id of the peer this description is for.
+
+    rtcIceCandidateRequest:
+      name: rtcIceCandidateRequest
+      title: Outbound ICE candidate
+      contentType: application/x-protobuf
+      correlationId:
+        $ref: '#/components/correlationIds/envelopeMessageId'
+      externalDocs:
+        description: hermes.Envelope.rtcIce (field 11)
+        url: ./proto/hermes.proto
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EnvelopeHeader'
+          - type: object
+            required:
+              - rtcIce
+            properties:
+              rtcIce:
+                allOf:
+                  - $ref: '#/components/schemas/RtcNewCandidate'
+                  - properties:
+                      target:
+                        description: User id of the peer this candidate is for.
+
+    messageEventRequest:
+      name: messageEventRequest
+      title: Chat message lifecycle request
+      contentType: application/x-protobuf
+      correlationId:
+        $ref: '#/components/correlationIds/envelopeMessageId'
+      externalDocs:
+        description: hermes.Envelope.messageEventRequest (field 102)
+        url: ./proto/hermes.proto
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EnvelopeHeader'
+          - type: object
+            required:
+              - messageEventRequest
+            properties:
+              messageEventRequest:
+                $ref: '#/components/schemas/MessageEventRequest'
+
+    typingEventRequest:
+      name: typingEventRequest
+      title: Typing indicator request
+      contentType: application/x-protobuf
+      correlationId:
+        $ref: '#/components/correlationIds/envelopeMessageId'
+      externalDocs:
+        description: hermes.Envelope.typingEventRequest (field 103)
+        url: ./proto/hermes.proto
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EnvelopeHeader'
+          - type: object
+            required:
+              - typingEventRequest
+            properties:
+              typingEventRequest:
+                type: string
+                description: Id of the channel the user is typing in.
+
+    presenceEventRequest:
+      name: presenceEventRequest
+      title: Presence subscribe/unsubscribe
+      contentType: application/x-protobuf
+      correlationId:
+        $ref: '#/components/correlationIds/envelopeMessageId'
+      externalDocs:
+        description: hermes.Envelope.presenceEventRequest (field 101)
+        url: ./proto/hermes.proto
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EnvelopeHeader'
+          - type: object
+            required:
+              - presenceEventRequest
+            properties:
+              presenceEventRequest:
+                type: boolean
+                description: '`true` to subscribe to presence, `false` to stop.'
+
+    # ------------------------------------------------------ server -> client --
+    voiceChannelEvent:
+      name: voiceChannelEvent
+      title: Voice channel membership change
+      contentType: application/x-protobuf
+      correlationId:
+        $ref: '#/components/correlationIds/envelopeMessageId'
+      externalDocs:
+        description: hermes.Envelope.voiceChannelEvent (field 200)
+        url: ./proto/hermes.proto
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EnvelopeHeader'
+          - type: object
+            required:
+              - voiceChannelEvent
+            properties:
+              voiceChannelEvent:
+                $ref: '#/components/schemas/VoiceChannelUserEvent'
+
+    rtcSignal:
+      name: rtcSignal
+      title: Relayed SDP description
+      contentType: application/x-protobuf
+      correlationId:
+        $ref: '#/components/correlationIds/envelopeMessageId'
+      externalDocs:
+        description: hermes.Envelope.rtc (field 10)
+        url: ./proto/hermes.proto
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EnvelopeHeader'
+          - type: object
+            required:
+              - rtc
+            properties:
+              rtc:
+                allOf:
+                  - $ref: '#/components/schemas/RtcEvent'
+                  - properties:
+                      target:
+                        description: |
+                          User id of the peer this description came from. Reply
+                          addressed back to this id.
+
+    rtcIceCandidate:
+      name: rtcIceCandidate
+      title: Relayed ICE candidate
+      contentType: application/x-protobuf
+      correlationId:
+        $ref: '#/components/correlationIds/envelopeMessageId'
+      externalDocs:
+        description: hermes.Envelope.rtcIce (field 11)
+        url: ./proto/hermes.proto
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EnvelopeHeader'
+          - type: object
+            required:
+              - rtcIce
+            properties:
+              rtcIce:
+                allOf:
+                  - $ref: '#/components/schemas/RtcNewCandidate'
+                  - properties:
+                      target:
+                        description: User id of the peer this candidate came from.
+
+    messageEvent:
+      name: messageEvent
+      title: Chat message lifecycle event
+      contentType: application/x-protobuf
+      correlationId:
+        $ref: '#/components/correlationIds/envelopeMessageId'
+      externalDocs:
+        description: hermes.Envelope.messageEvent (field 203)
+        url: ./proto/hermes.proto
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EnvelopeHeader'
+          - type: object
+            required:
+              - messageEvent
+            properties:
+              messageEvent:
+                $ref: '#/components/schemas/MessageEvent'
+
+    typingEvent:
+      name: typingEvent
+      title: Someone is typing
+      contentType: application/x-protobuf
+      correlationId:
+        $ref: '#/components/correlationIds/envelopeMessageId'
+      externalDocs:
+        description: hermes.Envelope.typingEvent (field 202)
+        url: ./proto/hermes.proto
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EnvelopeHeader'
+          - type: object
+            required:
+              - typingEvent
+            properties:
+              typingEvent:
+                $ref: '#/components/schemas/TypingEvent'
+
+    presenceEvent:
+      name: presenceEvent
+      title: Presence roster update
+      contentType: application/x-protobuf
+      correlationId:
+        $ref: '#/components/correlationIds/envelopeMessageId'
+      externalDocs:
+        description: hermes.Envelope.presenceEvent (field 201)
+        url: ./proto/hermes.proto
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EnvelopeHeader'
+          - type: object
+            required:
+              - presenceEvent
+            properties:
+              presenceEvent:
+                $ref: '#/components/schemas/PresenceEvent'
+
+  correlationIds:
+    envelopeMessageId:
+      location: $message.payload#/messageId
+      description: |
+        Per-envelope id. Client envelopes carry a nanoid; a relayed or
+        broadcast envelope is a new envelope with its own id, so this
+        correlates a frame with its log line, not a request with a response —
+        there is no ack message in the protocol today.
+
+  schemas:
+    EnvelopeHeader:
+      type: object
+      title: hermes.Envelope (header fields)
+      description: |
+        Fields every envelope carries alongside exactly one `payload` member.
+      required:
+        - messageId
+        - timestamp
+        - version
+      properties:
+        messageId:
+          type: string
+          description: Unique id for this envelope (client side uses `nanoid`).
+          examples:
+            - V1StGXR8_Z5jdHi6B-myT
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix epoch milliseconds at which the envelope was created.
+        version:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Envelope schema version. Currently always `1`.
+
+    VoiceChannelRequest:
+      type: object
+      title: hermes.VoiceChannelRequest
+      description: Client → server request to join or leave a voice channel.
+      required:
+        - channelId
+        - type
+      properties:
+        channelId:
+          type: string
+          description: Voice channel to act on.
+        type:
+          $ref: '#/components/schemas/VoiceChannelEventType'
+
+    VoiceChannelUserEvent:
+      type: object
+      title: hermes.VoiceChannelUserEvent
+      description: Server → client notice that a user's voice membership changed.
+      required:
+        - channelId
+        - type
+        - userId
+      properties:
+        channelId:
+          type: string
+        type:
+          $ref: '#/components/schemas/VoiceChannelEventType'
+        userId:
+          type: string
+          description: The user who joined or left — the peer to negotiate with.
+
+    VoiceChannelEventType:
+      type: string
+      title: hermes.VoiceChannelEventType
+      description: 'Proto enum; wire values: `Join` = 0, `Leave` = 1.'
+      enum:
+        - Join
+        - Leave
+
+    RtcEvent:
+      type: object
+      title: hermes.RtcEvent
+      description: A WebRTC session description being relayed between two peers.
+      required:
+        - type
+        - target
+        - sdp
+      properties:
+        type:
+          $ref: '#/components/schemas/RtcMessageType'
+        target:
+          type: string
+          description: |
+            The other end of the relay. Outbound: the destination peer.
+            Inbound: the originating peer.
+        sdp:
+          type: string
+          description: The SDP body of the local description.
+
+    RtcMessageType:
+      type: string
+      title: hermes.RtcEvent.RtcMessageType
+      description: |
+        Proto enum mirroring `RTCSdpType`; wire values: `Offer` = 0,
+        `Answer` = 1, `PrAnswer` = 2, `Rollback` = 3. Only `Offer` and `Answer`
+        are handled by the desktop client today — the other two throw.
+      enum:
+        - Offer
+        - Answer
+        - PrAnswer
+        - Rollback
+
+    RtcNewCandidate:
+      type: object
+      title: hermes.RtcNewCandidate
+      description: A trickled ICE candidate being relayed between two peers.
+      required:
+        - target
+        - candidate
+      properties:
+        target:
+          type: string
+          description: |
+            The other end of the relay. Outbound: the destination peer.
+            Inbound: the originating peer.
+        candidate:
+          $ref: '#/components/schemas/IceCandidate'
+
+    IceCandidate:
+      type: object
+      title: hermes.RtcNewCandidate.IceCandidate
+      description: |
+        Field-for-field projection of the browser's `RTCIceCandidateInit`. All
+        members are `optional` in proto; absence is meaningful (e.g. an empty
+        `candidate` marks end-of-candidates).
+      properties:
+        candidate:
+          type: string
+        sdpMid:
+          type: string
+        sdpMLineIndex:
+          type: integer
+          format: int64
+        usernameFragment:
+          type: string
+
+    MessageEventRequest:
+      type: object
+      title: hermes.MessageEventRequest
+      description: |
+        Client → server notice that it mutated a chat message via REST. Carries
+        pointers only; the body is fetched over `/api/v1/*`.
+      required:
+        - messageId
+        - channelId
+        - type
+      properties:
+        messageId:
+          type: string
+          description: Id of the chat message (distinct from `Envelope.messageId`).
+        channelId:
+          type: string
+        type:
+          $ref: '#/components/schemas/MessageEventType'
+
+    MessageEvent:
+      type: object
+      title: hermes.MessageEvent
+      description: |
+        Server → client fan-out of a chat message mutation.
+      required:
+        - type
+      properties:
+        type:
+          $ref: '#/components/schemas/MessageEventType'
+
+    MessageEventType:
+      type: string
+      title: hermes.MessageEventType
+      description: 'Proto enum; wire values: `New` = 0, `Edit` = 1, `Delete` = 2.'
+      enum:
+        - New
+        - Edit
+        - Delete
+
+    TypingEvent:
+      type: object
+      title: hermes.TypingEvent
+      description: |
+        Server → client typing indicator. The proto message has no fields yet;
+        it needs at least the channel id and the typing user's id.
+      properties: {}
+
+    PresenceEvent:
+      type: object
+      title: hermes.PresenceEvent
+      description: |
+        Server → client presence update. The proto message has no fields yet;
+        it needs the user id and the new presence state.
+      properties: {}
