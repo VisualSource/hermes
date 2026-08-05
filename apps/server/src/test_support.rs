@@ -253,6 +253,32 @@ impl TestCtx {
         id
     }
 
+    /// A text channel in a server where `user` is a **plain member** — i.e.
+    /// `BASE_PERMS` and nothing else. Returns `(server, channel)`.
+    ///
+    /// The server is owned by a separate seeded user on purpose: an owner
+    /// short-circuits to `ALL_PERMS` in `effective_permissions`, which would
+    /// mask every gate the message routes apply.
+    pub async fn seed_text_channel_for(&self, user: Uuid) -> (Uuid, Uuid) {
+        let owner = self.seed_user(&format!("owner-of-{user}")).await;
+        let server = self.seed_server(owner).await;
+        self.seed_member(server, user).await;
+        let channel = self.seed_channel(Some(server), "text", "example").await;
+
+        (server, channel)
+    }
+
+    /// A dm channel with both users joined as participants — the shape
+    /// `channel_permissions` accepts for [`ChannelScope::Dm`].
+    ///
+    /// [`ChannelScope::Dm`]: crate::state::permission::ChannelScope::Dm
+    pub async fn seed_dm_channel(&self, a: Uuid, b: Uuid) -> Uuid {
+        let channel = self.seed_channel(None, "dm", "").await;
+        self.seed_dm_participant(channel, a, b).await;
+
+        channel
+    }
+
     pub async fn seed_dm_participant(
         &self,
         channel: Uuid,

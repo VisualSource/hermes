@@ -52,7 +52,7 @@ pub async fn create_role(
 ) -> Result<web::Json<Role>, ApplicationError> {
     let server_id = params.into_inner();
 
-    let caller = effective_permissions(&db, claims.sub, server_id).await?;
+    let caller = effective_permissions(&db, &claims.sub, &server_id).await?;
     if caller & MANAGE_ROLES != MANAGE_ROLES {
         return Err(ApplicationError::new(
             StatusCode::FORBIDDEN,
@@ -109,7 +109,7 @@ pub async fn delete_role(
 ) -> Result<impl Responder, ApplicationError> {
     let (server_id, role_id) = params.into_inner();
 
-    required_permissions(&db, claims.sub, server_id, MANAGE_ROLES).await?;
+    required_permissions(&db, &claims.sub, &server_id, MANAGE_ROLES).await?;
 
     query!(
         "DELETE FROM roles WHERE id = ? AND server_id = ?",
@@ -166,7 +166,7 @@ pub async fn patch_role(
     }
 
     let (server_id, role_id) = params.into_inner();
-    let caller = effective_permissions(&db, claims.sub, server_id).await?;
+    let caller = effective_permissions(&db, &claims.sub, &server_id).await?;
     if caller & MANAGE_ROLES != MANAGE_ROLES {
         return Err(ApplicationError::new(
             StatusCode::FORBIDDEN,
@@ -239,7 +239,7 @@ pub async fn get_role(
 ) -> Result<web::Json<Role>, ApplicationError> {
     let (server_id, role_id) = params.into_inner();
 
-    required_permissions(&db, claims.sub, server_id, MANAGE_ROLES).await?;
+    required_permissions(&db, &claims.sub, &server_id, MANAGE_ROLES).await?;
 
     let role = query_as!(
         Role,
@@ -281,7 +281,7 @@ pub async fn add_role_to_user(
 ) -> Result<impl Responder, ApplicationError> {
     let server_id = params.into_inner();
 
-    let caller = effective_permissions(&db, claims.sub, server_id).await?;
+    let caller = effective_permissions(&db, &claims.sub, &server_id).await?;
     if caller & ADD_ROLE != ADD_ROLE {
         return Err(ApplicationError::new(
             StatusCode::FORBIDDEN,
@@ -392,7 +392,7 @@ pub async fn remove_role_from_user(
 ) -> Result<impl Responder, ApplicationError> {
     let server_id = params.into_inner();
 
-    required_permissions(&db, claims.sub, server_id, REMOVE_ROLE).await?;
+    required_permissions(&db, &claims.sub, &server_id, REMOVE_ROLE).await?;
 
     // Same user-id -> member-id resolution as `add_role_to_user`, and the
     // `server_id` filter keeps one server from stripping another's roles.
@@ -987,7 +987,7 @@ mod test {
             .expect("count role members");
         assert_eq!(links, 0);
 
-        let perms = effective_permissions(&ctx.pool, moderator, server)
+        let perms = effective_permissions(&ctx.pool, &moderator, &server)
             .await
             .expect("effective permissions");
         assert_eq!(

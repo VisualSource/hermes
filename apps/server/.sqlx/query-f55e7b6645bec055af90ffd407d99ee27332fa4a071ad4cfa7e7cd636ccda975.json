@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE messages SET content = ?, edited_at = ? WHERE id = ? AND channel_id = ? AND user_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "f55e7b6645bec055af90ffd407d99ee27332fa4a071ad4cfa7e7cd636ccda975"
+}

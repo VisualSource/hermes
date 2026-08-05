@@ -17,10 +17,11 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    models::channel::Message,
+    models::channel::{ChannelKind, Message},
     state::{
         api_errors::{ApplicationError, ErrorDetail, InnerError},
         oauth::jwt::Claims,
+        permission::{ChannelScope, MANAGE_MESSAGES, SEND_MESSAGES, channel_permissions},
     },
 };
 
@@ -47,8 +48,20 @@ pub async fn create_message(
     body: Validated<web::Json<PostMessagePayload>>,
 ) -> Result<web::Json<Message>, ApplicationError> {
     //TODO: validate user can send message
-    let message_id = Uuid::now_v7();
+
     let channel_id = params.into_inner();
+
+    let result = channel_permissions(&db, &claims.sub, &channel_id).await?;
+    if result.kind == ChannelKind::Voice {
+        return Err(ApplicationError::bad_request(
+            "invalid channel type",
+            "request",
+            Vec::default(),
+        ));
+    }
+    result.require(SEND_MESSAGES)?;
+
+    let message_id = Uuid::now_v7();
     let created_at = time::OffsetDateTime::now_utc();
 
     let message = query_as!(
@@ -79,11 +92,18 @@ pub async fn create_message(
 #[get("/channel/{channel}/message/{message}")]
 pub async fn get_message(
     db: web::Data<SqlitePool>,
-    user: web::ReqData<Claims>,
+    claims: web::ReqData<Claims>,
     params: web::Path<(Uuid, Uuid)>,
 ) -> Result<web::Json<Message>, ApplicationError> {
-    //TODO: validate user can get message
     let (channel_id, message_id) = params.into_inner();
+    let result = channel_permissions(&db, &claims.sub, &channel_id).await?;
+    if result.kind == ChannelKind::Voice {
+        return Err(ApplicationError::bad_request(
+            "invalid channel type",
+            "request",
+            Vec::default(),
+        ));
+    }
 
     let message = query_as!(
         Message,
@@ -116,23 +136,43 @@ struct PatchMessagePayload {
 #[patch("/channel/{channel}/message/{message}")]
 pub async fn patch_message(
     db: web::Data<SqlitePool>,
-    user: web::ReqData<Claims>,
+    claims: web::ReqData<Claims>,
     body: web::Json<PatchMessagePayload>,
     params: web::Path<(Uuid, Uuid)>,
 ) -> Result<HttpResponse, ApplicationError> {
-    //TODO: validate user can update message
     let (channel_id, message_id) = params.into_inner();
+
+    let result = channel_permissions(&db, &claims.sub, &channel_id).await?;
+    if result.kind == ChannelKind::Voice {
+        return Err(ApplicationError::bad_request(
+            "invalid channel type",
+            "request",
+            Vec::default(),
+        ));
+    }
+
     let edited_at = time::OffsetDateTime::now_utc();
 
-    query!(
-        "UPDATE messages SET content = ?, edited_at = ? WHERE id = ? AND channel_id = ?",
+    // Author-only, with no moderator override: rewriting someone else's words
+    // is forgery, not moderation, so MANAGE_MESSAGES deliberately buys nothing
+    // here. `user_id` is nullable, so a message whose author was deleted has
+    // no one who can edit it.
+    let r = query!(
+        "UPDATE messages SET content = ?, edited_at = ? WHERE id = ? AND channel_id = ? AND user_id = ?",
         body.content,
         edited_at,
         message_id,
-        channel_id
+        channel_id,
+        &claims.sub
     )
     .execute(db.get_ref())
     .await?;
+
+    // Without this the route answers 202 for a message that doesn't exist, or
+    // that the caller doesn't own — reporting an edit that never happened.
+    if r.rows_affected() != 1 {
+        return Err(ApplicationError::not_found("message"));
+    }
 
     Ok(HttpResponse::Accepted().finish())
 }
@@ -150,19 +190,46 @@ pub async fn patch_message(
 pub async fn delete_message(
     db: web::Data<SqlitePool>,
     params: web::Path<(Uuid, Uuid)>,
-    user: web::ReqData<Claims>,
+    claims: web::ReqData<Claims>,
 ) -> Result<HttpResponse, ApplicationError> {
-    //TODO validate user can delete this message
     let (channel_id, message_id) = params.into_inner();
 
+    let result = channel_permissions(&db, &claims.sub, &channel_id).await?;
+    if result.kind == ChannelKind::Voice {
+        return Err(ApplicationError::bad_request(
+            "invalid channel type",
+            "request",
+            Vec::default(),
+        ));
+    }
     let deleted_at = time::OffsetDateTime::now_utc();
 
-    let r = query!(
-        "UPDATE messages SET deleted_at = ? WHERE id = ? AND channel_id = ?",
-        deleted_at,
-        message_id,
-        channel_id,
-    )
+    // Authors may always delete their own message; removing anyone else's is
+    // moderation and takes MANAGE_MESSAGES. A bare `require(MANAGE_MESSAGES)`
+    // can't express that from either side — it would refuse a plain member
+    // their own message, and in a DM it always passes because no roles exist
+    // there. So the moderator case widens the filter rather than gating it.
+    let can_moderate = matches!(
+        result.scope,
+        ChannelScope::Server { perms, .. } if perms & MANAGE_MESSAGES == MANAGE_MESSAGES
+    );
+
+    let r = if can_moderate {
+        query!(
+            "UPDATE messages SET deleted_at = ? WHERE id = ? AND channel_id = ?",
+            deleted_at,
+            message_id,
+            channel_id,
+        )
+    } else {
+        query!(
+            "UPDATE messages SET deleted_at = ? WHERE id = ? AND channel_id = ? AND user_id = ?",
+            deleted_at,
+            message_id,
+            channel_id,
+            &claims.sub
+        )
+    }
     .execute(db.get_ref())
     .await?;
 
@@ -204,10 +271,19 @@ pub async fn list_messages(
     db: web::Data<SqlitePool>,
     Validated(web::Query(query)): Validated<web::Query<MessagesQuery>>,
     params: web::Path<Uuid>,
-    user: web::ReqData<Claims>,
+    claims: web::ReqData<Claims>,
 ) -> Result<web::Json<MessageQueryResult>, ApplicationError> {
     // validate user can fetch messages from this channel
     let channel_id = params.into_inner();
+
+    let result = channel_permissions(&db, &claims.sub, &channel_id).await?;
+    if result.kind == ChannelKind::Voice {
+        return Err(ApplicationError::bad_request(
+            "invalid channel type",
+            "request",
+            Vec::default(),
+        ));
+    }
 
     // One row past the page size: its presence is what says "there's more".
     let mut messages = if let Some(bcursor) = query.cursor {
@@ -364,7 +440,7 @@ mod tests {
     async fn create_message() {
         let ctx = TestCtx::new().await;
         let user = ctx.seed_user("test").await;
-        let channel = ctx.seed_channel(None, "text", "example").await;
+        let (_server, channel) = ctx.seed_text_channel_for(user).await;
 
         let req = test::TestRequest::post()
             .uri(&format!("/api/v1/channel/{channel}/message"))
@@ -389,7 +465,7 @@ mod tests {
     async fn get_message() {
         let ctx = TestCtx::new().await;
         let user = ctx.seed_user("test").await;
-        let channel = ctx.seed_channel(None, "text", "example").await;
+        let (_server, channel) = ctx.seed_text_channel_for(user).await;
 
         let msg = ctx.seed_message(channel, user, "Some content").await;
 
@@ -414,8 +490,8 @@ mod tests {
     async fn get_message_for_an_unknown_or_foreign_message_is_not_found() {
         let ctx = TestCtx::new().await;
         let user = ctx.seed_user("test").await;
-        let channel = ctx.seed_channel(None, "text", "example").await;
-        let other_channel = ctx.seed_channel(None, "text", "other").await;
+        let (_server, channel) = ctx.seed_text_channel_for(user).await;
+        let other_channel = ctx.seed_channel(Some(_server), "text", "other").await;
 
         let elsewhere = ctx.seed_message(other_channel, user, "not here").await;
 
@@ -434,7 +510,7 @@ mod tests {
     async fn patch_message() {
         let ctx = TestCtx::new().await;
         let user = ctx.seed_user("test").await;
-        let channel = ctx.seed_channel(None, "text", "example").await;
+        let (_server, channel) = ctx.seed_text_channel_for(user).await;
         let msg = ctx.seed_message(channel, user, "Some content").await;
 
         let req = test::TestRequest::patch()
@@ -464,7 +540,7 @@ mod tests {
     async fn delete_message() {
         let ctx = TestCtx::new().await;
         let user = ctx.seed_user("test").await;
-        let channel = ctx.seed_channel(None, "text", "example").await;
+        let (_server, channel) = ctx.seed_text_channel_for(user).await;
 
         let msg = ctx.seed_message(channel, user, "Some content").await;
 
@@ -491,7 +567,7 @@ mod tests {
     async fn list_messages_returns_the_channel_backlog_newest_first() {
         let ctx = TestCtx::new().await;
         let user = ctx.seed_user("test").await;
-        let channel = ctx.seed_channel(None, "text", "example").await;
+        let (_server, channel) = ctx.seed_text_channel_for(user).await;
         let expected = seed_backlog(&ctx, channel, user, 3).await;
 
         let page = list(&ctx, user, channel, None).await;
@@ -511,7 +587,7 @@ mod tests {
     async fn list_messages_returns_an_empty_page_for_an_empty_channel() {
         let ctx = TestCtx::new().await;
         let user = ctx.seed_user("test").await;
-        let channel = ctx.seed_channel(None, "text", "example").await;
+        let (_server, channel) = ctx.seed_text_channel_for(user).await;
 
         let page = list(&ctx, user, channel, None).await;
 
@@ -524,7 +600,7 @@ mod tests {
     async fn list_messages_omits_soft_deleted_messages() {
         let ctx = TestCtx::new().await;
         let user = ctx.seed_user("test").await;
-        let channel = ctx.seed_channel(None, "text", "example").await;
+        let (_server, channel) = ctx.seed_text_channel_for(user).await;
         let ids = seed_backlog(&ctx, channel, user, 3).await;
 
         ctx.soft_delete_message(ids[1]).await;
@@ -540,8 +616,8 @@ mod tests {
     async fn list_messages_is_scoped_to_the_channel_in_the_path() {
         let ctx = TestCtx::new().await;
         let user = ctx.seed_user("test").await;
-        let channel = ctx.seed_channel(None, "text", "example").await;
-        let other = ctx.seed_channel(None, "text", "other").await;
+        let (_server, channel) = ctx.seed_text_channel_for(user).await;
+        let other = ctx.seed_channel(Some(_server), "text", "other").await;
 
         let mine = seed_backlog(&ctx, channel, user, 2).await;
         seed_backlog(&ctx, other, user, 2).await;
@@ -556,7 +632,7 @@ mod tests {
     async fn list_messages_caps_a_page_at_50_and_returns_a_cursor() {
         let ctx = TestCtx::new().await;
         let user = ctx.seed_user("test").await;
-        let channel = ctx.seed_channel(None, "text", "example").await;
+        let (_server, channel) = ctx.seed_text_channel_for(user).await;
         let all = seed_backlog(&ctx, channel, user, 60).await;
 
         let page = list(&ctx, user, channel, None).await;
@@ -577,7 +653,7 @@ mod tests {
     async fn list_messages_cursor_walks_the_backlog_without_gaps_or_overlap() {
         let ctx = TestCtx::new().await;
         let user = ctx.seed_user("test").await;
-        let channel = ctx.seed_channel(None, "text", "example").await;
+        let (_server, channel) = ctx.seed_text_channel_for(user).await;
         let all = seed_backlog(&ctx, channel, user, 60).await;
 
         let first = list(&ctx, user, channel, None).await;
@@ -604,7 +680,7 @@ mod tests {
     async fn list_messages_cursor_past_the_end_is_empty() {
         let ctx = TestCtx::new().await;
         let user = ctx.seed_user("test").await;
-        let channel = ctx.seed_channel(None, "text", "example").await;
+        let (_server, channel) = ctx.seed_text_channel_for(user).await;
         seed_backlog(&ctx, channel, user, 3).await;
 
         let cursor = encode_cursor(
@@ -623,7 +699,7 @@ mod tests {
     async fn list_messages_rejects_a_malformed_cursor() {
         let ctx = TestCtx::new().await;
         let user = ctx.seed_user("test").await;
-        let channel = ctx.seed_channel(None, "text", "example").await;
+        let (_server, channel) = ctx.seed_text_channel_for(user).await;
 
         let now = OffsetDateTime::now_utc()
             .format(&time::format_description::well_known::Rfc3339)
@@ -675,7 +751,7 @@ mod tests {
     async fn list_messages_requires_a_bearer_token() {
         let ctx = TestCtx::new().await;
         let user = ctx.seed_user("test").await;
-        let channel = ctx.seed_channel(None, "text", "example").await;
+        let (_server, channel) = ctx.seed_text_channel_for(user).await;
         let uri = format!("/api/v1/channel/{channel}/messages");
 
         let anonymous = test::TestRequest::get().uri(&uri);
@@ -687,5 +763,333 @@ mod tests {
             .insert_header((AUTHORIZATION, format!("Bearer {}", ctx.token(user))));
         let resp = ctx.authenticated().call(authorized).await;
         assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    // -- channel access ----------------------------------------------------
+    //
+    // Every route resolves the channel through `channel_permissions` before it
+    // touches a message. These drive that resolver from the outside: an
+    // outsider on a server channel, a stranger on a DM, and channel ids that
+    // belong to nobody.
+
+    /// One request per route, so a gate missing from a single handler shows up
+    /// instead of hiding behind its neighbours. Returns `(label, status)`.
+    async fn all_routes(
+        ctx: &TestCtx,
+        user: Uuid,
+        channel: Uuid,
+        message: Uuid,
+    ) -> Vec<(&'static str, StatusCode)> {
+        let calls: Vec<(&'static str, test::TestRequest)> = vec![
+            (
+                "list",
+                test::TestRequest::get().uri(&format!("/api/v1/channel/{channel}/messages")),
+            ),
+            (
+                "get",
+                test::TestRequest::get()
+                    .uri(&format!("/api/v1/channel/{channel}/message/{message}")),
+            ),
+            (
+                "create",
+                test::TestRequest::post()
+                    .uri(&format!("/api/v1/channel/{channel}/message"))
+                    .set_json(json!({ "content": "intruding" })),
+            ),
+            (
+                "patch",
+                test::TestRequest::patch()
+                    .uri(&format!("/api/v1/channel/{channel}/message/{message}"))
+                    .set_json(json!({ "content": "rewritten" })),
+            ),
+            (
+                "delete",
+                test::TestRequest::delete()
+                    .uri(&format!("/api/v1/channel/{channel}/message/{message}")),
+            ),
+        ];
+
+        let mut out = Vec::new();
+        for (label, req) in calls {
+            out.push((label, ctx.as_user(user).call(req).await.status()));
+        }
+        out
+    }
+
+    /// A non-member resolves to zero permissions, so `VIEW_CHANNELS` fails and
+    /// every route refuses before it can read or write a message.
+    #[actix_web::test]
+    async fn message_routes_reject_a_non_member_of_the_server() {
+        let ctx = TestCtx::new().await;
+        let author = ctx.seed_user("author").await;
+        let (_server, channel) = ctx.seed_text_channel_for(author).await;
+        let message = ctx.seed_message(channel, author, "members only").await;
+
+        let outsider = ctx.seed_user("outsider").await;
+
+        for (label, status) in all_routes(&ctx, outsider, channel, message).await {
+            assert_eq!(status, StatusCode::FORBIDDEN, "route={label}");
+        }
+
+        assert_eq!(content_of(&ctx, message).await, "members only");
+
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM messages WHERE channel_id = ?")
+            .bind(channel)
+            .fetch_one(&ctx.pool)
+            .await
+            .expect("count messages");
+        assert_eq!(count, 1, "the outsider must not have posted");
+    }
+
+    /// A DM has no server and no roles, so the only thing guarding it is the
+    /// `dm_participants` row. This is the check that makes a leaked DM channel
+    /// id useless to anyone outside the conversation.
+    #[actix_web::test]
+    async fn message_routes_reject_a_stranger_to_a_dm() {
+        let ctx = TestCtx::new().await;
+        let alice = ctx.seed_user("alice").await;
+        let bob = ctx.seed_user("bob").await;
+        let channel = ctx.seed_dm_channel(alice, bob).await;
+        let message = ctx.seed_message(channel, alice, "private").await;
+
+        let stranger = ctx.seed_user("stranger").await;
+
+        for (label, status) in all_routes(&ctx, stranger, channel, message).await {
+            assert_eq!(status, StatusCode::NOT_FOUND, "route={label}");
+        }
+
+        assert_eq!(content_of(&ctx, message).await, "private");
+    }
+
+    #[actix_web::test]
+    async fn message_routes_reject_an_unknown_channel() {
+        let ctx = TestCtx::new().await;
+        let user = ctx.seed_user("user").await;
+
+        for (label, status) in all_routes(&ctx, user, Uuid::now_v7(), Uuid::now_v7()).await {
+            assert_eq!(status, StatusCode::NOT_FOUND, "route={label}");
+        }
+    }
+
+    /// A channel with no server *and* no participants belongs to nobody.
+    #[actix_web::test]
+    async fn message_routes_reject_an_orphan_channel() {
+        let ctx = TestCtx::new().await;
+        let user = ctx.seed_user("user").await;
+        let orphan = ctx.seed_channel(None, "text", "orphan").await;
+
+        for (label, status) in all_routes(&ctx, user, orphan, Uuid::now_v7()).await {
+            assert_eq!(status, StatusCode::NOT_FOUND, "route={label}");
+        }
+    }
+
+    #[actix_web::test]
+    async fn message_routes_reject_a_voice_channel() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+        let user = ctx.seed_user("user").await;
+        ctx.seed_member(server, user).await;
+
+        let voice = ctx.seed_channel(Some(server), "voice", "general").await;
+        let message = ctx.seed_message(voice, user, "should not be here").await;
+
+        for (label, status) in all_routes(&ctx, user, voice, message).await {
+            assert_eq!(status, StatusCode::BAD_REQUEST, "route={label}");
+        }
+    }
+
+    // -- authorship --------------------------------------------------------
+
+    async fn patch_as(ctx: &TestCtx, user: Uuid, channel: Uuid, message: Uuid) -> StatusCode {
+        let req = test::TestRequest::patch()
+            .uri(&format!("/api/v1/channel/{channel}/message/{message}"))
+            .set_json(json!({ "content": "rewritten" }));
+
+        ctx.as_user(user).call(req).await.status()
+    }
+
+    async fn delete_as(ctx: &TestCtx, user: Uuid, channel: Uuid, message: Uuid) -> StatusCode {
+        let req =
+            test::TestRequest::delete().uri(&format!("/api/v1/channel/{channel}/message/{message}"));
+
+        ctx.as_user(user).call(req).await.status()
+    }
+
+    async fn content_of(ctx: &TestCtx, message: Uuid) -> String {
+        sqlx::query_scalar("SELECT content FROM messages WHERE id = ?")
+            .bind(message)
+            .fetch_one(&ctx.pool)
+            .await
+            .expect("read content")
+    }
+
+    async fn is_deleted(ctx: &TestCtx, message: Uuid) -> bool {
+        sqlx::query_scalar::<_, Option<OffsetDateTime>>(
+            "SELECT deleted_at FROM messages WHERE id = ?",
+        )
+        .bind(message)
+        .fetch_one(&ctx.pool)
+        .await
+        .expect("read deleted_at")
+        .is_some()
+    }
+
+    /// Editing is author-only with no moderator override — rewriting someone
+    /// else's words is forgery, not moderation. `MANAGE_MESSAGES` buys the
+    /// power to *delete*, and this pins that it buys nothing here.
+    #[actix_web::test]
+    async fn patch_message_is_author_only_even_for_a_moderator() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+        let channel = ctx.seed_channel(Some(server), "text", "example").await;
+
+        let author = ctx.seed_user("author").await;
+        ctx.seed_member(server, author).await;
+        let message = ctx.seed_message(channel, author, "original").await;
+
+        let moderator = ctx
+            .seed_member_with_role(server, "moderator", MANAGE_MESSAGES)
+            .await;
+
+        assert_eq!(
+            patch_as(&ctx, moderator, channel, message).await,
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(content_of(&ctx, message).await, "original");
+
+        // The owner holds ALL_PERMS and still can't rewrite it.
+        assert_eq!(
+            patch_as(&ctx, owner, channel, message).await,
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(content_of(&ctx, message).await, "original");
+
+        // The author can.
+        assert_eq!(
+            patch_as(&ctx, author, channel, message).await,
+            StatusCode::ACCEPTED
+        );
+        assert_eq!(content_of(&ctx, message).await, "rewritten");
+    }
+
+    /// Previously this answered 202 while changing nothing.
+    #[actix_web::test]
+    async fn patch_message_for_an_unknown_message_is_not_found() {
+        let ctx = TestCtx::new().await;
+        let user = ctx.seed_user("user").await;
+        let (_server, channel) = ctx.seed_text_channel_for(user).await;
+
+        assert_eq!(
+            patch_as(&ctx, user, channel, Uuid::now_v7()).await,
+            StatusCode::NOT_FOUND
+        );
+    }
+
+    /// A plain member holds `BASE_PERMS` and no `MANAGE_MESSAGES`, and must
+    /// still be able to take down what they wrote.
+    #[actix_web::test]
+    async fn delete_message_allows_the_author_without_manage_messages() {
+        let ctx = TestCtx::new().await;
+        let author = ctx.seed_user("author").await;
+        let (_server, channel) = ctx.seed_text_channel_for(author).await;
+        let message = ctx.seed_message(channel, author, "mine").await;
+
+        assert_eq!(
+            delete_as(&ctx, author, channel, message).await,
+            StatusCode::ACCEPTED
+        );
+        assert!(is_deleted(&ctx, message).await);
+    }
+
+    #[actix_web::test]
+    async fn delete_message_allows_a_moderator_to_remove_someone_elses() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+        let channel = ctx.seed_channel(Some(server), "text", "example").await;
+
+        let author = ctx.seed_user("author").await;
+        ctx.seed_member(server, author).await;
+        let message = ctx.seed_message(channel, author, "spam").await;
+
+        let moderator = ctx
+            .seed_member_with_role(server, "moderator", MANAGE_MESSAGES)
+            .await;
+
+        assert_eq!(
+            delete_as(&ctx, moderator, channel, message).await,
+            StatusCode::ACCEPTED
+        );
+        assert!(is_deleted(&ctx, message).await);
+    }
+
+    /// Without `MANAGE_MESSAGES` the filter narrows to the caller's own rows,
+    /// so someone else's message simply doesn't match.
+    #[actix_web::test]
+    async fn delete_message_refuses_a_plain_member_someone_elses() {
+        let ctx = TestCtx::new().await;
+        let owner = ctx.seed_user("owner").await;
+        let server = ctx.seed_server(owner).await;
+        let channel = ctx.seed_channel(Some(server), "text", "example").await;
+
+        let author = ctx.seed_user("author").await;
+        ctx.seed_member(server, author).await;
+        let message = ctx.seed_message(channel, author, "not yours").await;
+
+        let bystander = ctx.seed_user("bystander").await;
+        ctx.seed_member(server, bystander).await;
+
+        assert_eq!(
+            delete_as(&ctx, bystander, channel, message).await,
+            StatusCode::NOT_FOUND
+        );
+        assert!(!is_deleted(&ctx, message).await);
+    }
+
+    // -- dm participants ---------------------------------------------------
+
+    /// A DM has no roles, so `require` passes unconditionally there. Both
+    /// participants can read and post, but each may only edit and delete their
+    /// own — there is no moderator path to widen it.
+    #[actix_web::test]
+    async fn dm_participants_can_read_and_post_but_only_touch_their_own() {
+        let ctx = TestCtx::new().await;
+        let alice = ctx.seed_user("alice").await;
+        let bob = ctx.seed_user("bob").await;
+        let channel = ctx.seed_dm_channel(alice, bob).await;
+
+        let from_alice = ctx.seed_message(channel, alice, "hi bob").await;
+
+        let req = test::TestRequest::get().uri(&format!("/api/v1/channel/{channel}/messages"));
+        assert_eq!(
+            ctx.as_user(bob).call(req).await.status(),
+            StatusCode::OK,
+            "a participant can read the conversation"
+        );
+
+        let req = test::TestRequest::post()
+            .uri(&format!("/api/v1/channel/{channel}/message"))
+            .set_json(json!({ "content": "hi alice" }));
+        assert_eq!(ctx.as_user(bob).call(req).await.status(), StatusCode::OK);
+
+        assert_eq!(
+            patch_as(&ctx, bob, channel, from_alice).await,
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(content_of(&ctx, from_alice).await, "hi bob");
+
+        assert_eq!(
+            delete_as(&ctx, bob, channel, from_alice).await,
+            StatusCode::NOT_FOUND
+        );
+        assert!(!is_deleted(&ctx, from_alice).await);
+
+        assert_eq!(
+            delete_as(&ctx, alice, channel, from_alice).await,
+            StatusCode::ACCEPTED
+        );
+        assert!(is_deleted(&ctx, from_alice).await);
     }
 }

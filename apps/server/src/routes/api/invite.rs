@@ -44,7 +44,7 @@ pub async fn create_invite(
 ) -> Result<web::Json<Invite>, ApplicationError> {
     let server_id = params.into_inner();
 
-    required_permissions(&db, claims.sub, server_id, CREATE_INVITE).await?;
+    required_permissions(&db, &claims.sub, &server_id, CREATE_INVITE).await?;
 
     let id = nanoid!();
 
@@ -92,7 +92,7 @@ pub async fn revoke_invite(
 ) -> Result<HttpResponse, ApplicationError> {
     let server_id = params.into_inner();
 
-    required_permissions(&db, claims.sub, server_id, MANAGE_INVITES).await?;
+    required_permissions(&db, &claims.sub, &server_id, MANAGE_INVITES).await?;
 
     query!(
         "UPDATE invites SET revoked = TRUE WHERE server_id = ? AND id = ?",

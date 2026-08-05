@@ -66,7 +66,7 @@ pub async fn create_channel(
 ) -> Result<web::Json<Channel>, ApplicationError> {
     let server_id = params.into_inner();
 
-    required_permissions(&db, claims.sub, server_id, MANAGE_CHANNELS).await?;
+    required_permissions(&db, &claims.sub, &server_id, MANAGE_CHANNELS).await?;
 
     let id = uuid::Uuid::now_v7();
     let channel = query_as!(
@@ -114,7 +114,7 @@ pub async fn patch_channel(
 ) -> Result<HttpResponse, ApplicationError> {
     let (server_id, channel_id) = params.into_inner();
 
-    required_permissions(&db, claims.sub, server_id, MANAGE_CHANNELS).await?;
+    required_permissions(&db, &claims.sub, &server_id, MANAGE_CHANNELS).await?;
 
     let result = match (body.name, body.category) {
         (None, None) => {
@@ -185,7 +185,7 @@ pub async fn get_channel(
 ) -> Result<web::Json<Channel>, ApplicationError> {
     let (server_id, channel_id) = params.into_inner();
 
-    required_permissions(&db, claims.sub, server_id, VIEW_CHANNELS).await?;
+    required_permissions(&db, &claims.sub, &server_id, VIEW_CHANNELS).await?;
 
     let channel = query_as!(
         Channel,
@@ -219,7 +219,7 @@ pub async fn delete_channel(
 ) -> Result<impl Responder, ApplicationError> {
     let (server_id, channel_id) = params.into_inner();
 
-    required_permissions(&db, claims.sub, server_id, MANAGE_CHANNELS).await?;
+    required_permissions(&db, &claims.sub, &server_id, MANAGE_CHANNELS).await?;
 
     let result = query!(
         "DELETE FROM channels WHERE id = ? AND server_id = ?",
@@ -449,7 +449,9 @@ mod test {
         let owner = ctx.seed_user("owner").await;
         let server = ctx.seed_server(owner).await;
 
-        let user = ctx.seed_member_with_role(server, "moderator", MANAGE_CHANNELS).await;
+        let user = ctx
+            .seed_member_with_role(server, "moderator", MANAGE_CHANNELS)
+            .await;
 
         let req = test::TestRequest::post()
             .uri(&format!("/api/v1/server/{server}/channel"))

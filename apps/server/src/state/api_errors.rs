@@ -80,6 +80,10 @@ impl ApplicationError {
 }
 
 impl ApplicationError {
+    pub fn bad_request(reason: &str, target: &str, details: Vec<ErrorDetail>) -> Self {
+        Self::new(StatusCode::BAD_REQUEST, reason, target, details, None)
+    }
+
     /// A row addressed by id isn't there.
     ///
     /// Pair this with `fetch_optional` wherever a handler looks a row up by id:

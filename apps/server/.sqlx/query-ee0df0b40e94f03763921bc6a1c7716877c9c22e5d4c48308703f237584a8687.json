@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT COUNT(*) FROM dm_participants WHERE channel_id = ? AND (user_a_id = ? OR user_b_id = ?)",
+  "describe": {
+    "columns": [
+      {
+        "name": "COUNT(*)",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ee0df0b40e94f03763921bc6a1c7716877c9c22e5d4c48308703f237584a8687"
+}

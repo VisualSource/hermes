@@ -62,7 +62,7 @@ pub async fn delete_server(
 ) -> Result<impl Responder, ApplicationError> {
     let server_id = params.into_inner();
 
-    required_permissions(&db, user.sub, server_id, MANAGE_SERVER).await?;
+    required_permissions(&db, &user.sub, &server_id, MANAGE_SERVER).await?;
 
     query!(
         "DELETE FROM servers WHERE id = ? AND owner_id = ?",
@@ -169,7 +169,7 @@ pub async fn patch_server(
         ));
     }
     let server_id = server.into_inner();
-    required_permissions(&db, claims.sub, server_id, MANAGE_SERVER).await?;
+    required_permissions(&db, &claims.sub, &server_id, MANAGE_SERVER).await?;
 
     let mut builder = QueryBuilder::<Sqlite>::new("UPDATE servers SET ");
     let mut separated = builder.separated(", ");
@@ -316,7 +316,7 @@ pub async fn kick_user_from_server(
 ) -> Result<HttpResponse, ApplicationError> {
     let server_id = params.into_inner();
 
-    required_permissions(&db, claims.sub, server_id, MANAGE_USERS).await?;
+    required_permissions(&db, &claims.sub, &server_id, MANAGE_USERS).await?;
 
     remove_user_from_server(&db, body.user, server_id).await?;
 
@@ -714,7 +714,7 @@ mod tests {
         let joiner = ctx.seed_user("joiner").await;
         assert_eq!(join(&ctx, joiner, &code).await, StatusCode::ACCEPTED);
 
-        let perms = effective_permissions(&ctx.pool, joiner, server)
+        let perms = effective_permissions(&ctx.pool, &joiner, &server)
             .await
             .expect("effective permissions");
 

@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT kind, server_id FROM channels WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "kind",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "name": "server_id",
+        "ordinal": 1,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "channels",
+            "name": "server_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "ede6fcf8a7396ae5013e65ab323e8a7965be1b85cd2f3d9dbddeee221789852c"
+}
