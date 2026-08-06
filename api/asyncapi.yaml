@@ -13,10 +13,23 @@ info:
     **Wire format.** Every application frame is a **binary** WebSocket frame
     containing a protobuf-encoded `hermes.Envelope`
     ([api/proto/hermes.proto](./proto/hermes.proto)). The envelope carries
-    `messageId` / `timestamp` / `version` plus exactly one `payload` member —
+    `envelopeId` / `timestamp` / `version` plus exactly one `payload` member —
     the `oneof` tag is what selects the message type below. The payload schemas
     here are the proto3-JSON projection of those messages, provided for
     documentation only; nothing on the wire is JSON.
+
+    **Write path.** The socket is **read-only for chat messages**. They are
+    created, edited, and deleted over REST
+    (`POST` / `PATCH` / `DELETE /api/v1/channel/{channel}/message`), which is
+    where permission checks, validation, and rate limiting live. The server then
+    announces the result as `messageCreate` / `messageUpdate` / `messageDelete`
+    so peers can update their caches without polling. There is deliberately no
+    client → server message-write frame; a second write path would mean
+    duplicating every check.
+
+    The same rule generalizes: a client → server frame exists only for state
+    with no durable REST representation — voice membership, typing, and the
+    caller's own presence.
 
     **Liveness.** There is no application-level ping/pong. Liveness uses the
     standard WebSocket control frames: the server answers a client `Ping` with
@@ -29,10 +42,15 @@ info:
     peers, which is why the RTC messages appear in both directions with
     different `target` semantics (see each message).
 
-    **Implementation status.** The proto contract below is the intended
-    behavior. As of this revision the server decodes inbound envelopes and logs
-    them; fan-out and relay of the `2XX` server → client messages is not wired
-    up yet, and `TypingEvent` / `PresenceEvent` are still empty messages.
+    **Implementation status.** The payload contract below is complete, but the
+    server side is not. As of this revision
+    [`websocket.rs`](../apps/server/src/routes/websocket.rs) authenticates the
+    handshake, decodes inbound envelopes, and logs them — nothing more. There is
+    no session registry, so no `2XX` frame is ever sent and no fan-out happens.
+    Presence in particular cannot work until that registry exists, because
+    online/offline is derived from connection state rather than stored. The
+    scoped presence REST endpoints referenced under `sendPresenceEvent` do not
+    exist yet either.
 
 defaultContentType: application/x-protobuf
 
@@ -76,6 +94,11 @@ channels:
       (see the `bearerSubprotocol` security scheme). The connection is
       identified by the token's `sub` claim; that user id is what other clients
       see as `userId` / `target`.
+
+      A user may hold **several** connections at once (desktop, browser, second
+      machine). Presence is reported per **user**, not per connection: the
+      effective status is the highest-priority status across that user's live
+      sessions, and a user only goes `OFFLINE` when the last one closes.
     bindings:
       ws:
         bindingVersion: 0.1.0
@@ -101,8 +124,6 @@ channels:
         $ref: '#/components/messages/rtcSignalRequest'
       rtcIceCandidateRequest:
         $ref: '#/components/messages/rtcIceCandidateRequest'
-      messageEventRequest:
-        $ref: '#/components/messages/messageEventRequest'
       typingEventRequest:
         $ref: '#/components/messages/typingEventRequest'
       presenceEventRequest:
@@ -114,8 +135,12 @@ channels:
         $ref: '#/components/messages/rtcSignal'
       rtcIceCandidate:
         $ref: '#/components/messages/rtcIceCandidate'
-      messageEvent:
-        $ref: '#/components/messages/messageEvent'
+      messageCreate:
+        $ref: '#/components/messages/messageCreate'
+      messageUpdate:
+        $ref: '#/components/messages/messageUpdate'
+      messageDelete:
+        $ref: '#/components/messages/messageDelete'
       typingEvent:
         $ref: '#/components/messages/typingEvent'
       presenceEvent:
@@ -159,38 +184,64 @@ operations:
     messages:
       - $ref: '#/channels/hermes/messages/rtcIceCandidateRequest'
 
-  onMessageEventRequest:
-    action: receive
-    title: Chat message lifecycle notice
-    channel:
-      $ref: '#/channels/hermes'
-    summary: Signals that a message was created / edited / deleted.
-    description: |
-      A pointer, not the content: message bodies travel over the REST API
-      (`/api/v1/*`). The server re-broadcasts to the channel's subscribers as
-      `messageEvent`, and clients use it to invalidate their cached queries.
-    messages:
-      - $ref: '#/channels/hermes/messages/messageEventRequest'
-
   onTypingEventRequest:
     action: receive
     title: Typing indicator
     channel:
       $ref: '#/channels/hermes'
+    summary: Client reports that its user is composing in a channel.
     description: |
-      Payload is the channel id the user is typing in. Fanned out to that
-      channel's other members as `typingEvent`.
+      Payload is `TypingRequest { channelId }` — **only** the channel id. The
+      typing user comes from the connection, and the server derives the owning
+      server id from the channel, because it has to resolve the channel to
+      authorize the frame anyway (`channel_permissions`, which 404s an unknown
+      channel and 403s a server channel the caller cannot `VIEW_CHANNELS`).
+      A client-supplied `serverId` would be a spoofing surface that buys
+      nothing, and DM channels have no server id at all.
+
+      Fanned out to that channel's other members as `typingEvent`.
+
+      **Lifetime is a TTL, not a stop frame.** There is no `STOP`. The client
+      re-sends roughly once per second while the composer is non-empty and
+      simply stops sending when it isn't; the server stamps each `typingEvent`
+      with `expiresAt` about five seconds out. Receivers clear the indicator at
+      `expiresAt`, and additionally clear it early when that same user's
+      `messageCreate` arrives. This self-heals: a client that crashes or drops
+      its socket mid-word cannot leave a stuck indicator behind, which an
+      explicit `STOP` frame would.
+
+      The server is expected to rate-limit re-sends per user per channel rather
+      than trusting the client's throttle.
     messages:
       - $ref: '#/channels/hermes/messages/typingEventRequest'
 
   onPresenceEventRequest:
     action: receive
-    title: Presence subscribe
+    title: Set own presence status
     channel:
       $ref: '#/channels/hermes'
+    summary: Client sets the status its user should appear as.
     description: |
-      Boolean toggle; the server answers with the current roster as
-      `presenceEvent` and keeps the connection subscribed while `true`.
+      Payload is `PresenceUpdateRequest { status, customText? }`. It sets the
+      **caller's own** status only; there is no way to set another user's, and
+      no subscription toggle — see `sendPresenceEvent` for how a client learns
+      about others.
+
+      Two values in `PresenceStatus` are not symmetric between request and
+      event:
+
+      - `PRESENCE_STATUS_INVISIBLE` is accepted here, stored against the
+        session, and then broadcast to everyone else as
+        `PRESENCE_STATUS_OFFLINE`. It must never appear in a `presenceEvent`.
+      - `PRESENCE_STATUS_OFFLINE` is **not settable**. It is derived: the
+        server emits it when a user's last connection closes.
+
+      `PRESENCE_STATUS_UNSPECIFIED` is the proto3 default and means the field
+      was absent; treat it as a malformed request rather than a status.
+
+      Because a user may be connected several times over, the server resolves
+      one effective status per user before fanning out, rather than emitting
+      one event per session.
     messages:
       - $ref: '#/channels/hermes/messages/presenceEventRequest'
 
@@ -202,8 +253,8 @@ operations:
       $ref: '#/channels/hermes'
     description: |
       Sent to every other member of the channel when a user joins or leaves.
-      On `Join`, existing members are expected to create an offer for
-      `userId` and start negotiating; on `Leave`, to tear that peer connection
+      On `JOIN`, existing members are expected to create an offer for
+      `userId` and start negotiating; on `LEAVE`, to tear that peer connection
       down.
     messages:
       - $ref: '#/channels/hermes/messages/voiceChannelEvent'
@@ -231,27 +282,93 @@ operations:
     messages:
       - $ref: '#/channels/hermes/messages/rtcIceCandidate'
 
-  sendMessageEvent:
+  sendMessageCreate:
     action: send
-    title: Chat message lifecycle notice
+    title: Chat message created
     channel:
       $ref: '#/channels/hermes'
+    summary: A message was posted to a channel the recipient can see.
+    description: |
+      Emitted as a side effect of a successful
+      `POST /api/v1/channel/{channel}/message`, to every other connected member
+      of that channel who holds `VIEW_CHANNELS`.
+
+      The frame carries the **whole message**, not a pointer, so a client can
+      render it without a follow-up fetch — a refetch per inbound message would
+      be a thundering herd on a busy channel. Recipients should write it
+      straight into their cached message list.
+
+      The author's own client generally already has the message from the REST
+      response it is awaiting, so it should reconcile by message id rather than
+      appending blindly, or it will double-render its own post.
+
+      This frame also implicitly clears any typing indicator held for
+      `message.userId` in `message.channelId`.
     messages:
-      - $ref: '#/channels/hermes/messages/messageEvent'
+      - $ref: '#/channels/hermes/messages/messageCreate'
+
+  sendMessageUpdate:
+    action: send
+    title: Chat message edited
+    channel:
+      $ref: '#/channels/hermes'
+    description: |
+      Emitted after a successful `PATCH /api/v1/channel/{channel}/message/{id}`.
+      Carries the full post-edit message; `editedAt` is set. Same audience as
+      `sendMessageCreate`. Replace by `message.id`.
+    messages:
+      - $ref: '#/channels/hermes/messages/messageUpdate'
+
+  sendMessageDelete:
+    action: send
+    title: Chat message deleted
+    channel:
+      $ref: '#/channels/hermes'
+    description: |
+      Emitted after a successful
+      `DELETE /api/v1/channel/{channel}/message/{id}`. Ids only — there is no
+      body to deliver. Deletion is **soft** server-side (`deleted_at` is set and
+      the row is filtered out of listings), but recipients should treat this as
+      a removal.
+    messages:
+      - $ref: '#/channels/hermes/messages/messageDelete'
 
   sendTypingEvent:
     action: send
     title: Someone is typing
     channel:
       $ref: '#/channels/hermes'
+    description: |
+      Fan-out of `onTypingEventRequest` to the channel's other members, never
+      echoed to the originator. `serverId` is absent for DM channels.
+
+      `expiresAt` is authoritative — the receiver arms a timer against it rather
+      than assuming a fixed duration, so the window can be adjusted server-side
+      without a client release. Clear early on that user's `messageCreate`.
     messages:
       - $ref: '#/channels/hermes/messages/typingEvent'
 
   sendPresenceEvent:
     action: send
-    title: Presence roster update
+    title: Presence changed
     channel:
       $ref: '#/channels/hermes'
+    summary: One or more users' effective presence changed.
+    description: |
+      **Deltas only.** This frame reports changes; it is not a roster snapshot
+      and is never sent on connect.
+
+      Bulk presence is fetched over REST, scoped to whatever UI needs it — the
+      member list of a server the user is viewing, or their friends list —
+      rather than shipping a global roster the client mostly ignores.
+
+      `presences` is `repeated` so one frame can carry a coalesced burst (a user
+      closing three sessions at once, or a batch of members resolving after a
+      reconnect) using the same shape as a single-user delta.
+
+      Recipients are connected users who share a server with, or are friends
+      with, the changed user. `PRESENCE_STATUS_INVISIBLE` never appears here —
+      it arrives as `PRESENCE_STATUS_OFFLINE`.
     messages:
       - $ref: '#/channels/hermes/messages/presenceEvent'
 
@@ -284,10 +401,10 @@ components:
       title: Voice channel join/leave request
       contentType: application/x-protobuf
       correlationId:
-        $ref: '#/components/correlationIds/envelopeMessageId'
+        $ref: '#/components/correlationIds/envelopeId'
       externalDocs:
         description: hermes.Envelope.voiceChannelRequest (field 100)
-        url: ./proto/hermes.proto
+        url: file:./proto/hermes.proto
       payload:
         allOf:
           - $ref: '#/components/schemas/EnvelopeHeader'
@@ -303,10 +420,10 @@ components:
       title: Outbound SDP description
       contentType: application/x-protobuf
       correlationId:
-        $ref: '#/components/correlationIds/envelopeMessageId'
+        $ref: '#/components/correlationIds/envelopeId'
       externalDocs:
         description: hermes.Envelope.rtc (field 10)
-        url: ./proto/hermes.proto
+        url: file:./proto/hermes.proto
       payload:
         allOf:
           - $ref: '#/components/schemas/EnvelopeHeader'
@@ -326,10 +443,10 @@ components:
       title: Outbound ICE candidate
       contentType: application/x-protobuf
       correlationId:
-        $ref: '#/components/correlationIds/envelopeMessageId'
+        $ref: '#/components/correlationIds/envelopeId'
       externalDocs:
         description: hermes.Envelope.rtcIce (field 11)
-        url: ./proto/hermes.proto
+        url: file:./proto/hermes.proto
       payload:
         allOf:
           - $ref: '#/components/schemas/EnvelopeHeader'
@@ -344,34 +461,15 @@ components:
                       target:
                         description: User id of the peer this candidate is for.
 
-    messageEventRequest:
-      name: messageEventRequest
-      title: Chat message lifecycle request
-      contentType: application/x-protobuf
-      correlationId:
-        $ref: '#/components/correlationIds/envelopeMessageId'
-      externalDocs:
-        description: hermes.Envelope.messageEventRequest (field 102)
-        url: ./proto/hermes.proto
-      payload:
-        allOf:
-          - $ref: '#/components/schemas/EnvelopeHeader'
-          - type: object
-            required:
-              - messageEventRequest
-            properties:
-              messageEventRequest:
-                $ref: '#/components/schemas/MessageEventRequest'
-
     typingEventRequest:
       name: typingEventRequest
       title: Typing indicator request
       contentType: application/x-protobuf
       correlationId:
-        $ref: '#/components/correlationIds/envelopeMessageId'
+        $ref: '#/components/correlationIds/envelopeId'
       externalDocs:
-        description: hermes.Envelope.typingEventRequest (field 103)
-        url: ./proto/hermes.proto
+        description: hermes.Envelope.typingEventRequest (field 102)
+        url: file:./proto/hermes.proto
       payload:
         allOf:
           - $ref: '#/components/schemas/EnvelopeHeader'
@@ -380,18 +478,17 @@ components:
               - typingEventRequest
             properties:
               typingEventRequest:
-                type: string
-                description: Id of the channel the user is typing in.
+                $ref: '#/components/schemas/TypingRequest'
 
     presenceEventRequest:
       name: presenceEventRequest
-      title: Presence subscribe/unsubscribe
+      title: Presence status update
       contentType: application/x-protobuf
       correlationId:
-        $ref: '#/components/correlationIds/envelopeMessageId'
+        $ref: '#/components/correlationIds/envelopeId'
       externalDocs:
         description: hermes.Envelope.presenceEventRequest (field 101)
-        url: ./proto/hermes.proto
+        url: file:./proto/hermes.proto
       payload:
         allOf:
           - $ref: '#/components/schemas/EnvelopeHeader'
@@ -400,8 +497,7 @@ components:
               - presenceEventRequest
             properties:
               presenceEventRequest:
-                type: boolean
-                description: '`true` to subscribe to presence, `false` to stop.'
+                $ref: '#/components/schemas/PresenceUpdateRequest'
 
     # ------------------------------------------------------ server -> client --
     voiceChannelEvent:
@@ -409,10 +505,10 @@ components:
       title: Voice channel membership change
       contentType: application/x-protobuf
       correlationId:
-        $ref: '#/components/correlationIds/envelopeMessageId'
+        $ref: '#/components/correlationIds/envelopeId'
       externalDocs:
         description: hermes.Envelope.voiceChannelEvent (field 200)
-        url: ./proto/hermes.proto
+        url: file:./proto/hermes.proto
       payload:
         allOf:
           - $ref: '#/components/schemas/EnvelopeHeader'
@@ -428,10 +524,10 @@ components:
       title: Relayed SDP description
       contentType: application/x-protobuf
       correlationId:
-        $ref: '#/components/correlationIds/envelopeMessageId'
+        $ref: '#/components/correlationIds/envelopeId'
       externalDocs:
         description: hermes.Envelope.rtc (field 10)
-        url: ./proto/hermes.proto
+        url: file:./proto/hermes.proto
       payload:
         allOf:
           - $ref: '#/components/schemas/EnvelopeHeader'
@@ -453,10 +549,10 @@ components:
       title: Relayed ICE candidate
       contentType: application/x-protobuf
       correlationId:
-        $ref: '#/components/correlationIds/envelopeMessageId'
+        $ref: '#/components/correlationIds/envelopeId'
       externalDocs:
         description: hermes.Envelope.rtcIce (field 11)
-        url: ./proto/hermes.proto
+        url: file:./proto/hermes.proto
       payload:
         allOf:
           - $ref: '#/components/schemas/EnvelopeHeader'
@@ -471,34 +567,75 @@ components:
                       target:
                         description: User id of the peer this candidate came from.
 
-    messageEvent:
-      name: messageEvent
-      title: Chat message lifecycle event
+    messageCreate:
+      name: messageCreate
+      title: Chat message created
       contentType: application/x-protobuf
       correlationId:
-        $ref: '#/components/correlationIds/envelopeMessageId'
+        $ref: '#/components/correlationIds/envelopeId'
       externalDocs:
-        description: hermes.Envelope.messageEvent (field 203)
-        url: ./proto/hermes.proto
+        description: hermes.Envelope.messageCreate (field 203)
+        url: file:./proto/hermes.proto
       payload:
         allOf:
           - $ref: '#/components/schemas/EnvelopeHeader'
           - type: object
             required:
-              - messageEvent
+              - messageCreate
             properties:
-              messageEvent:
+              messageCreate:
                 $ref: '#/components/schemas/MessageEvent'
+
+    messageUpdate:
+      name: messageUpdate
+      title: Chat message edited
+      contentType: application/x-protobuf
+      correlationId:
+        $ref: '#/components/correlationIds/envelopeId'
+      externalDocs:
+        description: |
+          hermes.Envelope.messageUpdate (field 204). Shares the `MessageEvent`
+          payload type with field 203; the `oneof` tag is what distinguishes a
+          create from an edit.
+        url: file:./proto/hermes.proto
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EnvelopeHeader'
+          - type: object
+            required:
+              - messageUpdate
+            properties:
+              messageUpdate:
+                $ref: '#/components/schemas/MessageEvent'
+
+    messageDelete:
+      name: messageDelete
+      title: Chat message deleted
+      contentType: application/x-protobuf
+      correlationId:
+        $ref: '#/components/correlationIds/envelopeId'
+      externalDocs:
+        description: hermes.Envelope.messageDelete (field 205)
+        url: file:./proto/hermes.proto
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EnvelopeHeader'
+          - type: object
+            required:
+              - messageDelete
+            properties:
+              messageDelete:
+                $ref: '#/components/schemas/MessageDeleteEvent'
 
     typingEvent:
       name: typingEvent
       title: Someone is typing
       contentType: application/x-protobuf
       correlationId:
-        $ref: '#/components/correlationIds/envelopeMessageId'
+        $ref: '#/components/correlationIds/envelopeId'
       externalDocs:
         description: hermes.Envelope.typingEvent (field 202)
-        url: ./proto/hermes.proto
+        url: file:./proto/hermes.proto
       payload:
         allOf:
           - $ref: '#/components/schemas/EnvelopeHeader'
@@ -511,13 +648,13 @@ components:
 
     presenceEvent:
       name: presenceEvent
-      title: Presence roster update
+      title: Presence changed
       contentType: application/x-protobuf
       correlationId:
-        $ref: '#/components/correlationIds/envelopeMessageId'
+        $ref: '#/components/correlationIds/envelopeId'
       externalDocs:
         description: hermes.Envelope.presenceEvent (field 201)
-        url: ./proto/hermes.proto
+        url: file:./proto/hermes.proto
       payload:
         allOf:
           - $ref: '#/components/schemas/EnvelopeHeader'
@@ -529,13 +666,16 @@ components:
                 $ref: '#/components/schemas/PresenceEvent'
 
   correlationIds:
-    envelopeMessageId:
-      location: $message.payload#/messageId
+    envelopeId:
+      location: $message.payload#/envelopeId
       description: |
         Per-envelope id. Client envelopes carry a nanoid; a relayed or
         broadcast envelope is a new envelope with its own id, so this
         correlates a frame with its log line, not a request with a response —
-        there is no ack message in the protocol today.
+        there is no ack or error message in the protocol today. A rejected
+        request (unknown channel, missing permission, rate limit) is dropped
+        silently, which is indistinguishable to the client from a request that
+        succeeded but had no recipients.
 
   schemas:
     EnvelopeHeader:
@@ -544,11 +684,11 @@ components:
       description: |
         Fields every envelope carries alongside exactly one `payload` member.
       required:
-        - messageId
+        - envelopeId
         - timestamp
         - version
       properties:
-        messageId:
+        envelopeId:
           type: string
           description: Unique id for this envelope (client side uses `nanoid`).
           examples:
@@ -597,10 +737,14 @@ components:
     VoiceChannelEventType:
       type: string
       title: hermes.VoiceChannelEventType
-      description: 'Proto enum; wire values: `Join` = 0, `Leave` = 1.'
+      description: |
+        Proto enum; wire values: `VOICE_CHANNEL_EVENT_TYPE_UNSPECIFIED` = 0,
+        `..._JOIN` = 1, `..._LEAVE` = 2. Zero is reserved for "field absent" so
+        an unset `type` cannot be mistaken for a join.
       enum:
-        - Join
-        - Leave
+        - VOICE_CHANNEL_EVENT_TYPE_UNSPECIFIED
+        - VOICE_CHANNEL_EVENT_TYPE_JOIN
+        - VOICE_CHANNEL_EVENT_TYPE_LEAVE
 
     RtcEvent:
       type: object
@@ -626,10 +770,12 @@ components:
       type: string
       title: hermes.RtcEvent.RtcMessageType
       description: |
-        Proto enum mirroring `RTCSdpType`; wire values: `Offer` = 0,
-        `Answer` = 1, `PrAnswer` = 2, `Rollback` = 3. Only `Offer` and `Answer`
-        are handled by the desktop client today — the other two throw.
+        Proto enum mirroring `RTCSdpType`; wire values: `UNSPECIFIED` = 0,
+        `Offer` = 1, `Answer` = 2, `PrAnswer` = 3, `Rollback` = 4. Only `Offer`
+        and `Answer` are handled by the desktop client today — the other two
+        throw.
       enum:
+        - UNSPECIFIED
         - Offer
         - Answer
         - PrAnswer
@@ -669,57 +815,198 @@ components:
         usernameFragment:
           type: string
 
-    MessageEventRequest:
+    TypingRequest:
       type: object
-      title: hermes.MessageEventRequest
+      title: hermes.TypingRequest
       description: |
-        Client → server notice that it mutated a chat message via REST. Carries
-        pointers only; the body is fetched over `/api/v1/*`.
+        Client → server typing notice. Deliberately minimal: the user comes from
+        the connection and the server id is derived from the channel during the
+        permission check, so neither is accepted from the client.
       required:
-        - messageId
         - channelId
-        - type
       properties:
-        messageId:
-          type: string
-          description: Id of the chat message (distinct from `Envelope.messageId`).
         channelId:
           type: string
-        type:
-          $ref: '#/components/schemas/MessageEventType'
-
-    MessageEvent:
-      type: object
-      title: hermes.MessageEvent
-      description: |
-        Server → client fan-out of a chat message mutation.
-      required:
-        - type
-      properties:
-        type:
-          $ref: '#/components/schemas/MessageEventType'
-
-    MessageEventType:
-      type: string
-      title: hermes.MessageEventType
-      description: 'Proto enum; wire values: `New` = 0, `Edit` = 1, `Delete` = 2.'
-      enum:
-        - New
-        - Edit
-        - Delete
+          description: Channel the user is composing in. May be a DM channel.
 
     TypingEvent:
       type: object
       title: hermes.TypingEvent
       description: |
-        Server → client typing indicator. The proto message has no fields yet;
-        it needs at least the channel id and the typing user's id.
-      properties: {}
+        Server → client typing indicator, fanned out to the channel's other
+        members.
+      required:
+        - userId
+        - channelId
+        - expiresAt
+      properties:
+        userId:
+          type: string
+          description: The user who is typing.
+        serverId:
+          type: string
+          description: |
+            Owning server of `channelId`. Absent for DM channels, which have no
+            server. Derived server-side; clients could look it up from their
+            channel list, but it is included to save the lookup when routing to
+            UI state.
+        channelId:
+          type: string
+        expiresAt:
+          type: integer
+          format: int64
+          description: |
+            Unix epoch milliseconds after which the indicator must be cleared,
+            roughly five seconds out. Authoritative — arm a timer against this
+            rather than assuming a fixed window. Also clear early if this user's
+            `messageCreate` arrives first.
+
+    PresenceStatus:
+      type: string
+      title: hermes.PresenceStatus
+      description: |
+        Wire values: `PRESENCE_STATUS_UNSPECIFIED` = 0, `..._ONLINE` = 1,
+        `..._IDLE` = 2, `..._DND` = 3, `..._INVISIBLE` = 4, `..._OFFLINE` = 5.
+
+        Two are direction-specific:
+
+        - `..._INVISIBLE` is **request-only**. Accepted from a client, but
+          broadcast to others as `..._OFFLINE`; it must never appear in a
+          `presenceEvent`.
+        - `..._OFFLINE` is **event-only**. Not settable; derived by the server
+          when a user's last connection closes.
+
+        `..._UNSPECIFIED` is the proto3 default, meaning the field was absent.
+        It is not a status — treat it as a malformed frame.
+      enum:
+        - PRESENCE_STATUS_UNSPECIFIED
+        - PRESENCE_STATUS_ONLINE
+        - PRESENCE_STATUS_IDLE
+        - PRESENCE_STATUS_DND
+        - PRESENCE_STATUS_INVISIBLE
+        - PRESENCE_STATUS_OFFLINE
+
+    PresenceUpdateRequest:
+      type: object
+      title: hermes.PresenceUpdateRequest
+      description: |
+        Client → server request setting the **caller's own** status. The subject
+        is the connection's user; there is no way to set another user's status.
+      required:
+        - status
+      properties:
+        status:
+          $ref: '#/components/schemas/PresenceStatus'
+        customText:
+          type: string
+          description: Optional free-text status line shown beside the name.
+
+    UserPresence:
+      type: object
+      title: hermes.UserPresence
+      description: |
+        One user's effective presence — resolved across all of that user's live
+        sessions, not reported per connection.
+      required:
+        - userId
+        - status
+      properties:
+        userId:
+          type: string
+        status:
+          $ref: '#/components/schemas/PresenceStatus'
+        customText:
+          type: string
 
     PresenceEvent:
       type: object
       title: hermes.PresenceEvent
       description: |
-        Server → client presence update. The proto message has no fields yet;
-        it needs the user id and the new presence state.
-      properties: {}
+        Server → client presence **delta**. Never a snapshot: bulk presence is
+        fetched over REST, scoped to the UI that needs it. `presences` is
+        repeated so a burst can be coalesced into one frame using the same shape
+        as a single change.
+      required:
+        - presences
+      properties:
+        presences:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserPresence'
+
+    ChatMessage:
+      type: object
+      title: hermes.ChatMessage
+      description: |
+        A chat message body, mirroring the REST `Message` schema in
+        [api/openapi.yaml](./openapi.yaml).
+
+        The timestamps are **strings**, not the int64 epoch milliseconds used by
+        `Envelope.timestamp`. That is deliberate: they carry the same
+        serialization the REST endpoints emit, so a message arriving over the
+        socket and the same message fetched over HTTP produce an identical
+        client-side object and can share one cache entry without a normalizing
+        layer. The two schemas are kept in sync by hand — changing one means
+        changing the other.
+      required:
+        - id
+        - channelId
+        - content
+        - createdAt
+      properties:
+        id:
+          type: string
+          description: Chat message id (distinct from `Envelope.envelopeId`).
+        channelId:
+          type: string
+        userId:
+          type: string
+          description: |
+            Author. Absent when the author's account was deleted — the column is
+            `ON DELETE SET NULL`, so historical messages outlive their authors.
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        editedAt:
+          type: string
+          format: date-time
+          description: Absent unless the message has been edited.
+
+    MessageEvent:
+      type: object
+      title: hermes.MessageEvent
+      description: |
+        Server → client fan-out of a chat message create or edit. Shared by
+        `Envelope.messageCreate` (203) and `Envelope.messageUpdate` (204) — the
+        `oneof` tag distinguishes them, not a discriminator field.
+      required:
+        - message
+      properties:
+        message:
+          $ref: '#/components/schemas/ChatMessage'
+        serverId:
+          type: string
+          description: |
+            Owning server of `message.channelId`. Absent for DM channels.
+
+    MessageDeleteEvent:
+      type: object
+      title: hermes.MessageDeleteEvent
+      description: |
+        Server → client fan-out of a chat message deletion. Ids only; there is
+        no body left to send.
+      required:
+        - id
+        - channelId
+      properties:
+        id:
+          type: string
+          description: Id of the deleted chat message.
+        channelId:
+          type: string
+        serverId:
+          type: string
+          description: |
+            Owning server of `channelId`. Absent for DM channels.

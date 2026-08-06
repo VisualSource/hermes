@@ -11,7 +11,7 @@
     "tauri": "tauri",
     "test": "vitest",
     "test-e2e": "",
-    "protoc": "protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=./src/lib/proto/ ../../api/proto/hermes.proto -I ../../api/proto --ts_proto_opt=env=browser,outputJsonMethods=false"
+    "protoc": "protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=./src/lib/proto/ ../../api/proto/hermes.proto -I ../../api/proto --ts_proto_opt=env=browser,outputJsonMethods=false,esModuleInterop=true,oneof=unions,removeEnumPrefix=true"
   },
   "dependencies": {
     "@badgateway/oauth2-client": "^3.3.1",

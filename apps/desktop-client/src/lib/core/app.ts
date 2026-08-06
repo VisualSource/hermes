@@ -127,13 +127,13 @@ export class App extends EventTarget {
 
 	//#region Socket
 	private send(
-		msg: Omit<Envelope, "messageId" | "timestamp" | "version" | "type">,
+		msg: Envelope["payload"],
 	) {
 		const envelope = Envelope.create({
-			messageId: nanoid(),
+			envelopeId: nanoid(),
 			timestamp: Date.now(),
 			version: 1,
-			...msg,
+			payload: msg
 		});
 
 		const data = Envelope.encode(envelope).finish();
@@ -184,10 +184,11 @@ export class App extends EventTarget {
 				);
 
 				this.send({
-					rtc: RtcEvent.create({
+					"$case": "rtc",
+					value: RtcEvent.create({
 						type: RtcSdpTypeMap[descp.type],
 						sdp: descp.sdp,
-					}),
+					})
 				});
 				break;
 			}

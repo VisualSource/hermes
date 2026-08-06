@@ -3,7 +3,7 @@ syntax = "proto3";
 package hermes;
 
 message Envelope {
-    string messageId = 1;
+    string envelopeId = 1;
     int64 timestamp = 2;
     uint32 version = 3;
   
@@ -13,72 +13,95 @@ message Envelope {
         RtcNewCandidate rtcIce = 11;
 
         // Client -> Server 1XX
-        VoiceChannelRequest voiceChannelRequest =  100;
-        bool                presenceEventRequest = 101;
-        MessageEventRequest messageEventRequest =  102;
-        string              typingEventRequest  =  103;
+        VoiceChannelRequest    voiceChannelRequest =  100;
+        PresenceUpdateRequest  presenceEventRequest = 101;
+        TypingRequest          typingEventRequest  =  102;
       
 
         // Server -> Client 2XX
         VoiceChannelUserEvent voiceChannelEvent = 200;
         PresenceEvent         presenceEvent     = 201;
         TypingEvent           typingEvent       = 202;
-        MessageEvent          messageEvent      = 203;
-     
+        MessageEvent           messageCreate     = 203;
+        MessageEvent           messageUpdate     = 204;
+        MessageDeleteEvent     messageDelete     = 205;
     }
 }
 
-message TypingEvent {}
-
-message PresenceEvent {
-
+// shared
+enum PresenceStatus {
+    PRESENCE_STATUS_UNSPECIFIED = 0;
+    PRESENCE_STATUS_ONLINE      = 1;
+    PRESENCE_STATUS_IDLE        = 2;
+    PRESENCE_STATUS_DND         = 3;
+    PRESENCE_STATUS_INVISIBLE   = 4;
+    PRESENCE_STATUS_OFFLINE     = 5;
 }
-
-message MessageEvent {
-    MessageEventType type = 1;
+enum VoiceChannelEventType {
+   VOICE_CHANNEL_EVENT_TYPE_UNSPECIFIED = 0;
+   VOICE_CHANNEL_EVENT_TYPE_JOIN = 1;
+   VOICE_CHANNEL_EVENT_TYPE_LEAVE = 2;
 }
-
-message MessageEventRequest {
-    string message_id = 1;
-    string channel_id = 2;
-    MessageEventType type = 3;
-}
-
-enum MessageEventType {
-    New = 0;
-    Edit = 1;
-    Delete = 2;
-}
-
-
-
 
 // Client -> Server 1XX
-enum VoiceChannelEventType {
-    Join = 0;
-    Leave = 1;
+message PresenceUpdateRequest {
+    PresenceStatus status = 1;
+    optional string customText = 2;
 }
-
-message VoiceChannelUserEvent {
- 
+message TypingRequest {
     string channelId = 1;
-    VoiceChannelEventType type = 2;
-    string userId = 3;
 }
-
-// Server -> Client 2XX
 message VoiceChannelRequest {
     string channelId = 1;
     VoiceChannelEventType type = 2;
 }
 
+// Server -> Client 2XX
+message VoiceChannelUserEvent {
+    string channelId = 1;
+    VoiceChannelEventType type = 2;
+    string userId = 3;
+}
+message TypingEvent {
+    string userId            = 1;
+    optional string serverId = 2;
+    string channelId         = 3;
+    int64  expiresAt         = 4;
+}
+message UserPresence {
+    string userId = 1;
+    PresenceStatus status = 2;
+    optional string customText = 3;
+}
+message PresenceEvent {
+    repeated UserPresence presences = 1;
+}
+message ChatMessage {
+    string id = 1;
+    string channelId = 2;
+    optional string userId = 3;
+    string content = 4;
+    string createdAt = 5;
+    optional string editedAt = 6;
+}
+message MessageEvent {
+    ChatMessage message = 1;
+    optional string serverId = 2;
+}
+message MessageDeleteEvent {
+    string id = 1;
+    string channelId = 2;
+    optional string serverId = 3;
+}
+
 // RTC 1X
 message RtcEvent {
     enum RtcMessageType {
-        Offer = 0;
-        Answer = 1;
-        PrAnswer = 2;
-        Rollback = 3;
+        UNSPECIFIED = 0;
+        Offer = 1;
+        Answer = 2;
+        PrAnswer = 3;
+        Rollback = 4;
     }
 
     RtcMessageType type = 1;
