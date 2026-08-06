@@ -24,15 +24,14 @@ actix-web = "4"
 actix-ws = "0.4.0"
 actix-cors ="0.7"
 actix-web-validation = {version = "0.8.0", features = ["validator"]}
-actix-ws-broadcaster = "0.12.0"
 jsonwebtoken = { version = "11", features = ["aws_lc_rs"] }
 ed25519-dalek = { version = "3.0", features = ["pkcs8", "pem"] }
 actix-governor = "0.10"
 futures-util = "0.3"
-sha2 = "0.11"
+sha2 = "0.11.0"
 log = "0.4"
 base64 = "0.23"
-rand = "0.10"
+rand = "0.10.2"
 sqlx = { version = "0.9", features = [ "runtime-tokio", "sqlite","derive", "macros","migrate","bstr", "time","uuid","sqlx-toml"] }
 tokio = { version = "1", features = ["time", "rt", "macros"] }
 validator = { version = "0.20", features = ["derive", "unic"] }

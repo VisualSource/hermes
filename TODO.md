@@ -39,17 +39,72 @@ Target: **v1 ship to friends** — self-hosted single-instance Discord-like clon
 
 ## Phase 3 — WS text fanout + presence (~3-4 days)
 
-- [ ] Extend [api/proto/hermes.proto](api/proto/hermes.proto) with: `MessageEvent{new|edit|delete}`, `TypingEvent`, `PresenceEvent`
-- [ ] Regenerate: `pnpm protoc` + rebuild server (prost)
-- [ ] `SessionRegistry` in server state: `user_id -> Vec<Session>`; track `channel_id -> members` cache
+- [x] Extend [api/proto/hermes.proto](api/proto/hermes.proto) with: `MessageEvent{new|edit|delete}`, `TypingEvent`, `PresenceEvent`
+- [x] Regenerate: `pnpm protoc` + rebuild server (prost)
+- [ ] `SessionRegistry` in server state — see design notes below
+- [ ] Drop the `actix-ws-broadcaster` dep from [apps/server/Cargo.toml](apps/server/Cargo.toml) (evaluated and rejected — see notes)
 - [ ] After message write: fan out full payload to online channel members
 - [ ] Presence: mark online on WS connect, offline on disconnect, broadcast to server co-members
 - [ ] Typing: WS event, 5s server-side expiry, throttle 1/sec client-side
 
+### SessionRegistry design notes
+
+Lives in `apps/server/src/state/registry.rs`, injected as `web::Data<SessionRegistry>`
+alongside the `SqlitePool`. Serves both Phase 3 (text/presence/typing) and Phase 4 (voice).
+
+**Core rule: `actix_ws::Session` never goes in the shared map.** Each connection gets a
+bounded mpsc channel plus a writer task that owns its `Session`. The registry stores only
+the `Sender`. Fanout takes the lock, clones out the senders, drops the lock, then does
+sync `try_send`s. No lock is ever held across an `.await`.
+
+```rust
+struct Conn {
+    conn_id: Uuid,
+    user_id: Uuid,
+    tx: mpsc::Sender<Bytes>,   // bounded, ~256
+}
+
+#[derive(Default)]
+struct Inner {
+    conns:   HashMap<Uuid, Conn>,            // conn_id -> conn
+    by_user: HashMap<Uuid, HashSet<Uuid>>,   // user_id -> conn_ids (multi-device)
+    voice:   HashMap<Uuid, HashSet<Uuid>>,   // voice channel -> user_ids
+}
+
+pub struct SessionRegistry { inner: RwLock<Inner> }   // std RwLock is fine — no awaits inside
+```
+
+Surface: `register(user_id, session) -> conn_id` (spawns the writer task), `unregister(conn_id)`,
+`send_user(user_id, &Envelope)` for RTC targeting, `broadcast(user_ids, &Envelope, except)` for
+channel fanout, `voice_join` / `voice_leave` / `voice_members`, `is_online(user_id)`.
+
+Decisions:
+
+- **Multi-session per user is required, not optional.** The overlay-client (Phase 6) opens its
+  own WS with the same token, so `user_id -> Vec<conn>` is load-bearing.
+- **Encode the `Envelope` to `Bytes` once per fanout**, clone per recipient — `Bytes::clone` is
+  a refcount bump.
+- **Backpressure:** on `try_send` returning `Full`, drop the connection and let the client
+  reconnect and resync. Never let a slow reader stall the fanout.
+- **No `channel_id -> members` cache in v1.** Query SQLite at fanout time and intersect with
+  the online set; a local read is microseconds, and a cache needs invalidating on join, leave,
+  role change, invite accept, and DM creation. Voice state must be in memory (it isn't in the
+  DB at all); text membership doesn't.
+
+**Why not `actix-ws-broadcaster` (0.12.0):** it stores `Session` directly and its documented
+usage — `broadcaster.write().unwrap().room(&id).broadcast(msg).await` — holds a
+`std::sync::RwLock` guard across the whole serial fanout. Guard is `!Send`, but `rt::spawn` is
+`spawn_local`, so it compiles; one backpressured client then blocks the OS thread and deadlocks
+every connection on that actix worker. Separately: `close()` / `close_conn()` / `remove_room()`
+build an `async { … }` block and drop it without awaiting, so they never actually send a close
+frame; `room()` and `Connection::send` both `.unwrap()`; and `Connection` carries only a
+`String` id with one room per connection, which fits neither multi-device sessions nor
+per-user RTC targeting.
+
 ## Phase 4 — Voice signaling actually relays (~2 days)
 
 - [ ] Replace the `log::debug!` stubs in [apps/server/src/routes/websocket.rs](apps/server/src/routes/websocket.rs#L52-L65) with real fanout
-- [ ] In-memory `voice_channel_id -> Vec<user_id>` state
+- [ ] In-memory `voice_channel_id -> Vec<user_id>` state — the `voice` map on `SessionRegistry` (Phase 3), not a second store
 - [ ] On `VoiceChannelRequest`: update state, emit `VoiceChannelUserEvent` to other members
 - [ ] Route `RtcEvent` / `RtcNewCandidate` to the `target` user's session
 
