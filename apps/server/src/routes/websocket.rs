@@ -1,83 +1,25 @@
 use actix_web::http::StatusCode;
 use actix_web::http::header::{self, HeaderValue};
-use actix_web::{Error, HttpRequest, HttpResponse, rt, web};
+use actix_web::{Error, HttpRequest, HttpResponse, Responder, rt, web};
 use actix_ws::AggregatedMessage;
-use futures_util::StreamExt as _;
+use futures_util::{FutureExt, SinkExt, StreamExt as _};
 use prost::Message;
+use prost::bytes::Bytes;
 
 use crate::state::messages::{Envelope, envelope};
 
-use crate::state::{
-    api_errors::{ApplicationError, InnerError},
-    oauth::jwt::validate_jwt,
-};
+use crate::state::api_errors::{ApplicationError, InnerError};
+use crate::state::socket::session::SessionRegistry;
+use crate::state::socket::{self, auth::BEARER_SUBPROTOCOL};
 
-/// Subprotocol name the client offers alongside the bearer token, per the
-/// pattern `Sec-WebSocket-Protocol: bearer, <jwt>`. Keeps the JWT off the URL
-/// query so it never lands in access logs, Referer headers, or proxy caches.
-const BEARER_SUBPROTOCOL: &str = "bearer";
+pub async fn ws(
+    req: HttpRequest,
+    stream: web::Payload,
+    registry: web::Data<SessionRegistry>,
+) -> Result<HttpResponse, ApplicationError> {
+    let claims = socket::auth::validate(&req)?;
 
-/// Parse `Sec-WebSocket-Protocol: bearer, <jwt>` into the JWT string. Returns
-/// `None` if the header is missing or the shape doesn't match.
-fn extract_bearer_token(req: &HttpRequest) -> Option<String> {
-    let header = req.headers().get(header::SEC_WEBSOCKET_PROTOCOL)?;
-    let raw = header.to_str().ok()?;
-
-    let mut parts = raw.split(',').map(str::trim);
-    let scheme = parts.next()?;
-    let token = parts.next()?;
-
-    if scheme != BEARER_SUBPROTOCOL || token.is_empty() || parts.next().is_some() {
-        return None;
-    }
-
-    Some(token.to_string())
-}
-
-pub async fn ws(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
-    let raw_token = match extract_bearer_token(&req) {
-        Some(t) => t,
-        None => {
-            return Ok(HttpResponse::Unauthorized().json(ApplicationError::new(
-                StatusCode::UNAUTHORIZED,
-                "unauthorized",
-                "sec-websocket-protocol",
-                Vec::default(),
-                Some(InnerError::new(
-                    "expected `Sec-WebSocket-Protocol: bearer, <jwt>`".to_string(),
-                )),
-            )));
-        }
-    };
-
-    let token = match validate_jwt(&raw_token) {
-        Ok(token) => token,
-        Err(err) => match err {
-            crate::state::oauth::jwt::JwtError::Jwt(error) => {
-                log::error!("{}", error);
-                let resp = HttpResponse::Unauthorized().json(ApplicationError::new(
-                    StatusCode::UNAUTHORIZED,
-                    "unauthorized",
-                    "sec-websocket-protocol",
-                    Vec::default(),
-                    Some(InnerError::new(error.to_string())),
-                ));
-                return Ok(resp);
-            }
-            other => {
-                log::error!("{}", other);
-                let resp = HttpResponse::InternalServerError().json(ApplicationError::new(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "internal server error",
-                    "server",
-                    Vec::default(),
-                    Some(InnerError::new(other.to_string())),
-                ));
-                return Ok(resp);
-            }
-        },
-    };
-    log::debug!("User inited socket connection: {}", token.claims.sub);
+    log::debug!("User inited socket connection: {}", claims.sub);
 
     let (mut res, mut session, stream) = actix_ws::handle(&req, stream)?;
 
@@ -91,6 +33,28 @@ pub async fn ws(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, 
     let mut stream = stream
         .aggregate_continuations()
         .max_continuation_size(2_usize.pow(20));
+
+    let conn_id = uuid::Uuid::now_v7();
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<Bytes>(100);
+
+    if let Err(err) = registry.register(conn_id, claims.sub, tx.clone()) {
+        //TODO: handler error better
+        log::error!("{}", err);
+        return Err(ApplicationError::internal_server_error(
+            "",
+            "",
+            err.to_string(),
+        ));
+    }
+
+    let mut bcp = session.clone();
+    rt::spawn(async move {
+        while let Some(msg) = rx.recv().await {
+            if let Err(err) = bcp.binary(msg).await {
+                log::error!("Failed to send message to closed client: {}", err);
+            }
+        }
+    });
 
     rt::spawn(async move {
         while let Some(msg) = stream.next().await {
@@ -131,6 +95,8 @@ pub async fn ws(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, 
                 _ => {}
             }
         }
+
+        registry.unregister(&conn_id).expect("failed to unregister");
     });
 
     Ok(res)

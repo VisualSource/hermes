@@ -49,6 +49,7 @@ uuid = { version = "1", features = ["v7","serde","fast-rng"] }
 time = { version = "0.3", features = ["serde","serde-well-known"]}
 nanoid = "0.5.0"
 reqwest = { version = "0.13", features = ["json"] }
+indexmap = "2.14"
 
 [build-dependencies]
 prost-build = "0.14"

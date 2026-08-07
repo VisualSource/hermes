@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, ResponseError, http::StatusCode};
+use actix_web::{HttpResponse, ResponseError, error::ParseError::Status, http::StatusCode};
 use utoipa::{ToResponse, ToSchema};
 
 #[derive(Debug, serde::Serialize, Clone, ToSchema)]
@@ -84,6 +84,20 @@ impl ApplicationError {
         Self::new(StatusCode::BAD_REQUEST, reason, target, details, None)
     }
 
+    pub fn unauthorized(reason: &str, target: &str, details: Vec<ErrorDetail>) -> Self {
+        Self::new(StatusCode::UNAUTHORIZED, reason, target, details, None)
+    }
+
+    pub fn internal_server_error(reason: &str, target: &str, details: String) -> Self {
+        Self::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            reason,
+            target,
+            Vec::default(),
+            Some(InnerError::new(details)),
+        )
+    }
+
     /// A row addressed by id isn't there.
     ///
     /// Pair this with `fetch_optional` wherever a handler looks a row up by id:
@@ -112,6 +126,16 @@ impl ApplicationError {
 impl std::fmt::Display for ApplicationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "application error: {} | {}", self.code, self.message)
+    }
+}
+
+impl From<actix_web::Error> for ApplicationError {
+    fn from(value: actix_web::Error) -> Self {
+        ApplicationError::internal_server_error(
+            "internal server error",
+            "server",
+            value.to_string(),
+        )
     }
 }
 
