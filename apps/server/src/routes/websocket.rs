@@ -6,9 +6,9 @@ use futures_util::{FutureExt, SinkExt, StreamExt as _};
 use prost::Message;
 use prost::bytes::Bytes;
 
-use crate::state::messages::{Envelope, envelope};
+use crate::state::messages::{Envelope, RtcEvent, envelope};
 
-use crate::state::api_errors::{ApplicationError, InnerError};
+use crate::state::api_errors::ApplicationError;
 use crate::state::socket::session::SessionRegistry;
 use crate::state::socket::{self, auth::BEARER_SUBPROTOCOL};
 
@@ -19,7 +19,7 @@ pub async fn ws(
 ) -> Result<HttpResponse, ApplicationError> {
     let claims = socket::auth::validate(&req)?;
 
-    log::debug!("User inited socket connection: {}", claims.sub);
+    log::debug!("User initd socket connection: {}", claims.sub);
 
     let (mut res, mut session, stream) = actix_ws::handle(&req, stream)?;
 
@@ -34,24 +34,26 @@ pub async fn ws(
         .aggregate_continuations()
         .max_continuation_size(2_usize.pow(20));
 
-    let conn_id = uuid::Uuid::now_v7();
-    let (tx, mut rx) = tokio::sync::mpsc::channel::<Bytes>(100);
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<Bytes>(256);
 
-    if let Err(err) = registry.register(conn_id, claims.sub, tx.clone()) {
-        //TODO: handler error better
-        log::error!("{}", err);
-        return Err(ApplicationError::internal_server_error(
-            "",
-            "",
-            err.to_string(),
-        ));
-    }
+    let conn_id = match registry.register(claims.sub, tx.clone()) {
+        Ok(id) => id,
+        Err(err) => {
+            //TODO: handler error better
+            log::error!("{}", err);
+            return Err(ApplicationError::internal_server_error(
+                "",
+                "",
+                err.to_string(),
+            ));
+        }
+    };
 
     let mut bcp = session.clone();
     rt::spawn(async move {
         while let Some(msg) = rx.recv().await {
-            if let Err(err) = bcp.binary(msg).await {
-                log::error!("Failed to send message to closed client: {}", err);
+            if bcp.binary(msg).await.is_err() {
+                log::error!("Failed to send message to closed client");
             }
         }
     });
@@ -59,10 +61,6 @@ pub async fn ws(
     rt::spawn(async move {
         while let Some(msg) = stream.next().await {
             match msg {
-                Ok(AggregatedMessage::Text(text)) => session
-                    .text(text)
-                    .await
-                    .expect("failed to send text messge"),
                 Ok(AggregatedMessage::Binary(bin)) => match Envelope::decode(bin) {
                     Ok(envelope) => {
                         if let Some(payload) = envelope.payload {

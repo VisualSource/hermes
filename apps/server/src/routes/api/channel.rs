@@ -11,7 +11,8 @@ use crate::{
     state::{
         api_errors::{ApplicationError, ErrorDetail},
         oauth::jwt::Claims,
-        permission::{MANAGE_CHANNELS, VIEW_CHANNELS, required_permissions},
+        permission::{MANAGE_CHANNELS, VIEW_CHANNELS, channel_permissions, required_permissions},
+        socket::session::SessionRegistry,
     },
 };
 
@@ -236,6 +237,40 @@ pub async fn delete_channel(
     Ok(HttpResponse::Accepted().finish())
 }
 
+#[utoipa::path(
+    tags = ["channel","voice"],
+    description = "list active voice channel users",
+    responses(
+        (status = 200, description = "user list", body = Vec<Uuid>),
+        (status = 401, description = "unauthorized", body = ApplicationError),
+        (status = 403, description = "missing permission", body = ApplicationError),
+        (status = 500, description = "internal server error", body = ApplicationError)
+    )
+)]
+#[get("/channel/{channel}/voice")]
+pub async fn list_voice_members(
+    db: web::Data<SqlitePool>,
+    params: web::Path<Uuid>,
+    claims: web::ReqData<Claims>,
+    session: web::Data<SessionRegistry>,
+) -> Result<web::Json<Vec<Uuid>>, ApplicationError> {
+    let channel_id = params.into_inner();
+
+    let result = channel_permissions(&db, &claims.sub, &channel_id).await?;
+    if result.kind != ChannelKind::Voice {
+        return Err(ApplicationError::bad_request(
+            "invalid channel type",
+            "request",
+            Vec::default(),
+        ));
+    }
+
+    let members = session
+        .voice_members(&channel_id)
+        .expect("failed to get data");
+
+    Ok(web::Json(members))
+}
 #[cfg(test)]
 mod test {
     use actix_web::http::StatusCode;
