@@ -38,7 +38,7 @@ validator = { version = "0.20", features = ["derive", "unic"] }
 utoipa = { version = "5.4", features = ["actix_extras","yaml","uuid","time"]}
 utoipa-actix-web = "0.1"
 log4rs = "1.4"
-totp-rs = { version = "5.7", features = ["gen_secret"]}
+totp-rs = { version = "6.0", features = ["gen_secret"]}
 dotenvy = "0.15.7"
 url = "2.5"
 thiserror = "2.0"

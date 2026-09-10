@@ -56,6 +56,17 @@ pub async fn ws(
                 log::error!("Failed to send message to closed client");
             }
         }
+
+        // The channel only closes once the registry drops this connection's
+        // Sender — either the reader task unregistered on a normal disconnect,
+        // or a broadcast dropped us for backpressure. Either way the session is
+        // done; close it so the client notices and can reconnect.
+        let _ = bcp
+            .close(Some(CloseReason {
+                code: CloseCode::Away,
+                description: None,
+            }))
+            .await;
     });
 
     rt::spawn(async move {
